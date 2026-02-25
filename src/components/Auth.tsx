@@ -140,10 +140,12 @@ export default function Auth() {
 
                 <button
                     onClick={handleGoogleLogin}
-                    className="w-full py-3 px-4 border-2 border-border-color rounded-lg font-semibold flex items-center justify-center gap-2 hover:bg-bg transition-all"
+                    className="w-full py-3 px-4 border-2 border-border-color rounded-lg font-semibold flex items-center justify-center gap-3 bg-surface transition-all duration-300 hover:bg-bg hover:border-primary/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 active:scale-95 group"
                 >
-                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                    Google
+                    <div className="bg-white p-1 rounded-full shadow-sm group-hover:shadow transition-all duration-300">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+                    </div>
+                    <span className="text-text-main group-hover:text-primary transition-colors duration-300">Continuar con Google</span>
                 </button>
 
                 <div className="mt-8 text-center">
