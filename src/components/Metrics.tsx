@@ -1,6 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 
+const UsersIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </svg>
+);
+
+const StarIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+  </svg>
+);
+
+const TrendingDownIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 18 13.5 8.5 8.5 13.5 1 6" />
+    <polyline points="17 18 23 18 23 12" />
+  </svg>
+);
+
+const AlertTriangleIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+    <line x1="12" y1="9" x2="12" y2="13" />
+    <line x1="12" y1="17" x2="12.01" y2="17" />
+  </svg>
+);
+
 export default function Metrics() {
   const [stats, setStats] = useState({
     active: 0,
@@ -20,7 +50,6 @@ export default function Metrics() {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-      // 1. Total patients and new this month
       const { data: patients, error: pError } = await supabase
         .from('patients')
         .select('id, initial_weight, status, created_at');
@@ -30,23 +59,18 @@ export default function Metrics() {
       const newP = patients.filter(p => p.created_at >= firstDayOfMonth).length;
       const riskP = patients.filter(p => p.status === 'En Riesgo').length;
 
-      // 2. Sessions for weight loss and adherence
       const { data: sessions, error: sError } = await supabase
         .from('sessions')
         .select('patient_id, weight, adherence');
 
       if (sError) throw sError;
 
-      // Calculate avg adherence
       const avgAdh = sessions.length > 0
         ? sessions.reduce((acc, s) => acc + s.adherence, 0) / sessions.length
         : 0;
 
-      // Calculate total weight loss
-      // For each patient, get their latest weight - initial weight
       const latestWeights: Record<string, number> = {};
       sessions.forEach(s => {
-        // Since we didn't specify order, this is a bit rough but works for demo
         latestWeights[s.patient_id] = s.weight;
       });
 
@@ -78,16 +102,16 @@ export default function Metrics() {
   const metrics = [
     {
       label: 'Empleados Activos',
-      icon: '👥',
-      iconBg: 'bg-accent/15',
+      Icon: UsersIcon,
+      iconBg: 'bg-primary/10 text-primary',
       value: stats.active.toString(),
-      change: `↑ +${stats.newThisMonth} registrados`,
+      change: `+${stats.newThisMonth} registrados este mes`,
       changeColor: stats.newThisMonth > 0 ? 'text-accent-dark' : 'text-text-muted',
     },
     {
       label: 'Adherencia Promedio',
-      icon: '⭐',
-      iconBg: 'bg-info/15',
+      Icon: StarIcon,
+      iconBg: 'bg-info/10 text-info',
       value: (
         <>
           {stats.adherence.toFixed(1)}<span className="text-2xl text-text-muted">/5</span>
@@ -98,8 +122,8 @@ export default function Metrics() {
     },
     {
       label: 'Pérdida Peso Promedio',
-      icon: '📉',
-      iconBg: 'bg-accent/15',
+      Icon: TrendingDownIcon,
+      iconBg: 'bg-accent/10 text-accent-dark',
       value: (
         <>
           {stats.weightLoss.toFixed(1)}<span className="text-xl text-text-muted">kg</span>
@@ -110,8 +134,8 @@ export default function Metrics() {
     },
     {
       label: 'En Riesgo',
-      icon: '⚠️',
-      iconBg: 'bg-danger/15',
+      Icon: AlertTriangleIcon,
+      iconBg: 'bg-danger/10 text-danger',
       value: stats.atRisk.toString(),
       change: 'Requieren atención urgente',
       changeColor: stats.atRisk > 0 ? 'text-danger' : 'text-accent-dark',
@@ -123,18 +147,20 @@ export default function Metrics() {
       {metrics.map((metric, i) => (
         <div
           key={i}
-          className="bg-surface border-2 border-border-color rounded-xl p-7 transition-all duration-300 hover:border-accent-dark hover:shadow-[0_8px_24px_rgba(20,241,149,0.15)] hover:-translate-y-1"
+          className="bg-surface border-2 border-border-color rounded-xl p-7 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_8px_24px_rgba(10,77,60,0.08)] hover-lift group"
         >
           <div className="flex justify-between items-start mb-4">
-            <span className="text-[0.85rem] uppercase tracking-widest text-text-muted font-semibold">
+            <span className="text-[0.82rem] uppercase tracking-widest text-text-muted font-bold group-hover:text-primary transition-colors">
               {metric.label}
             </span>
-            <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-2xl ${metric.iconBg}`}>
-              {metric.icon}
+            <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 group-hover:rotate-3 ${metric.iconBg}`}>
+              <metric.Icon />
             </div>
           </div>
-          <div className="text-[2.5rem] font-bold leading-none mb-2 font-mono">
-            {loading ? '...' : metric.value}
+          <div className="text-[2.5rem] font-bold leading-none mb-2 font-mono group-hover:scale-105 transition-transform origin-left">
+            {loading ? (
+              <div className="h-10 w-20 bg-border-color animate-pulse rounded-lg" />
+            ) : metric.value}
           </div>
           <div className={`text-sm font-semibold flex items-center gap-2 ${metric.changeColor}`}>
             {loading ? 'Cargando...' : metric.change}

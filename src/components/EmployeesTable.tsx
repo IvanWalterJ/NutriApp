@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useToast } from '../context/ToastContext';
+import SuccessModal from './SuccessModal';
 
 export default function EmployeesTable() {
+  const { showToast } = useToast();
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [filter, setFilter] = useState('Todos');
   const [showAddModal, setShowAddModal] = useState(false);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -85,6 +89,8 @@ export default function EmployeesTable() {
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { error } = await supabase
         .from('patients')
         .insert([{
@@ -93,7 +99,8 @@ export default function EmployeesTable() {
           area: newEmployee.area,
           initial_weight: parseFloat(newEmployee.initial_weight),
           height: parseFloat(newEmployee.height),
-          status: 'En Progreso'
+          status: 'En Progreso',
+          created_by: user?.id
         }]);
 
       if (error) throw error;
@@ -107,9 +114,11 @@ export default function EmployeesTable() {
         height: ''
       });
       fetchEmployees();
+      setShowSuccessModal(true);
+      showToast('Empleado agregado con éxito', 'success');
     } catch (err) {
       console.error('Error adding employee:', err);
-      alert('Error al agregar empleado');
+      showToast('Error al agregar empleado', 'error');
     }
   };
 
@@ -146,9 +155,10 @@ export default function EmployeesTable() {
         <div className="flex flex-wrap gap-4">
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-5 py-2 bg-gradient-to-br from-primary to-primary-light text-white rounded-lg font-semibold text-sm transition-all hover:shadow-[0_4px_12px_rgba(10,77,60,0.2)] flex items-center gap-2"
+            className="px-5 py-2 bg-gradient-to-br from-primary to-primary-light text-white rounded-lg font-semibold text-sm transition-all hover:shadow-[0_4px_12px_rgba(10,77,60,0.2)] hover:scale-105 active:scale-95 flex items-center gap-2 hover-lift"
           >
-            <span>➕</span> Nuevo Empleado
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
+            Nuevo Empleado
           </button>
           <div className="w-px h-10 bg-border-color hidden md:block"></div>
           <button
@@ -196,14 +206,14 @@ export default function EmployeesTable() {
                 if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
                 return false;
               }).map((emp, i) => (
-                <tr key={i} className="transition-colors duration-200 hover:bg-bg border-b border-border-color">
+                <tr key={i} className="transition-all duration-300 hover:bg-white hover:scale-[1.01] hover:shadow-lg border-b border-border-color group">
                   <td className="p-5">
-                    <strong>{emp.name}</strong><br />
+                    <strong className="group-hover:text-primary transition-colors">{emp.name}</strong><br />
                     <span className="text-[0.85rem] text-text-muted">{emp.area}</span>
                   </td>
                   <td className="p-5">
-                    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-[0.85rem] font-semibold ${getStatusClasses(emp.statusColor)}`}>
-                      <span className={`w-2 h-2 rounded-full ${getStatusDotClasses(emp.statusColor)}`}></span> {emp.status}
+                    <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-[0.85rem] font-semibold transition-all group-hover:shadow-sm ${getStatusClasses(emp.statusColor)}`}>
+                      <span className={`w-2 h-2 rounded-full animate-pulse ${getStatusDotClasses(emp.statusColor)}`}></span> {emp.status}
                     </span>
                   </td>
                   <td className="p-5"><strong>{emp.sessions?.length || 0}</strong></td>
@@ -231,8 +241,8 @@ export default function EmployeesTable() {
       </div>
 
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in duration-200">
-          <div className="bg-surface rounded-xl p-8 w-full max-w-md shadow-2xl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in px-4">
+          <div className="bg-surface rounded-2xl p-8 w-full max-w-md shadow-2xl animate-scale-in border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Agregar Nuevo Empleado</h3>
               <button onClick={() => setShowAddModal(false)} className="text-text-muted hover:text-text-main">✕</button>
@@ -312,6 +322,13 @@ export default function EmployeesTable() {
           </div>
         </div>
       )}
+
+      <SuccessModal
+        isOpen={showSuccessModal}
+        onClose={() => setShowSuccessModal(false)}
+        title="¡Registro Exitoso!"
+        message="El nuevo empleado ha sido registrado correctamente en el sistema."
+      />
     </div>
   );
 }

@@ -114,7 +114,7 @@ export default function App() {
         )}
 
         {activeTab === 'nueva-sesion' && (
-          <SessionForm />
+          <SessionForm onComplete={() => setActiveTab('dashboard')} />
         )}
 
         {activeTab === 'parametros' && (
