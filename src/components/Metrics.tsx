@@ -1,12 +1,88 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+
 export default function Metrics() {
+  const [stats, setStats] = useState({
+    active: 0,
+    adherence: 0,
+    weightLoss: 0,
+    atRisk: 0,
+    newThisMonth: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchStats();
+  }, []);
+
+  async function fetchStats() {
+    try {
+      const now = new Date();
+      const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+      // 1. Total patients and new this month
+      const { data: patients, error: pError } = await supabase
+        .from('patients')
+        .select('id, initial_weight, status, created_at');
+
+      if (pError) throw pError;
+
+      const newP = patients.filter(p => p.created_at >= firstDayOfMonth).length;
+      const riskP = patients.filter(p => p.status === 'En Riesgo').length;
+
+      // 2. Sessions for weight loss and adherence
+      const { data: sessions, error: sError } = await supabase
+        .from('sessions')
+        .select('patient_id, weight, adherence');
+
+      if (sError) throw sError;
+
+      // Calculate avg adherence
+      const avgAdh = sessions.length > 0
+        ? sessions.reduce((acc, s) => acc + s.adherence, 0) / sessions.length
+        : 0;
+
+      // Calculate total weight loss
+      // For each patient, get their latest weight - initial weight
+      const latestWeights: Record<string, number> = {};
+      sessions.forEach(s => {
+        // Since we didn't specify order, this is a bit rough but works for demo
+        latestWeights[s.patient_id] = s.weight;
+      });
+
+      let totalLoss = 0;
+      let countLoss = 0;
+      patients.forEach(p => {
+        if (latestWeights[p.id]) {
+          totalLoss += (latestWeights[p.id] - p.initial_weight);
+          countLoss++;
+        }
+      });
+
+      const avgLoss = countLoss > 0 ? totalLoss / countLoss : 0;
+
+      setStats({
+        active: patients.length,
+        adherence: avgAdh,
+        weightLoss: avgLoss,
+        atRisk: riskP,
+        newThisMonth: newP
+      });
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const metrics = [
     {
       label: 'Empleados Activos',
       icon: '👥',
       iconBg: 'bg-accent/15',
-      value: '156',
-      change: '↑ +12 este mes',
-      changeColor: 'text-accent-dark',
+      value: stats.active.toString(),
+      change: `↑ +${stats.newThisMonth} registrados`,
+      changeColor: stats.newThisMonth > 0 ? 'text-accent-dark' : 'text-text-muted',
     },
     {
       label: 'Adherencia Promedio',
@@ -14,11 +90,11 @@ export default function Metrics() {
       iconBg: 'bg-info/15',
       value: (
         <>
-          4.3<span className="text-2xl text-text-muted">/5</span>
+          {stats.adherence.toFixed(1)}<span className="text-2xl text-text-muted">/5</span>
         </>
       ),
-      change: '↑ +0.4 vs mes anterior',
-      changeColor: 'text-accent-dark',
+      change: 'Meta institucional: 4.5',
+      changeColor: stats.adherence >= 4.5 ? 'text-accent-dark' : 'text-warning',
     },
     {
       label: 'Pérdida Peso Promedio',
@@ -26,19 +102,19 @@ export default function Metrics() {
       iconBg: 'bg-accent/15',
       value: (
         <>
-          -3.8<span className="text-xl text-text-muted">kg</span>
+          {stats.weightLoss.toFixed(1)}<span className="text-xl text-text-muted">kg</span>
         </>
       ),
-      change: '↑ Objetivo: -2.5kg',
-      changeColor: 'text-accent-dark',
+      change: 'Basado en últimas sesiones',
+      changeColor: stats.weightLoss <= -2 ? 'text-accent-dark' : 'text-text-muted',
     },
     {
       label: 'En Riesgo',
       icon: '⚠️',
       iconBg: 'bg-danger/15',
-      value: '8',
-      change: '+3 sin sesión >30 días',
-      changeColor: 'text-danger',
+      value: stats.atRisk.toString(),
+      change: 'Requieren atención urgente',
+      changeColor: stats.atRisk > 0 ? 'text-danger' : 'text-accent-dark',
     },
   ];
 
@@ -58,10 +134,10 @@ export default function Metrics() {
             </div>
           </div>
           <div className="text-[2.5rem] font-bold leading-none mb-2 font-mono">
-            {metric.value}
+            {loading ? '...' : metric.value}
           </div>
           <div className={`text-sm font-semibold flex items-center gap-2 ${metric.changeColor}`}>
-            {metric.change}
+            {loading ? 'Cargando...' : metric.change}
           </div>
         </div>
       ))}

@@ -1,4 +1,119 @@
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+
 export default function SessionForm() {
+  const [patients, setPatients] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchingPatients, setFetchingPatients] = useState(true);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    session_date: new Date().toISOString().split('T')[0],
+    duration_minutes: 45,
+    weight: '',
+    body_fat_pct: '',
+    waist_cm: '',
+    systolic_bp: '',
+    diastolic_bp: '',
+    heart_rate: '',
+    adherence: 5,
+    energy_level: 4,
+    sleep_quality: 4,
+    hydration: true,
+    physical_activity: '3-4 días',
+    overall_status: 'En Progreso',
+    achievements: '',
+    difficulties: ''
+  });
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  async function fetchPatients() {
+    try {
+      const { data, error } = await supabase
+        .from('patients')
+        .select('id, first_name, last_name')
+        .order('last_name', { ascending: true });
+      if (error) throw error;
+      setPatients(data || []);
+    } catch (err) {
+      console.error('Error fetching patients:', err);
+    } finally {
+      setFetchingPatients(false);
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.patient_id) {
+      setMessage({ type: 'error', text: 'Por favor selecciona un paciente' });
+      return;
+    }
+
+    setLoading(true);
+    setMessage(null);
+
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert([{
+          patient_id: formData.patient_id,
+          nutritionist_id: userData.user?.id,
+          session_date: formData.session_date,
+          duration_minutes: formData.duration_minutes,
+          weight: parseFloat(formData.weight),
+          body_fat_pct: formData.body_fat_pct ? parseFloat(formData.body_fat_pct) : null,
+          waist_cm: formData.waist_cm ? parseFloat(formData.waist_cm) : null,
+          systolic_bp: formData.systolic_bp ? parseInt(formData.systolic_bp) : null,
+          diastolic_bp: formData.diastolic_bp ? parseInt(formData.diastolic_bp) : null,
+          heart_rate: formData.heart_rate ? parseInt(formData.heart_rate) : null,
+          adherence: formData.adherence,
+          energy_level: formData.energy_level,
+          sleep_quality: formData.sleep_quality,
+          hydration: formData.hydration,
+          physical_activity: formData.physical_activity,
+          overall_status: formData.overall_status,
+          achievements: formData.achievements,
+          difficulties: formData.difficulties
+        }]);
+
+      if (sessionError) throw sessionError;
+
+      // Update patient status
+      const { error: patientError } = await supabase
+        .from('patients')
+        .update({ status: formData.overall_status })
+        .eq('id', formData.patient_id);
+
+      if (patientError) throw patientError;
+
+      setMessage({ type: 'success', text: 'Sesión registrada exitosamente' });
+      // Reset form
+      setFormData({
+        ...formData,
+        patient_id: '',
+        weight: '',
+        body_fat_pct: '',
+        waist_cm: '',
+        systolic_bp: '',
+        diastolic_bp: '',
+        heart_rate: '',
+        achievements: '',
+        difficulties: ''
+      });
+    } catch (err: any) {
+      console.error('Error saving session:', err);
+      setMessage({ type: 'error', text: err.message || 'Error al guardar la sesión' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="bg-surface border-2 border-border-color rounded-xl p-8 mb-8 animate-in" style={{ animationDelay: '0.3s' }}>
       <div className="flex justify-between items-center mb-6">
@@ -6,133 +121,217 @@ export default function SessionForm() {
         <div className="text-text-muted text-sm">Completar después de cada consulta (2-3 minutos)</div>
       </div>
 
-      <form>
+      {message && (
+        <div className={`p-4 rounded-lg mb-6 text-sm font-semibold ${message.type === 'success' ? 'bg-primary/10 text-primary border border-primary' : 'bg-danger/10 text-danger border border-danger'}`}>
+          {message.text}
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Paciente</label>
-            <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-              <option>Seleccionar empleado...</option>
-              <option>Laura Fernández</option>
-              <option>Carlos Mendoza</option>
-              <option>Valentina Ruiz</option>
-              <option>Diego Sánchez</option>
-              <option>Sofía Torres</option>
+            <select
+              required
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+              value={formData.patient_id}
+              onChange={e => setFormData({ ...formData, patient_id: e.target.value })}
+              disabled={fetchingPatients}
+            >
+              <option value="">{fetchingPatients ? 'Cargando...' : 'Seleccionar paciente...'}</option>
+              {patients.map(p => (
+                <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}</option>
+              ))}
             </select>
           </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Fecha Sesión</label>
-            <input type="date" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all" defaultValue="2026-02-13" />
+            <input
+              type="date"
+              required
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all"
+              value={formData.session_date}
+              onChange={e => setFormData({ ...formData, session_date: e.target.value })}
+            />
           </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Duración</label>
-            <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-              <option>30 minutos</option>
-              <option defaultValue="45 minutos">45 minutos</option>
-              <option>60 minutos</option>
+            <select
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+              value={formData.duration_minutes}
+              onChange={e => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}
+            >
+              <option value="30">30 minutos</option>
+              <option value="45">45 minutos</option>
+              <option value="60">60 minutos</option>
             </select>
           </div>
         </div>
 
         <div className="bg-bg p-6 rounded-lg mb-6">
           <h3 className="text-lg font-bold mb-4 text-primary">📊 Métricas Físicas (OMS)</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Peso Actual (kg)</label>
-              <input type="number" step="0.1" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="68.5" defaultValue="68.5" />
+              <input
+                type="number"
+                step="0.1"
+                required
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="68.5"
+                value={formData.weight}
+                onChange={e => setFormData({ ...formData, weight: e.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">% Grasa Corporal</label>
-              <input type="number" step="0.1" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="24.3" defaultValue="24.3" />
+              <input
+                type="number"
+                step="0.1"
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="24.3"
+                value={formData.body_fat_pct}
+                onChange={e => setFormData({ ...formData, body_fat_pct: e.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Perímetro Cintura (cm)</label>
-              <input type="number" step="0.1" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="82.5" defaultValue="82.5" />
+              <input
+                type="number"
+                step="0.1"
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="82.5"
+                value={formData.waist_cm}
+                onChange={e => setFormData({ ...formData, waist_cm: e.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Presión Sistólica</label>
-              <input type="number" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="120" defaultValue="118" />
+              <input
+                type="number"
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="120"
+                value={formData.systolic_bp}
+                onChange={e => setFormData({ ...formData, systolic_bp: e.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Presión Diastólica</label>
-              <input type="number" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="80" defaultValue="76" />
+              <input
+                type="number"
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="80"
+                value={formData.diastolic_bp}
+                onChange={e => setFormData({ ...formData, diastolic_bp: e.target.value })}
+              />
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Frecuencia Cardíaca</label>
-              <input type="number" className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold" placeholder="72" defaultValue="68" />
+              <input
+                type="number"
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
+                placeholder="72"
+                value={formData.heart_rate}
+                onChange={e => setFormData({ ...formData, heart_rate: e.target.value })}
+              />
             </div>
           </div>
         </div>
 
         <div className="bg-bg p-6 rounded-lg mb-6">
           <h3 className="text-lg font-bold mb-4 text-primary">⭐ Evaluación Nutricional</h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Adherencia al Plan</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option>1 - Muy Baja</option>
-                <option>2 - Baja</option>
-                <option>3 - Media</option>
-                <option>4 - Alta</option>
-                <option defaultValue="5 - Muy Alta">5 - Muy Alta</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.adherence}
+                onChange={e => setFormData({ ...formData, adherence: parseInt(e.target.value) })}
+              >
+                <option value="1">1 - Muy Baja</option>
+                <option value="2">2 - Baja</option>
+                <option value="3">3 - Media</option>
+                <option value="4">4 - Alta</option>
+                <option value="5">5 - Muy Alta</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Nivel de Energía</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option>1 - Muy Bajo</option>
-                <option>2 - Bajo</option>
-                <option>3 - Normal</option>
-                <option defaultValue="4 - Alto">4 - Alto</option>
-                <option>5 - Muy Alto</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.energy_level}
+                onChange={e => setFormData({ ...formData, energy_level: parseInt(e.target.value) })}
+              >
+                <option value="1">1 - Muy Bajo</option>
+                <option value="2">2 - Bajo</option>
+                <option value="3">3 - Normal</option>
+                <option value="4">4 - Alto</option>
+                <option value="5">5 - Muy Alto</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Calidad de Sueño</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option>1 - Muy Mala</option>
-                <option>2 - Mala</option>
-                <option>3 - Regular</option>
-                <option defaultValue="4 - Buena">4 - Buena</option>
-                <option>5 - Excelente</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.sleep_quality}
+                onChange={e => setFormData({ ...formData, sleep_quality: parseInt(e.target.value) })}
+              >
+                <option value="1">1 - Muy Mala</option>
+                <option value="2">2 - Mala</option>
+                <option value="3">3 - Regular</option>
+                <option value="4">4 - Buena</option>
+                <option value="5">5 - Excelente</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Hidratación Adecuada</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option>No</option>
-                <option defaultValue="Sí">Sí</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.hydration ? 'Sí' : 'No'}
+                onChange={e => setFormData({ ...formData, hydration: e.target.value === 'Sí' })}
+              >
+                <option value="No">No</option>
+                <option value="Sí">Sí</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Actividad Física Semanal</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option>0 días</option>
-                <option>1-2 días</option>
-                <option defaultValue="3-4 días">3-4 días</option>
-                <option>5+ días</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.physical_activity}
+                onChange={e => setFormData({ ...formData, physical_activity: e.target.value })}
+              >
+                <option value="0 días">0 días</option>
+                <option value="1-2 días">1-2 días</option>
+                <option value="3-4 días">3-4 días</option>
+                <option value="5+ días">5+ días</option>
               </select>
             </div>
 
             <div className="flex flex-col gap-2">
               <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Estado General</label>
-              <select className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer">
-                <option defaultValue="En Progreso">En Progreso</option>
-                <option>Objetivo Alcanzado</option>
-                <option>En Riesgo</option>
-                <option>Requiere Derivación</option>
+              <select
+                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
+                value={formData.overall_status}
+                onChange={e => setFormData({ ...formData, overall_status: e.target.value })}
+              >
+                <option value="En Progreso">En Progreso</option>
+                <option value="Objetivo Alcanzado">Objetivo Alcanzado</option>
+                <option value="En Riesgo">En Riesgo</option>
+                <option value="Requiere Derivación">Requiere Derivación</option>
               </select>
             </div>
           </div>
@@ -141,19 +340,40 @@ export default function SessionForm() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Principales Logros</label>
-            <textarea className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all min-h-[100px] resize-y" placeholder="Ej: Completó 4 días de actividad física. Mejoró hidratación. Redujo consumo de azúcares." defaultValue="Completó 4 días de actividad física esta semana. Mejoró significativamente la hidratación. Redujo consumo de azúcares procesados."></textarea>
+            <textarea
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all min-h-[100px] resize-y"
+              placeholder="Ej: Completó 4 días de actividad física. Mejoró hidratación. Redujo consumo de azúcares."
+              value={formData.achievements}
+              onChange={e => setFormData({ ...formData, achievements: e.target.value })}
+            ></textarea>
           </div>
 
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Dificultades y Ajustes</label>
-            <textarea className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all min-h-[100px] resize-y" placeholder="Ej: Dificultad para cenar temprano por horarios laborales. Ajustamos distribución de macros." defaultValue="Reporta dificultad para mantener horarios de cena por reuniones laborales tardías. Se ajustó plan para permitir mayor flexibilidad horaria manteniendo calidad nutricional."></textarea>
+            <textarea
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all min-h-[100px] resize-y"
+              placeholder="Ej: Dificultad para cenar temprano por horarios laborales. Ajustamos distribución de macros."
+              value={formData.difficulties}
+              onChange={e => setFormData({ ...formData, difficulties: e.target.value })}
+            ></textarea>
           </div>
         </div>
 
         <div className="flex gap-4 justify-end mt-8 pt-6 border-t-2 border-border-color">
-          <button type="button" className="px-8 py-4 bg-bg text-text-main border-2 border-border-color rounded-lg font-bold text-base transition-all hover:bg-surface hover:border-primary">Cancelar</button>
-          <button type="button" className="px-8 py-4 bg-bg text-text-main border-2 border-border-color rounded-lg font-bold text-base transition-all hover:bg-surface hover:border-primary">Guardar Borrador</button>
-          <button type="submit" className="px-8 py-4 bg-gradient-to-br from-primary to-primary-light text-white rounded-lg font-bold text-base transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_16px_rgba(10,77,60,0.3)]">✓ Registrar Sesión</button>
+          <button
+            type="button"
+            className="px-8 py-4 bg-bg text-text-main border-2 border-border-color rounded-lg font-bold text-base transition-all hover:bg-surface hover:border-primary"
+            onClick={() => window.location.reload()}
+          >
+            Cancelar
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-8 py-4 bg-gradient-to-br from-primary to-primary-light text-white rounded-lg font-bold text-base transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_16px_rgba(10,77,60,0.3)] disabled:opacity-50"
+          >
+            {loading ? 'Guardando...' : '✓ Registrar Sesión'}
+          </button>
         </div>
       </form>
     </div>
