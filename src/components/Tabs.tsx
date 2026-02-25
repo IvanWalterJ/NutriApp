@@ -33,17 +33,17 @@ const tabs = [
 
 export default function Tabs({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) {
   return (
-    <div className="bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color flex flex-col md:flex-row gap-2">
+    <div className="bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color flex flex-row overflow-x-auto md:overflow-x-visible no-scrollbar gap-2 scroll-smooth">
       {tabs.map(({ id, label, Icon }) => (
         <button
           key={id}
           onClick={() => setActiveTab(id)}
-          className={`flex-1 px-6 py-3.5 rounded-xl font-bold text-center transition-all duration-300 relative overflow-hidden group ${activeTab === id
-              ? 'bg-primary text-white shadow-[0_4px_12px_rgba(10,77,60,0.2)] scale-[1.02]'
-              : 'bg-transparent text-text-muted hover:bg-white hover:text-primary hover:shadow-sm'
+          className={`flex-1 min-w-[140px] md:min-w-0 px-4 md:px-6 py-3 md:py-3.5 rounded-xl font-bold text-center transition-all duration-300 relative overflow-hidden group shrink-0 ${activeTab === id
+            ? 'bg-primary text-white shadow-[0_4px_12px_rgba(10,77,60,0.2)] scale-[1.02]'
+            : 'bg-transparent text-text-muted hover:bg-white hover:text-primary hover:shadow-sm'
             }`}
         >
-          <span className="relative z-10 flex items-center justify-center gap-2.5 group-active:scale-95 transition-transform">
+          <span className="relative z-10 flex items-center justify-center gap-2 md:gap-2.5 group-active:scale-95 transition-transform text-xs md:text-base whitespace-nowrap">
             <Icon />
             {label}
           </span>

@@ -67,7 +67,7 @@ export default function Charts() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-in" style={{ animationDelay: '0.1s' }}>
-      <div className="lg:col-span-2 bg-surface border-2 border-border-color rounded-xl p-8 hover-lift card-transition shadow-sm">
+      <div className="lg:col-span-2 bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 hover-lift card-transition shadow-sm">
         <div className="mb-6">
           <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">Evolución Mensual Participación</h3>
           <p className="text-sm text-text-muted">Últimos meses • Sesiones completadas</p>
@@ -89,14 +89,14 @@ export default function Charts() {
         </div>
       </div>
 
-      <div className="bg-surface border-2 border-border-color rounded-xl p-8 hover-lift card-transition shadow-sm">
+      <div className="bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 hover-lift card-transition shadow-sm">
         <div className="mb-6">
           <h3 className="text-xl font-bold mb-2">Distribución Estado</h3>
           <p className="text-sm text-text-muted">Clasificación actual empleados</p>
         </div>
         <div className="grid gap-4">
-          <div className="flex items-center gap-4 p-4 bg-bg rounded-lg border border-transparent hover:border-accent group transition-all">
-            <div className="min-w-[120px] font-semibold text-sm flex items-center gap-2">
+          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-bg rounded-lg border border-transparent hover:border-accent group transition-all">
+            <div className="min-w-[100px] md:min-w-[120px] font-semibold text-xs md:text-sm flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-accent-dark"><polyline points="20 6 9 17 4 12" /></svg>
               Objetivo
@@ -109,8 +109,8 @@ export default function Charts() {
             </div>
             <div className="min-w-[40px] text-right font-bold font-mono">{statusStats.objetivo}</div>
           </div>
-          <div className="flex items-center gap-4 p-4 bg-bg rounded-lg">
-            <div className="min-w-[120px] font-semibold text-sm flex items-center gap-2">
+          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-bg rounded-lg">
+            <div className="min-w-[100px] md:min-w-[120px] font-semibold text-xs md:text-sm flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-info"><polyline points="23 4 23 10 17 10" /><polyline points="1 20 1 14 7 14" /><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" /></svg>
               En Progreso
             </div>
@@ -122,8 +122,8 @@ export default function Charts() {
             </div>
             <div className="min-w-[40px] text-right font-bold font-mono">{statusStats.progreso}</div>
           </div>
-          <div className="flex items-center gap-4 p-4 bg-bg rounded-lg">
-            <div className="min-w-[120px] font-semibold text-sm flex items-center gap-2">
+          <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-bg rounded-lg">
+            <div className="min-w-[100px] md:min-w-[120px] font-semibold text-xs md:text-sm flex items-center gap-2">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-danger"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
               En Riesgo
             </div>

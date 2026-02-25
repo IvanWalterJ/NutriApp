@@ -147,7 +147,7 @@ export default function Metrics() {
       {metrics.map((metric, i) => (
         <div
           key={i}
-          className="bg-surface border-2 border-border-color rounded-xl p-7 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_8px_24px_rgba(10,77,60,0.08)] hover-lift group"
+          className="bg-surface border-2 border-border-color rounded-xl p-5 md:p-7 transition-all duration-300 hover:border-primary/30 hover:shadow-[0_8px_24px_rgba(10,77,60,0.08)] hover-lift group"
         >
           <div className="flex justify-between items-start mb-4">
             <span className="text-[0.82rem] uppercase tracking-widest text-text-muted font-bold group-hover:text-primary transition-colors">

@@ -122,13 +122,13 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
   };
 
   return (
-    <div className="bg-surface border-2 border-border-color rounded-xl p-8 mb-8 animate-in" style={{ animationDelay: '0.3s' }}>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold flex items-center gap-3">
+    <div className="bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 mb-8 animate-in" style={{ animationDelay: '0.3s' }}>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-6">
+        <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" /></svg>
           Registro de Sesión
         </h2>
-        <div className="text-text-muted text-sm">Completar después de cada consulta (2-3 minutos)</div>
+        <div className="text-text-muted text-xs md:text-sm">Completar después de cada consulta (2-3 minutos)</div>
       </div>
 
       {message && (
@@ -180,7 +180,7 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           </div>
         </div>
 
-        <div className="bg-bg p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
+        <div className="bg-bg p-4 md:p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
           <h3 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
@@ -260,7 +260,7 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           </div>
         </div>
 
-        <div className="bg-bg p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
+        <div className="bg-bg p-4 md:p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
           <h3 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
@@ -377,10 +377,10 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           </div>
         </div>
 
-        <div className="flex gap-4 justify-end mt-8 pt-6 border-t-2 border-border-color">
+        <div className="flex flex-col-reverse md:flex-row gap-4 justify-end mt-8 pt-6 border-t-2 border-border-color">
           <button
             type="button"
-            className="px-8 py-4 bg-bg text-text-main border-2 border-border-color rounded-xl font-bold text-base transition-all hover:bg-surface hover:border-primary active:scale-95"
+            className="w-full md:w-auto px-8 py-3.5 md:py-4 bg-bg text-text-main border-2 border-border-color rounded-xl font-bold text-base transition-all hover:bg-surface hover:border-primary active:scale-95"
             onClick={() => window.location.reload()}
           >
             Cancelar
@@ -388,11 +388,16 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           <button
             type="submit"
             disabled={loading}
-            className="px-8 py-4 bg-gradient-to-br from-primary to-primary-light text-white rounded-xl font-bold text-base transition-all hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(10,77,60,0.3)] active:scale-95 disabled:opacity-50 flex items-center gap-2"
+            className="w-full md:w-auto px-8 py-3.5 md:py-4 bg-gradient-to-br from-primary to-primary-light text-white rounded-xl font-bold text-base transition-all hover:-translate-y-1 hover:shadow-[0_12px_24px_rgba(10,77,60,0.3)] active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading ? (
               <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-            ) : '✓ Registrar Sesión'}
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                Registrar Sesión
+              </>
+            )}
           </button>
         </div>
       </form>

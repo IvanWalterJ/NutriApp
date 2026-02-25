@@ -98,7 +98,7 @@ export default function App() {
     <div className="min-h-screen bg-bg text-text-main font-sans overflow-x-hidden">
       <Header profile={profile} />
 
-      <main className="max-w-[1600px] mx-auto p-8">
+      <main className="max-w-[1600px] mx-auto p-4 md:p-8">
         <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {activeTab === 'dashboard' && (
