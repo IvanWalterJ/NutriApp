@@ -1,10 +1,14 @@
 import { supabase } from '../lib/supabase';
+import { useCompany, Company } from '../context/CompanyContext';
+import { Building2, ChevronDown, LogOut } from 'lucide-react';
 
 interface HeaderProps {
   profile: any;
 }
 
 export default function Header({ profile }: HeaderProps) {
+  const { selectedCompany, setSelectedCompany } = useCompany();
+
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
@@ -17,8 +21,23 @@ export default function Header({ profile }: HeaderProps) {
           NU<span className="text-accent-dark">PLAN</span>
         </div>
         <div className="flex items-center gap-8">
-          <div className="hidden sm:flex bg-gradient-to-br from-primary/5 to-primary/10 text-primary border border-primary/20 px-5 py-2 rounded-full font-bold text-sm hover:bg-primary hover:text-white transition-all cursor-default shadow-sm active:scale-95">
-            🏢 Galeno Seguros
+          <div className="hidden sm:flex relative items-center group">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none transition-transform group-hover:scale-110">
+              <Building2 size={16} strokeWidth={2.5} />
+            </div>
+            <select
+              value={selectedCompany}
+              onChange={(e) => setSelectedCompany(e.target.value as Company)}
+              className="appearance-none bg-gradient-to-br from-primary/5 to-primary/10 text-primary border border-primary/20 pl-9 pr-10 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-all cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+            >
+              <option value="Galeno">Galeno</option>
+              <option value="Swiss Medical">Swiss Medical</option>
+              <option value="Ferias">Ferias</option>
+              <option value="Consultorio Privado">Consultorio Privado</option>
+            </select>
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary">
+              <ChevronDown size={14} strokeWidth={3} />
+            </div>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 md:gap-3 group cursor-pointer hover-lift">
@@ -33,10 +52,10 @@ export default function Header({ profile }: HeaderProps) {
             <div className="w-px h-6 bg-border-color hidden xs:block"></div>
             <button
               onClick={() => supabase.auth.signOut()}
-              className="p-2 text-text-muted hover:text-danger hover:bg-danger/5 rounded-xl transition-all active:scale-90"
+              className="p-2 text-text-muted hover:text-danger hover:bg-danger/10 rounded-xl transition-all active:scale-90"
               title="Cerrar sesión"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              <LogOut size={18} strokeWidth={2.5} />
             </button>
           </div>
         </div>

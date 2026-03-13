@@ -14,6 +14,7 @@ import SessionForm from './components/SessionForm';
 import Parameters from './components/Parameters';
 import Footer from './components/Footer';
 import Auth from './components/Auth';
+import { CompanyProvider } from './context/CompanyContext';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -69,18 +70,17 @@ export default function App() {
     return <Auth />;
   }
 
-  /* Temporarily disabled for testing
-  if (profile?.role === 'pending') {
+  if (!profile || profile?.role === 'pending') {
     return (
       <div className="min-h-screen bg-bg flex items-center justify-center p-6 text-center">
         <div className="max-w-md w-full bg-surface rounded-2xl shadow-xl border-2 border-border-color p-8 scale-in">
           <div className="text-5xl mb-6">⏳</div>
           <h2 className="text-2xl font-bold mb-4">Acceso Pendiente</h2>
           <p className="text-text-muted mb-6">
-            Hola <strong>{profile.full_name}</strong>. Tu cuenta ha sido registrada correctamente, pero aún debe ser aprobada por la administración para acceder a los datos médicos.
+            Hola <strong>{profile?.full_name || session.user.email}</strong>. Tu cuenta ha sido registrada correctamente, pero aún debe ser aprobada por la administración para acceder a los datos médicos de los pacientes.
           </p>
-          <div className="p-4 bg-info/10 text-info rounded-lg text-sm mb-6">
-            Te notificaremos por email cuando tu acceso sea habilitado.
+          <div className="p-4 bg-primary/10 text-primary border border-primary/20 font-medium rounded-lg text-sm mb-6">
+            Te notificaremos o habilitaremos a la brevedad. Vuelve a intentarlo pronto.
           </div>
           <button
             onClick={() => supabase.auth.signOut()}
@@ -92,9 +92,9 @@ export default function App() {
       </div>
     );
   }
-  */
 
   return (
+    <CompanyProvider>
     <div className="min-h-screen bg-bg text-text-main font-sans overflow-x-hidden">
       <Header profile={profile} />
 
@@ -124,6 +124,7 @@ export default function App() {
 
       <Footer />
     </div>
+    </CompanyProvider>
   );
 }
 

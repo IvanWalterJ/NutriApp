@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useCompany } from '../context/CompanyContext';
 
 const UsersIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -32,6 +33,7 @@ const AlertTriangleIcon = () => (
 );
 
 export default function Metrics() {
+  const { selectedCompany } = useCompany();
   const [stats, setStats] = useState({
     active: 0,
     adherence: 0,
@@ -43,7 +45,7 @@ export default function Metrics() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [selectedCompany]);
 
   async function fetchStats() {
     try {
@@ -52,7 +54,8 @@ export default function Metrics() {
 
       const { data: patients, error: pError } = await supabase
         .from('patients')
-        .select('id, initial_weight, status, created_at');
+        .select('id, initial_weight, status, created_at')
+        .eq('company', selectedCompany);
 
       if (pError) throw pError;
 
@@ -61,7 +64,8 @@ export default function Metrics() {
 
       const { data: sessions, error: sError } = await supabase
         .from('sessions')
-        .select('patient_id, weight, adherence');
+        .select('patient_id, weight, adherence')
+        .eq('company', selectedCompany);
 
       if (sError) throw sError;
 
@@ -101,7 +105,7 @@ export default function Metrics() {
 
   const metrics = [
     {
-      label: 'Empleados Activos',
+      label: 'Pacientes Activos',
       Icon: UsersIcon,
       iconBg: 'bg-primary/10 text-primary',
       value: stats.active.toString(),

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { useCompany } from '../context/CompanyContext';
 
 export default function Parameters() {
+  const { selectedCompany } = useCompany();
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [patientData, setPatientData] = useState<any>(null);
@@ -9,18 +11,22 @@ export default function Parameters() {
 
   useEffect(() => {
     fetchPatients();
-  }, []);
+  }, [selectedCompany]);
 
   async function fetchPatients() {
     try {
       const { data, error } = await supabase
         .from('patients')
         .select('id, first_name, last_name')
+        .eq('company', selectedCompany)
         .order('last_name', { ascending: true });
       if (error) throw error;
       setPatients(data || []);
       if (data && data.length > 0) {
         setSelectedPatientId(data[0].id);
+      } else {
+        setSelectedPatientId('');
+        setPatientData(null);
       }
     } catch (err) {
       console.error('Error fetching patients:', err);
@@ -136,7 +142,17 @@ export default function Parameters() {
     }
   };
 
-  if (!patientData) return null;
+  if (!patientData && patients.length > 0) return (
+    <div className="bg-surface border-2 border-border-color rounded-xl p-8 mb-8 flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+    </div>
+  );
+
+  if (patients.length === 0) return (
+    <div className="bg-surface border-2 border-border-color rounded-xl p-8 mb-8 text-center text-text-muted">
+      No hay pacientes registrados para esta empresa.
+    </div>
+  );
 
   return (
     <div className="bg-surface border-2 border-border-color rounded-xl p-8 mb-8 animate-in" style={{ animationDelay: '0.4s' }}>

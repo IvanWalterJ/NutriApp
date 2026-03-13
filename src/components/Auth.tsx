@@ -43,19 +43,6 @@ export default function Auth() {
         }
     };
 
-    const handleGoogleLogin = async () => {
-        try {
-            const { error } = await supabase.auth.signInWithOAuth({
-                provider: 'google',
-                options: {
-                    redirectTo: window.location.origin
-                }
-            });
-            if (error) throw error;
-        } catch (err: any) {
-            setError(err.message || 'Error al conectar con Google');
-        }
-    };
 
     return (
         <div className="min-h-screen bg-bg flex items-center justify-center p-6">
@@ -129,24 +116,7 @@ export default function Auth() {
                     </button>
                 </form>
 
-                <div className="relative my-8">
-                    <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-border-color"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-surface text-text-muted">O continúa con</span>
-                    </div>
-                </div>
 
-                <button
-                    onClick={handleGoogleLogin}
-                    className="w-full py-3 px-4 border-2 border-border-color rounded-lg font-semibold flex items-center justify-center gap-3 bg-surface transition-all duration-300 hover:bg-bg hover:border-primary/30 hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] hover:-translate-y-0.5 active:scale-95 group"
-                >
-                    <div className="bg-white p-1 rounded-full shadow-sm group-hover:shadow transition-all duration-300">
-                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-                    </div>
-                    <span className="text-text-main group-hover:text-primary transition-colors duration-300">Continuar con Google</span>
-                </button>
 
                 <div className="mt-8 text-center">
                     <button

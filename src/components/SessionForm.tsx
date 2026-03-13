@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { Building2, Monitor } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
 
 export default function SessionForm({ onComplete }: { onComplete?: () => void }) {
   const { showToast } = useToast();
+  const { selectedCompany } = useCompany();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [patients, setPatients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -14,13 +17,56 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
   const [formData, setFormData] = useState({
     patient_id: '',
     session_date: new Date().toISOString().split('T')[0],
+    modality: 'Presencial', // 'Presencial' | 'Online'
     duration_minutes: 45,
+    // Antropometría - Datos Básicos
     weight: '',
-    body_fat_pct: '',
-    waist_cm: '',
-    systolic_bp: '',
-    diastolic_bp: '',
-    heart_rate: '',
+    height: '',
+    sitting_height: '',
+    arm_span: '',
+    // Antropometría - Pliegues
+    fold_triceps: '',
+    fold_subscapular: '',
+    fold_biceps: '',
+    fold_iliac_crest: '',
+    fold_supraspinale: '',
+    fold_abdominal: '',
+    fold_front_thigh: '',
+    fold_medial_calf: '',
+    // Antropometría - Perímetros
+    girth_head: '',
+    girth_neck: '',
+    girth_arm_relaxed: '',
+    girth_arm_flexed: '',
+    girth_forearm: '',
+    girth_wrist: '',
+    girth_chest: '',
+    girth_waist: '',
+    girth_hip: '',
+    girth_thigh_max: '',
+    girth_thigh_mid: '',
+    girth_calf: '',
+    girth_ankle: '',
+    // Antropometría - Diámetros
+    diam_biacromial: '',
+    diam_biiliocristal: '',
+    diam_transverse_chest: '',
+    diam_ap_chest: '',
+    diam_humerus: '',
+    diam_femur: '',
+    diam_wrist: '',
+    diam_ankle: '',
+    // Antropometría - Longitudes y Alturas
+    len_acromiale_radiale: '',
+    len_radiale_stylion: '',
+    len_midstylion_dactylion: '',
+    len_iliospinale: '',
+    len_trochanterion: '',
+    len_trochanterion_tibiale_laterale: '',
+    len_tibiale_laterale: '',
+    len_tibiale_mediale_sphyrion_tibiale: '',
+    len_foot: '',
+    // Nutricional
     adherence: 5,
     energy_level: 4,
     sleep_quality: 4,
@@ -33,13 +79,14 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
 
   useEffect(() => {
     fetchPatients();
-  }, []);
+  }, [selectedCompany]);
 
   async function fetchPatients() {
     try {
       const { data, error } = await supabase
         .from('patients')
         .select('id, first_name, last_name')
+        .eq('company', selectedCompany)
         .order('last_name', { ascending: true });
       if (error) throw error;
       setPatients(data || []);
@@ -52,9 +99,35 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
     if (!formData.patient_id) {
-      setMessage({ type: 'error', text: 'Por favor selecciona un paciente' });
+      setMessage({ type: 'error', text: 'Por favor selecciona un paciente de la lista superior para poder registrar la sesión.' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
+    }
+
+    if (!formData.session_date) {
+      setMessage({ type: 'error', text: 'Por favor indica la fecha de la sesión.' });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (formData.modality === 'Presencial') {
+      const antropometriaKeys = [
+        'weight', 'height', 'sitting_height', 'arm_span',
+        'fold_triceps', 'fold_subscapular', 'fold_biceps', 'fold_iliac_crest', 'fold_supraspinale', 'fold_abdominal', 'fold_front_thigh', 'fold_medial_calf',
+        'girth_head', 'girth_neck', 'girth_arm_relaxed', 'girth_arm_flexed', 'girth_forearm', 'girth_wrist', 'girth_chest', 'girth_waist', 'girth_hip', 'girth_thigh_max', 'girth_thigh_mid', 'girth_calf', 'girth_ankle',
+        'diam_biacromial', 'diam_biiliocristal', 'diam_transverse_chest', 'diam_ap_chest', 'diam_humerus', 'diam_femur', 'diam_wrist', 'diam_ankle',
+        'len_acromiale_radiale', 'len_radiale_stylion', 'len_midstylion_dactylion', 'len_iliospinale', 'len_trochanterion', 'len_trochanterion_tibiale_laterale', 'len_tibiale_laterale', 'len_tibiale_mediale_sphyrion_tibiale', 'len_foot'
+      ];
+
+      const emptyFields = antropometriaKeys.some(key => (formData as any)[key] === '');
+      
+      if (emptyFields) {
+        setMessage({ type: 'error', text: 'Hay campos de Antropometría en blanco. Es vital contar con todos los datos para las métricas. Si no tienes algún dato, complétalo con un "0" para poder avanzar.' });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
     }
 
     setLoading(true);
@@ -63,19 +136,14 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
     try {
       const { data: userData } = await supabase.auth.getUser();
 
-      const { error: sessionError } = await supabase
-        .from('sessions')
-        .insert([{
+      const baseSession = {
           patient_id: formData.patient_id,
           nutritionist_id: userData.user?.id,
           session_date: formData.session_date,
+          modality: formData.modality,
           duration_minutes: formData.duration_minutes,
-          weight: parseFloat(formData.weight),
-          body_fat_pct: formData.body_fat_pct ? parseFloat(formData.body_fat_pct) : null,
-          waist_cm: formData.waist_cm ? parseFloat(formData.waist_cm) : null,
-          systolic_bp: formData.systolic_bp ? parseInt(formData.systolic_bp) : null,
-          diastolic_bp: formData.diastolic_bp ? parseInt(formData.diastolic_bp) : null,
-          heart_rate: formData.heart_rate ? parseInt(formData.heart_rate) : null,
+          company: selectedCompany,
+          
           adherence: formData.adherence,
           energy_level: formData.energy_level,
           sleep_quality: formData.sleep_quality,
@@ -84,7 +152,26 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           overall_status: formData.overall_status,
           achievements: formData.achievements,
           difficulties: formData.difficulties
-        }]);
+      };
+
+      let sessionToInsert = baseSession;
+
+      // Solo enviar las mediciones antropométricas si la modalidad es Presencial
+      if (formData.modality === 'Presencial') {
+        const parseFloatOrNull = (val: string) => val ? parseFloat(val) : null;
+        sessionToInsert = {
+          ...baseSession,
+          ...Object.fromEntries(
+            Object.entries(formData)
+              .filter(([key]) => key !== 'patient_id' && key !== 'session_date' && key !== 'modality' && key !== 'duration_minutes' && key !== 'adherence' && key !== 'energy_level' && key !== 'sleep_quality' && key !== 'hydration' && key !== 'physical_activity' && key !== 'overall_status' && key !== 'achievements' && key !== 'difficulties')
+              .map(([key, val]) => [key, parseFloatOrNull(val as string)])
+          )
+        } as any;
+      }
+
+      const { error: sessionError } = await supabase
+        .from('sessions')
+        .insert([sessionToInsert]);
 
       if (sessionError) throw sessionError;
 
@@ -103,19 +190,29 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
       setFormData({
         ...formData,
         patient_id: '',
-        weight: '',
-        body_fat_pct: '',
-        waist_cm: '',
-        systolic_bp: '',
-        diastolic_bp: '',
-        heart_rate: '',
         achievements: '',
-        difficulties: ''
+        difficulties: '',
+        // Reset all numerics
+        weight: '', height: '', sitting_height: '', arm_span: '',
+        fold_triceps: '', fold_subscapular: '', fold_biceps: '', fold_iliac_crest: '', fold_supraspinale: '', fold_abdominal: '', fold_front_thigh: '', fold_medial_calf: '',
+        girth_head: '', girth_neck: '', girth_arm_relaxed: '', girth_arm_flexed: '', girth_forearm: '', girth_wrist: '', girth_chest: '', girth_waist: '', girth_hip: '', girth_thigh_max: '', girth_thigh_mid: '', girth_calf: '', girth_ankle: '',
+        diam_biacromial: '', diam_biiliocristal: '', diam_transverse_chest: '', diam_ap_chest: '', diam_humerus: '', diam_femur: '', diam_wrist: '', diam_ankle: '',
+        len_acromiale_radiale: '', len_radiale_stylion: '', len_midstylion_dactylion: '', len_iliospinale: '', len_trochanterion: '', len_trochanterion_tibiale_laterale: '', len_tibiale_laterale: '', len_tibiale_mediale_sphyrion_tibiale: '', len_foot: ''
       });
     } catch (err: any) {
       console.error('Error saving session:', err);
-      setMessage({ type: 'error', text: err.message || 'Error al guardar la sesión' });
-      showToast(err.message || 'Error al guardar la sesión', 'error');
+      let errorText = err.message || 'Error al guardar la sesión';
+      
+      // Traducir errores comunes de base de datos a español humano
+      if (errorText.includes('null value in column "weight"')) {
+        errorText = 'Error crítico: Falta registrar el peso del paciente.';
+      } else if (errorText.includes('violates not-null constraint')) {
+        errorText = 'Faltan campos obligatorios por rellenar o existe un error de estructura en los datos enviados.';
+      }
+
+      setMessage({ type: 'error', text: errorText });
+      showToast(errorText, 'error');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setLoading(false);
     }
@@ -138,11 +235,10 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
       )}
 
       <form onSubmit={handleSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 border-b-2 border-border-color pb-6">
           <div className="flex flex-col gap-2">
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Paciente</label>
             <select
-              required
               className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer"
               value={formData.patient_id}
               onChange={e => setFormData({ ...formData, patient_id: e.target.value })}
@@ -159,11 +255,27 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
             <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Fecha Sesión</label>
             <input
               type="date"
-              required
               className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all"
               value={formData.session_date}
               onChange={e => setFormData({ ...formData, session_date: e.target.value })}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Modalidad</label>
+            <div className="relative group/modalidad">
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none transition-transform group-hover/modalidad:scale-110">
+                {formData.modality === 'Presencial' ? <Building2 size={18} strokeWidth={2.5} /> : <Monitor size={18} strokeWidth={2.5} />}
+              </div>
+              <select
+                className="w-full pl-10 pr-4 py-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer font-bold text-primary"
+                value={formData.modality}
+                onChange={e => setFormData({ ...formData, modality: e.target.value })}
+              >
+                <option value="Presencial">Presencial</option>
+                <option value="Online">Online</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex flex-col gap-2">
@@ -180,85 +292,108 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           </div>
         </div>
 
-        <div className="bg-bg p-4 md:p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
-          <h3 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
-            Métricas Físicas (OMS)
-          </h3>
+        {formData.modality === 'Presencial' && (
+          <div className="bg-bg p-4 md:p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
+            <h3 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-accent animate-pulse"></span>
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="20" x2="18" y2="10" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="6" y1="20" x2="6" y2="14" /></svg>
+              Antropometría
+            </h3>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Peso Actual (kg)</label>
-              <input
-                type="number"
-                step="0.1"
-                required
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="68.5"
-                value={formData.weight}
-                onChange={e => setFormData({ ...formData, weight: e.target.value })}
-              />
+            {/* Datos Básicos */}
+            <h4 className="font-semibold text-text-main mb-3 mt-6 border-b border-border-color pb-1">Datos Básicos (kg/cm)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {['weight|Peso', 'height|Talla (estatura)', 'sitting_height|Talla sentado', 'arm_span|Envergadura'].map((field) => {
+                const [key, label] = field.split('|');
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-[0.75rem] font-semibold uppercase tracking-wider text-text-muted">{label}</label>
+                    <input type="number" step="0.1"
+                      className="p-2 border border-border-color rounded-md bg-surface font-mono"
+                      value={(formData as any)[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">% Grasa Corporal</label>
-              <input
-                type="number"
-                step="0.1"
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="24.3"
-                value={formData.body_fat_pct}
-                onChange={e => setFormData({ ...formData, body_fat_pct: e.target.value })}
-              />
+            {/* Pliegues Cutáneos */}
+            <h4 className="font-semibold text-text-main mb-3 mt-6 border-b border-border-color pb-1">Pliegues Cutáneos (mm)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[
+                'fold_triceps|Tríceps', 'fold_subscapular|Subescapular', 'fold_biceps|Bíceps', 'fold_iliac_crest|Cresta ilíaca',
+                'fold_supraspinale|Supraespinal', 'fold_abdominal|Abdominal', 'fold_front_thigh|Muslo anterior', 'fold_medial_calf|Pantorrilla medial'
+              ].map((field) => {
+                const [key, label] = field.split('|');
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-[0.75rem] font-semibold uppercase tracking-wider text-text-muted">{label}</label>
+                    <input type="number" step="0.1"
+                      className="p-2 border border-border-color rounded-md bg-surface font-mono"
+                      value={(formData as any)[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Perímetro Cintura (cm)</label>
-              <input
-                type="number"
-                step="0.1"
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="82.5"
-                value={formData.waist_cm}
-                onChange={e => setFormData({ ...formData, waist_cm: e.target.value })}
-              />
+            {/* Perímetros */}
+            <h4 className="font-semibold text-text-main mb-3 mt-6 border-b border-border-color pb-1">Perímetros (cm)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[
+                'girth_head|Cabeza', 'girth_neck|Cuello', 'girth_arm_relaxed|Brazo relajado', 'girth_arm_flexed|Brazo flexionado',
+                'girth_forearm|Antebrazo', 'girth_wrist|Muñeca', 'girth_chest|Tórax', 'girth_waist|Cintura (mínima)',
+                'girth_hip|Cadera (glúteo)', 'girth_thigh_max|Muslo máximo', 'girth_thigh_mid|Muslo medial', 'girth_calf|Pantorrilla', 'girth_ankle|Tobillo'
+              ].map((field) => {
+                const [key, label] = field.split('|');
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-[0.75rem] font-semibold uppercase tracking-wider text-text-muted">{label}</label>
+                    <input type="number" step="0.1"
+                      className="p-2 border border-border-color rounded-md bg-surface font-mono"
+                      value={(formData as any)[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Presión Sistólica</label>
-              <input
-                type="number"
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="120"
-                value={formData.systolic_bp}
-                onChange={e => setFormData({ ...formData, systolic_bp: e.target.value })}
-              />
+            {/* Diámetros Óseos */}
+            <h4 className="font-semibold text-text-main mb-3 mt-6 border-b border-border-color pb-1">Diámetros Óseos (cm)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[
+                'diam_biacromial|Biacromial', 'diam_biiliocristal|Bi-iliocrestídeo', 'diam_transverse_chest|Tórax transverso', 'diam_ap_chest|Tórax A-P',
+                'diam_humerus|Húmero (biepicondilar)', 'diam_femur|Fémur (biepicondilar)', 'diam_wrist|Muñeca (biestiloideo)', 'diam_ankle|Tobillo (bimaleolar)'
+              ].map((field) => {
+                const [key, label] = field.split('|');
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-[0.75rem] font-semibold uppercase tracking-wider text-text-muted">{label}</label>
+                    <input type="number" step="0.1"
+                      className="p-2 border border-border-color rounded-md bg-surface font-mono"
+                      value={(formData as any)[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+                  </div>
+                );
+              })}
             </div>
 
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Presión Diastólica</label>
-              <input
-                type="number"
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="80"
-                value={formData.diastolic_bp}
-                onChange={e => setFormData({ ...formData, diastolic_bp: e.target.value })}
-              />
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Frecuencia Cardíaca</label>
-              <input
-                type="number"
-                className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all font-mono font-bold"
-                placeholder="72"
-                value={formData.heart_rate}
-                onChange={e => setFormData({ ...formData, heart_rate: e.target.value })}
-              />
+            {/* Longitudes y Alturas */}
+            <h4 className="font-semibold text-text-main mb-3 mt-6 border-b border-border-color pb-1">Longitudes y Alturas (cm)</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              {[
+                'len_acromiale_radiale|Acromio-radial', 'len_radiale_stylion|Radial-estiloidea', 'len_midstylion_dactylion|M-E a dactiloidea', 'len_iliospinale|Ilioespinal',
+                'len_trochanterion|Trocantérea', 'len_trochanterion_tibiale_laterale|Troc.-tibial lat.', 'len_tibiale_laterale|Tibial lateral', 'len_tibiale_mediale_sphyrion_tibiale|Tibial med.-maleolar', 'len_foot|Long. del pie'
+              ].map((field) => {
+                const [key, label] = field.split('|');
+                return (
+                  <div key={key} className="flex flex-col gap-1">
+                    <label className="text-[0.75rem] font-semibold uppercase tracking-wider text-text-muted">{label}</label>
+                    <input type="number" step="0.1"
+                      className="p-2 border border-border-color rounded-md bg-surface font-mono"
+                      value={(formData as any)[key]} onChange={e => setFormData({ ...formData, [key]: e.target.value })} />
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-bg p-4 md:p-6 rounded-2xl mb-6 border border-border-color hover-lift card-transition shadow-sm group">
           <h3 className="text-lg font-bold mb-4 text-primary flex items-center gap-2">

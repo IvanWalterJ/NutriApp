@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 
 interface SuccessModalProps {
     isOpen: boolean;
@@ -10,7 +11,7 @@ interface SuccessModalProps {
 export default function SuccessModal({ isOpen, onClose, title, message }: SuccessModalProps) {
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div
             style={{
                 position: 'fixed',
@@ -120,6 +121,7 @@ export default function SuccessModal({ isOpen, onClose, title, message }: Succes
                     Aceptar
                 </button>
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

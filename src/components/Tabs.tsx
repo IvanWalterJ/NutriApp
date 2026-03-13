@@ -26,20 +26,20 @@ const TrendingUpIcon = () => (
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard General', Icon: DashboardIcon },
-  { id: 'empleados', label: 'Empleados', Icon: UsersIcon },
+  { id: 'empleados', label: 'Pacientes', Icon: UsersIcon },
   { id: 'nueva-sesion', label: 'Nueva Sesión', Icon: ClipboardIcon },
   { id: 'parametros', label: 'Parámetros OMS', Icon: TrendingUpIcon },
 ];
 
 export default function Tabs({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) {
   return (
-    <div className="bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color flex flex-row overflow-x-auto md:overflow-x-visible no-scrollbar gap-2 scroll-smooth">
+    <div className="bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color grid grid-cols-2 md:flex md:flex-row gap-2">
       {tabs.map(({ id, label, Icon }) => (
         <button
           key={id}
           onClick={() => setActiveTab(id)}
-          className={`flex-1 min-w-[140px] md:min-w-0 px-4 md:px-6 py-3 md:py-3.5 rounded-xl font-bold text-center transition-all duration-300 relative overflow-hidden group shrink-0 ${activeTab === id
-            ? 'bg-primary text-white shadow-[0_4px_12px_rgba(10,77,60,0.2)] scale-[1.02]'
+          className={`flex-1 min-w-[140px] md:min-w-0 px-2 sm:px-4 md:px-6 py-3 rounded-xl font-bold text-center transition-all duration-400 ease-out relative overflow-hidden group shrink-0 ${activeTab === id
+            ? 'bg-primary text-white shadow-[0_4px_12px_rgba(10,77,60,0.2)]'
             : 'bg-transparent text-text-muted hover:bg-white hover:text-primary hover:shadow-sm'
             }`}
         >
