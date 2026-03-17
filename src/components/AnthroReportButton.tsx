@@ -46,15 +46,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         margin: [8, 10, 8, 10],
         filename: `Antropometria_${patient.last_name}_${session.session_date}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
-          logging: false,
-          onclone: (doc: any) => {
-            const el = doc.getElementById(pdfId);
-            if (el) el.style.opacity = '1';
-          }
-        },
+        html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       }).from(pdfRef.current).save();
     } finally {
@@ -200,9 +192,8 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
       {/* ── Hidden PDF Report ── */}
       {r && (
-        <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, pointerEvents: 'none' }}>
-        <div id={pdfId} ref={pdfRef} style={{
-          opacity: 0,
+        <div style={{ position: 'absolute', top: 0, left: 0, zIndex: -9999, pointerEvents: 'none', opacity: 0 }}>
+        <div ref={pdfRef} style={{
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',
         }}>
