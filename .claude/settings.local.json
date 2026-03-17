@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(npm list xlsx)",
+      "Bash(xargs wc -l)",
+      "Bash(pdftotext \"Pablo Zadro.pdf\" -)",
+      "Bash(unzip -l \"GG x RR - GENERADOR DE 50 INF ANTR C E R - MERCADO LIBRE - VACÍO.xlsx\")",
+      "Bash(ls -1 *.xlsx)",
+      "Bash(while read file)",
+      "Bash(do unzip -l \"$file\")",
+      "Bash(done)",
+      "Bash(do unzip -p \"$file\" xl/workbook.xml)",
+      "Bash(do unzip -p \"$file\" xl/worksheets/sheet1.xml)",
+      "Bash(do unzip -p \"$file\" xl/worksheets/sheet2.xml)",
+      "Bash(npm list)",
+      "Bash(powershell.exe -NoProfile:*)",
+      "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")",
+      "Bash(npx tsc --noEmit)"
+    ]
+  }
+}

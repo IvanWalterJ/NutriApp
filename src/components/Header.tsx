@@ -34,6 +34,8 @@ export default function Header({ profile }: HeaderProps) {
               <option value="Swiss Medical">Swiss Medical</option>
               <option value="Ferias">Ferias</option>
               <option value="Consultorio Privado">Consultorio Privado</option>
+              <option value="Mercado Libre">Mercado Libre</option>
+              <option value="Mercado Libre Virtual">Mercado Libre Virtual</option>
             </select>
             <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary">
               <ChevronDown size={14} strokeWidth={3} />
