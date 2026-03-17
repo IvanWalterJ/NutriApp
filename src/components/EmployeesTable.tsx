@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
-import { Search, X, ChevronRight, Activity, CalendarDays, Edit2, Save } from 'lucide-react';
+import AnthroReportButton from './AnthroReportButton';
+import { Search, X, Activity, CalendarDays, Edit2, Save } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 export default function EmployeesTable() {
@@ -595,51 +596,98 @@ export default function EmployeesTable() {
                 <div className="space-y-4">
                   {[...selectedPatient.sessions]
                     .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
-                    .map((session: any, index: number) => (
-                    <div key={session.id} className="bg-bg border-2 border-border-color rounded-xl p-5 hover:border-primary/20 transition-all card-transition">
-                      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-                        <div className="flex flex-wrap items-center gap-3 md:gap-6">
-                           <div className="bg-primary text-white font-mono font-bold px-3 py-1.5 rounded-lg text-sm shadow-sm">
-                             {new Date(session.session_date).toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
-                           </div>
-                           <div className="flex items-center gap-2 text-sm font-semibold">
-                              <span className="text-text-muted uppercase tracking-widest text-[9px]">Peso:</span>
-                              <span className="font-mono">{session.weight || '-'} kg</span>
-                           </div>
-                           <div className="flex items-center gap-2 text-sm font-semibold">
-                              <span className="text-text-muted uppercase tracking-widest text-[9px]">Modalidad:</span>
-                              <span className="bg-surface px-2 shadow-sm py-0.5 rounded border border-border-color text-primary font-bold">{session.modality}</span>
-                           </div>
-                           <div className="flex items-center gap-2 text-sm font-semibold">
-                              <span className="text-text-muted uppercase tracking-widest text-[9px]">Adherencia:</span>
-                              <span className="tracking-tighter">{session.adherence > 0 ? '⭐'.repeat(session.adherence) : 'N/A'}</span>
-                           </div>
-                        </div>
-                        {session.overall_status && (
-                           <span className="text-xs font-bold uppercase tracking-wider text-text-muted bg-surface px-3 py-1.5 rounded-md border border-border-color">
-                             Estado: {session.overall_status}
-                           </span>
-                        )}
-                      </div>
-                      
-                      {/* Detalles Extra */}
-                      <div className="mt-4 pt-4 border-t border-border-color grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {session.achievements && (
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-accent-dark mb-1">Logros</p>
-                            <p className="text-sm text-text-muted bg-surface/50 p-3 rounded-lg border border-border-color/50 h-full">{session.achievements}</p>
-                          </div>
-                        )}
-                        {session.difficulties && (
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-warning mb-1">Desafíos</p>
-                            <p className="text-sm text-text-muted bg-surface/50 p-3 rounded-lg border border-border-color/50 h-full">{session.difficulties}</p>
-                          </div>
-                        )}
-                      </div>
+                    .map((session: any, index: number) => {
+                      const isAnthro = session.session_type === 'Antropometría';
+                      // Find the most recent consultation for this patient (for PDF)
+                      const lastConsult = [...selectedPatient.sessions]
+                        .filter((s: any) => s.session_type === 'Consulta')
+                        .sort((a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0] || null;
+                      return (
+                        <div key={session.id} className={`bg-bg border-2 rounded-xl p-5 hover:border-primary/20 transition-all card-transition ${
+                          isAnthro ? 'border-primary/30 bg-gradient-to-br from-bg to-primary/[0.02]' : 'border-border-color'
+                        }`}>
+                          <div className="flex flex-col md:flex-row justify-between md:items-start gap-3">
+                            <div className="flex flex-wrap items-center gap-3 md:gap-6">
+                              {/* Date pill */}
+                              <div className="bg-primary text-white font-mono font-bold px-3 py-1.5 rounded-lg text-sm shadow-sm">
+                                {new Date(session.session_date).toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                              </div>
 
-                    </div>
-                  ))}
+                              {/* ── Session Type Badge ── */}
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                                isAnthro
+                                  ? 'bg-primary/15 text-primary border border-primary/20'
+                                  : 'bg-[#6366f1]/10 text-[#4f46e5] border border-[#6366f1]/20'
+                              }`}>
+                                {isAnthro
+                                  ? <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                                  : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/></svg>
+                                }
+                                {isAnthro ? 'Antropometría' : 'Consulta'}
+                              </span>
+
+                              {session.weight && (
+                                <div className="flex items-center gap-2 text-sm font-semibold">
+                                  <span className="text-text-muted uppercase tracking-widest text-[9px]">Peso:</span>
+                                  <span className="font-mono">{session.weight} kg</span>
+                                </div>
+                              )}
+                              <div className="flex items-center gap-2 text-sm font-semibold">
+                                <span className="text-text-muted uppercase tracking-widest text-[9px]">Modalidad:</span>
+                                <span className="bg-surface px-2 shadow-sm py-0.5 rounded border border-border-color text-primary font-bold">{session.modality}</span>
+                              </div>
+                              {session.adherence > 0 && (
+                                <div className="flex items-center gap-2 text-sm font-semibold">
+                                  <span className="text-text-muted uppercase tracking-widest text-[9px]">Adherencia:</span>
+                                  <span className="tracking-tighter">{session.adherence > 0 ? '⭐'.repeat(session.adherence) : 'N/A'}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Right side: status + report button */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              {session.overall_status && (
+                                <span className="text-xs font-bold uppercase tracking-wider text-text-muted bg-surface px-3 py-1.5 rounded-md border border-border-color">
+                                  Estado: {session.overall_status}
+                                </span>
+                              )}
+                              {/* ── Generate Report Button (only for Antropometría) ── */}
+                              {isAnthro && (
+                                <AnthroReportButton
+                                  session={session}
+                                  patient={selectedPatient}
+                                  latestConsult={lastConsult}
+                                />
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Extra details */}
+                          {(session.achievements || session.difficulties || session.laboratorio_alterado) && (
+                            <div className="mt-4 pt-4 border-t border-border-color grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {session.laboratorio_alterado && (
+                                <div className="md:col-span-2">
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-[#92400e] mb-1">Laboratorio Alterado</p>
+                                  <p className="text-sm text-text-muted bg-warning/5 p-3 rounded-lg border border-warning/20">{session.laboratorio_alterado}</p>
+                                </div>
+                              )}
+                              {session.achievements && (
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-accent-dark mb-1">Logros</p>
+                                  <p className="text-sm text-text-muted bg-surface/50 p-3 rounded-lg border border-border-color/50 h-full">{session.achievements}</p>
+                                </div>
+                              )}
+                              {session.difficulties && (
+                                <div>
+                                  <p className="text-[10px] font-black uppercase tracking-widest text-warning mb-1">Desafíos</p>
+                                  <p className="text-sm text-text-muted bg-surface/50 p-3 rounded-lg border border-border-color/50 h-full">{session.difficulties}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               ) : (
                 <div className="bg-surface border-2 border-dashed border-border-color rounded-2xl p-12 text-center">

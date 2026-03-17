@@ -367,6 +367,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
         modality: 'Presencial',
         company: selectedCompany,
         session_type: 'Antropometría',
+        activity_group: formData.activity_group,
         ...numericData,
       }]);
       if (error) throw error;
