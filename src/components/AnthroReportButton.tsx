@@ -41,23 +41,13 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       
-      const clone = pdfRef.current.cloneNode(true) as HTMLElement;
-      clone.style.display = 'block';
-      clone.style.position = 'absolute';
-      clone.style.top = '0';
-      clone.style.left = '0';
-      clone.style.zIndex = '-9999';
-      document.body.appendChild(clone);
-
       await html2pdf().set({
         margin: [8, 10, 8, 10],
         filename: `Antropometria_${patient.last_name}_${session.session_date}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(clone).save();
-
-      document.body.removeChild(clone);
+      }).from(pdfRef.current).save();
     } finally {
       setLoading(false);
     }
@@ -158,7 +148,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
       {/* ── Activity Group Picker (Sleek Modern Modal) ── */}
       {showGroupPicker && (
-        <div className="fixed inset-0 bg-text-main/40 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
           <div className="bg-surface rounded-3xl p-8 w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-border-color animate-in zoom-in-95 duration-300">
             <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-5">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -201,7 +191,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
       {/* ── Hidden PDF Report ── */}
       {r && (
-        <div style={{ display: 'none' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden', zIndex: -100 }}>
         <div ref={pdfRef} style={{
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',

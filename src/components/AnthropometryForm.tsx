@@ -401,25 +401,14 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
   async function downloadPDF() {
     if (!pdfRef.current) return;
     const html2pdf = (await import('html2pdf.js')).default;
-    
-    // Clone the element and place it invisibly in the body to avoid overflow/clipping bugs in html2canvas
-    const clone = pdfRef.current.cloneNode(true) as HTMLElement;
-    clone.style.display = 'block';
-    clone.style.position = 'absolute';
-    clone.style.top = '0';
-    clone.style.left = '0';
-    clone.style.zIndex = '-9999';
-    document.body.appendChild(clone);
 
     await html2pdf().set({
       margin: [8, 10, 8, 10],
       filename: `Antropometria_${patientInfo?.last_name}_${results?.session_date}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(clone).save();
-
-    document.body.removeChild(clone);
+    }).from(pdfRef.current).save();
   }
 
   // ── sub-components defined INSIDE (no inputs, so remount is harmless) ──────
@@ -681,7 +670,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     const valoracion = generateValoracion(r, patientInfo.first_name, patientInfo.last_name, ref);
 
     return (
-      <div style={{ display: 'none' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden', zIndex: -100 }}>
         <div ref={pdfRef} style={{
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',
