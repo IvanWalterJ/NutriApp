@@ -18,6 +18,12 @@ const ClipboardIcon = () => (
     <path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" />
   </svg>
 );
+const RulerIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 3h18v5H3z" /><line x1="7" y1="8" x2="7" y2="13" /><line x1="12" y1="8" x2="12" y2="11" /><line x1="17" y1="8" x2="17" y2="13" />
+    <path d="M3 13h18v8H3z" />
+  </svg>
+);
 const TrendingUpIcon = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" /><polyline points="17 6 23 6 23 12" />
@@ -27,7 +33,8 @@ const TrendingUpIcon = () => (
 const tabs = [
   { id: 'dashboard', label: 'Dashboard General', Icon: DashboardIcon },
   { id: 'empleados', label: 'Pacientes', Icon: UsersIcon },
-  { id: 'nueva-sesion', label: 'Nueva Sesión', Icon: ClipboardIcon },
+  { id: 'antropometria', label: 'Antropometría', Icon: RulerIcon },
+  { id: 'nueva-consulta', label: 'Nueva Consulta', Icon: ClipboardIcon },
   { id: 'parametros', label: 'Parámetros OMS', Icon: TrendingUpIcon },
 ];
 

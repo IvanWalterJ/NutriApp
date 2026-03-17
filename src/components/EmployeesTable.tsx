@@ -24,7 +24,8 @@ export default function EmployeesTable() {
     height: '',
     email: '',
     birth_date: '',
-    phone: ''
+    phone: '',
+    sex: 'Femenino'
   });
   const [isEditingPatient, setIsEditingPatient] = useState(false);
   const [editPatientData, setEditPatientData] = useState<any>({});
@@ -112,6 +113,7 @@ export default function EmployeesTable() {
           phone: newEmployee.phone || null,
           initial_weight: parseFloat(newEmployee.initial_weight),
           height: parseFloat(newEmployee.height),
+          sex: newEmployee.sex,
           status: 'En Progreso',
           company: selectedCompany,
           created_by: user?.id
@@ -125,7 +127,11 @@ export default function EmployeesTable() {
         last_name: '',
         area: 'Administración',
         initial_weight: '',
-        height: ''
+        height: '',
+        email: '',
+        birth_date: '',
+        phone: '',
+        sex: 'Femenino'
       });
       fetchEmployees();
       setShowSuccessModal(true);
@@ -409,6 +415,17 @@ export default function EmployeesTable() {
                     value={newEmployee.birth_date}
                     onChange={e => setNewEmployee({ ...newEmployee, birth_date: e.target.value })}
                   />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-text-muted mb-1">Sexo</label>
+                  <select
+                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                    value={newEmployee.sex}
+                    onChange={e => setNewEmployee({ ...newEmployee, sex: e.target.value })}
+                  >
+                    <option value="Femenino">Femenino</option>
+                    <option value="Masculino">Masculino</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-text-muted mb-1">Departamento</label>

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-export type Company = 'Galeno' | 'Swiss Medical' | 'Ferias' | 'Consultorio Privado';
+export type Company = 'Galeno' | 'Swiss Medical' | 'Ferias' | 'Consultorio Privado' | 'Mercado Libre' | 'Mercado Libre Virtual';
 
 interface CompanyContextType {
   selectedCompany: Company;

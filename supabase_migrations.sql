@@ -72,6 +72,14 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS len_foot numeric;
 
 -- Ojalá estas migraciones pasen de una sin problema! 🚀
 
+-- MIGRACIÓN: Sexo del paciente (necesario para cálculos antropométricos)
+ALTER TABLE patients ADD COLUMN IF NOT EXISTS sex text; -- 'Masculino' | 'Femenino'
+
+-- MIGRACIÓN: Nuevos campos en sesiones
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS session_type text DEFAULT 'Consulta'; -- 'Consulta' | 'Antropometría'
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS laboratorio_alterado text;
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS consumo_frutas_verduras integer DEFAULT 1; -- escala 1-5
+
 -- MIGRACIÓN DE ACCESO DE USUARIOS (NUEVO)
 -- Esto crea una entrada automática en perfiles cuando alguien se registra.
 

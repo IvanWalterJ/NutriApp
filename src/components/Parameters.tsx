@@ -42,60 +42,140 @@ export default function Parameters() {
   async function fetchPatientSessions() {
     setLoading(true);
     try {
+      // Fetch patient with all sessions
       const { data, error } = await supabase
         .from('patients')
-        .select(`
-          *,
-          sessions (*)
-        `)
+        .select(`*, sessions (*)`)
         .eq('id', selectedPatientId)
         .single();
-
       if (error) throw error;
 
-      // Sort sessions by date
-      const sortedSessions = data.sessions?.sort((a: any, b: any) =>
+      // Fetch total patients in this company for participation index
+      const { count: totalPatients } = await supabase
+        .from('patients')
+        .select('id', { count: 'exact', head: true })
+        .eq('company', data.company || 'Galeno');
+
+      const sortedSessions = (data.sessions || []).sort((a: any, b: any) =>
         new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
-      ) || [];
+      );
 
       const initial = sortedSessions[0] || { weight: data.initial_weight };
       const latest = sortedSessions[sortedSessions.length - 1] || initial;
 
-      // Mocking some baseline targets/notes for the demo based on OMS standards
+      // ── IMC ──
+      const imcInitial = data.height && data.initial_weight
+        ? (data.initial_weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
+      const imcActual = data.height && latest.weight
+        ? (latest.weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
+      const imcVal = parseFloat(imcActual);
+      const imcOk = imcVal >= 18.5 && imcVal < 25;
+
+      // ── Adherencia ──
+      const adherenceOk = (latest.adherence || 0) >= 4;
+
+      // ── Hidratación (% sesiones con hidratación adecuada) ──
+      const sessionsWithHydration = sortedSessions.filter((s: any) => s.hydration === true).length;
+      const hydrationPct = sortedSessions.length > 0
+        ? Math.round((sessionsWithHydration / sortedSessions.length) * 100) : 0;
+      const hydrationOk = hydrationPct >= 80;
+
+      // ── Índice de participación (% pacientes empresa con ≥1 sesión en 30 días) ──
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const { data: activePatientsData } = await supabase
+        .from('sessions')
+        .select('patient_id')
+        .eq('company', data.company || 'Galeno')
+        .gte('session_date', thirtyDaysAgo.toISOString().split('T')[0]);
+      const uniqueActive = new Set((activePatientsData || []).map((s: any) => s.patient_id)).size;
+      const participationPct = totalPatients ? Math.round((uniqueActive / totalPatients) * 100) : 0;
+      const participationOk = participationPct >= 80;
+
+      // ── Consumo frutas y verduras (% sesiones con puntaje ≥4) ──
+      const sessionsWithFruits = sortedSessions.filter((s: any) => (s.consumo_frutas_verduras || 0) >= 4).length;
+      const fruitsPct = sortedSessions.length > 0
+        ? Math.round((sessionsWithFruits / sortedSessions.length) * 100) : 0;
+      const fruitsOk = fruitsPct >= 60;
+
+      // ── Actividad física (% sesiones con ≥3 días/semana) ──
+      const sessionsWithActivity = sortedSessions.filter((s: any) =>
+        s.physical_activity === '3-4 días' || s.physical_activity === '5+ días'
+      ).length;
+      const activityPct = sortedSessions.length > 0
+        ? Math.round((sessionsWithActivity / sortedSessions.length) * 100) : 0;
+      const activityOk = activityPct >= 60;
+
+      const latestFruitsScore = latest.consumo_frutas_verduras || 0;
+      const fruitLabel = latestFruitsScore >= 4 ? 'Adecuado' : latestFruitsScore >= 2 ? 'Mejorable' : 'Insuficiente';
+
       const params = [
         {
           name: 'Índice de Masa Corporal (IMC)',
-          initial: data.height ? (data.initial_weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-',
-          actual: data.height && latest.weight ? (latest.weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-',
-          target: '24.9',
-          progress: 80, // Mocked progress
-          status: 'Normal',
-          statusColor: 'normal',
-          note: 'OMS: 18.5-24.9 = Normal',
-          noteValue: latest.weight && data.initial_weight ? `${(latest.weight - data.initial_weight).toFixed(1)}kg` : '0kg'
-        },
-        {
-          name: 'Presión Arterial',
-          initial: initial.systolic_bp ? `${initial.systolic_bp}/${initial.diastolic_bp}` : '-',
-          actual: latest.systolic_bp ? `${latest.systolic_bp}/${latest.diastolic_bp}` : '-',
-          target: '120/80',
-          progress: 90,
-          status: latest.systolic_bp && latest.systolic_bp < 130 ? 'Normal' : 'Alerta',
-          statusColor: latest.systolic_bp && latest.systolic_bp < 130 ? 'normal' : 'alert',
-          note: 'OMS: <120/80 = Óptima',
-          noteValue: 'Estable'
+          initial: imcInitial,
+          actual: imcActual,
+          target: '18.5–24.9',
+          progress: imcOk ? 100 : Math.max(10, 100 - Math.abs(imcVal - 22) * 8),
+          status: imcOk ? 'Normal' : imcVal < 18.5 ? 'Bajo Peso' : 'Sobrepeso',
+          statusColor: imcOk ? 'normal' : 'alert',
+          note: 'OMS: 18.5–24.9 = Normal',
+          noteValue: latest.weight && data.initial_weight ? `${(latest.weight - data.initial_weight).toFixed(1)} kg` : '—'
         },
         {
           name: 'Adherencia al Plan',
           initial: initial.adherence || '-',
           actual: latest.adherence || '-',
           target: '5',
-          progress: (latest.adherence / 5) * 100 || 0,
-          status: latest.adherence >= 4 ? 'Cumple' : 'En Riesgo',
-          statusColor: latest.adherence >= 4 ? 'normal' : 'risk',
-          note: 'Nivel auto-reportado',
-          noteValue: `${latest.adherence}/5`
-        }
+          progress: ((latest.adherence || 0) / 5) * 100,
+          status: adherenceOk ? 'Cumple' : 'En Riesgo',
+          statusColor: adherenceOk ? 'normal' : 'risk',
+          note: 'Meta institucional: ≥4/5',
+          noteValue: `${latest.adherence || 0}/5`
+        },
+        {
+          name: 'Hidratación',
+          initial: '-',
+          actual: `${hydrationPct}%`,
+          target: '≥80%',
+          progress: hydrationPct,
+          status: hydrationOk ? 'Adecuada' : 'Mejorar',
+          statusColor: hydrationOk ? 'normal' : 'alert',
+          note: 'OMS: ≥8 vasos/día recomendados',
+          noteValue: `${sessionsWithHydration}/${sortedSessions.length} sesiones`
+        },
+        {
+          name: 'Índice de Participación',
+          initial: '-',
+          actual: `${participationPct}%`,
+          target: '≥80%',
+          progress: participationPct,
+          status: participationOk ? 'Óptimo' : participationPct >= 60 ? 'Moderado' : 'Bajo',
+          statusColor: participationOk ? 'normal' : participationPct >= 60 ? 'alert' : 'risk',
+          note: `Pacientes activos en últimos 30 días`,
+          noteValue: `${uniqueActive}/${totalPatients || '?'}`
+        },
+        {
+          name: 'Consumo de Frutas y Verduras',
+          initial: '-',
+          actual: fruitLabel,
+          target: '≥60% sesiones',
+          progress: fruitsPct,
+          status: fruitsOk ? 'Adecuado' : 'Mejorar',
+          statusColor: fruitsOk ? 'normal' : 'alert',
+          note: 'OMS: ≥400g frutas y verduras/día',
+          noteValue: `Último: ${latestFruitsScore}/5`
+        },
+        {
+          name: 'Actividad Física',
+          initial: initial.physical_activity || '-',
+          actual: latest.physical_activity || '-',
+          target: '≥3 días/sem',
+          progress: activityPct,
+          status: activityOk ? 'Cumple' : 'Insuficiente',
+          statusColor: activityOk ? 'normal' : 'risk',
+          note: 'OMS: ≥150 min moderada/semana',
+          noteValue: `${sessionsWithActivity}/${sortedSessions.length} sesiones`
+        },
       ];
 
       setPatientData({
@@ -106,7 +186,9 @@ export default function Parameters() {
           cumple: params.filter(p => p.statusColor === 'normal').length,
           total: params.length,
           text: 'Continuar con el monitoreo regular.',
-          rec: 'Se recomienda mantener la hidratación y el nivel de actividad actual.'
+          rec: params.filter(p => p.statusColor !== 'normal').map(p => p.name).join(', ')
+            ? `Trabajar en: ${params.filter(p => p.statusColor !== 'normal').map(p => p.name).join(', ')}.`
+            : 'Todos los parámetros están dentro del rango óptimo. ¡Excelente trabajo!'
         }
       });
     } catch (err) {

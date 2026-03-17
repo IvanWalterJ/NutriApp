@@ -10,7 +10,8 @@ import Tabs from './components/Tabs';
 import Metrics from './components/Metrics';
 import Charts from './components/Charts';
 import EmployeesTable from './components/EmployeesTable';
-import SessionForm from './components/SessionForm';
+import ConsultationForm from './components/ConsultationForm';
+import AnthropometryForm from './components/AnthropometryForm';
 import Parameters from './components/Parameters';
 import Footer from './components/Footer';
 import Auth from './components/Auth';
@@ -113,8 +114,12 @@ export default function App() {
           <EmployeesTable />
         )}
 
-        {activeTab === 'nueva-sesion' && (
-          <SessionForm onComplete={() => setActiveTab('dashboard')} />
+        {activeTab === 'antropometria' && (
+          <AnthropometryForm onComplete={() => setActiveTab('dashboard')} />
+        )}
+
+        {activeTab === 'nueva-consulta' && (
+          <ConsultationForm onComplete={() => setActiveTab('dashboard')} />
         )}
 
         {activeTab === 'parametros' && (
