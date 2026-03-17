@@ -46,7 +46,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         margin: [8, 10, 8, 10],
         filename: `Antropometria_${patient.last_name}_${session.session_date}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       }).from(pdfRef.current).save();
     } finally {

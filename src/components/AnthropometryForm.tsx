@@ -406,7 +406,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
       margin: [8, 10, 8, 10],
       filename: `Antropometria_${patientInfo?.last_name}_${results?.session_date}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
+      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }).from(pdfRef.current).save();
   }
