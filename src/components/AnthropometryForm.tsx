@@ -406,7 +406,15 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
       margin: [8, 10, 8, 10],
       filename: `Antropometria_${patientInfo?.last_name}_${results?.session_date}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
+      html2canvas: { 
+        scale: 2, 
+        useCORS: true, 
+        logging: false,
+        onclone: (doc: any) => {
+          const el = doc.getElementById('anthropometry-pdf-report');
+          if (el) el.style.opacity = '1';
+        }
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
     }).from(pdfRef.current).save();
   }
@@ -670,8 +678,9 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     const valoracion = generateValoracion(r, patientInfo.first_name, patientInfo.last_name, ref);
 
     return (
-      <div style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden', zIndex: -100 }}>
-        <div ref={pdfRef} style={{
+      <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, pointerEvents: 'none' }}>
+        <div id="anthropometry-pdf-report" ref={pdfRef} style={{
+          opacity: 0,
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',
         }}>
