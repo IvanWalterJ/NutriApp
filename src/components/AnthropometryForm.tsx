@@ -1022,6 +1022,60 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
           </div>
         </div>
 
+        {/* ── Última Consulta Nutricional (si existe) ── */}
+        {consult && (
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
+              ÚLTIMA CONSULTA NUTRICIONAL · {consult.session_date}
+            </div>
+            <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', padding: '12px 16px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '10px' }}>
+                {([
+                  { l: 'Fecha', v: consult.session_date },
+                  { l: 'Modalidad', v: consult.modality || '—' },
+                  { l: 'Duración', v: consult.duration_minutes ? `${consult.duration_minutes} min` : '—' },
+                  { l: 'Estado General', v: consult.overall_status || '—' },
+                  ...(consult.weight   ? [{ l: 'Peso Consulta',  v: `${consult.weight} kg`   }] : []),
+                  ...(consult.girth_waist ? [{ l: 'Cintura Consulta', v: `${consult.girth_waist} cm` }] : []),
+                  { l: 'Adherencia al Plan', v: `${consult.adherence}/5` },
+                  { l: 'Nivel de Energía',   v: `${consult.energy_level}/5`  },
+                  { l: 'Calidad de Sueño',   v: `${consult.sleep_quality}/5` },
+                  { l: 'Hidratación',        v: consult.hydration ? 'Adecuada' : 'Insuficiente' },
+                  { l: 'Actividad Física',   v: consult.physical_activity || '—' },
+                  { l: 'Frutas y Verduras',  v: consult.consumo_frutas_verduras ? `${consult.consumo_frutas_verduras}/5` : '—' },
+                ] as { l: string; v: string }[]).map((item, i) => (
+                  <div key={i}>
+                    <div style={{ fontSize: '9px', color: '#666', fontWeight: 'bold', textTransform: 'uppercase' as const, letterSpacing: '0.5px' }}>{item.l}</div>
+                    <div style={{ fontWeight: 'bold', marginTop: '1px', fontSize: '11px' }}>{item.v}</div>
+                  </div>
+                ))}
+              </div>
+              {consult.laboratorio_alterado && (
+                <div style={{ marginBottom: '8px', background: '#fff8f0', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 10px' }}>
+                  <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#92400e', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: '3px' }}>Laboratorio Alterado</div>
+                  <div style={{ fontSize: '10px', color: '#333', lineHeight: '1.5' }}>{consult.laboratorio_alterado}</div>
+                </div>
+              )}
+              {(consult.achievements || consult.difficulties) && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                  {consult.achievements && (
+                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '4px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#065f46', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: '3px' }}>Principales Logros</div>
+                      <div style={{ fontSize: '10px', color: '#333', lineHeight: '1.5' }}>{consult.achievements}</div>
+                    </div>
+                  )}
+                  {consult.difficulties && (
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde68a', borderRadius: '4px', padding: '8px 10px' }}>
+                      <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#92400e', textTransform: 'uppercase' as const, letterSpacing: '0.5px', marginBottom: '3px' }}>Dificultades y Ajustes</div>
+                      <div style={{ fontSize: '10px', color: '#333', lineHeight: '1.5' }}>{consult.difficulties}</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* ── Footer ── */}
         <div style={{ borderTop: '2px solid #0A4D3C', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#555' }}>
           <div>
@@ -1297,6 +1351,115 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     }
     const r   = results;
     const ref = r.ref as RefGroup;
+
+    // ── App-side inline SVG chart helpers ─────────────────────────────────
+    const AppBMIBar = ({ bmi }: { bmi: number }) => {
+      const W = 220, H = 20, minV = 14, maxV = 42;
+      const p = (v: number) => Math.max(0, Math.min(1, (v - minV) / (maxV - minV))) * W;
+      const zones = [
+        { min: 14, max: 18.5, color: '#bfdbfe' },
+        { min: 18.5, max: 25, color: '#bbf7d0' },
+        { min: 25, max: 30,  color: '#fde68a' },
+        { min: 30, max: 35,  color: '#fdba74' },
+        { min: 35, max: 42,  color: '#fca5a5' },
+      ];
+      const labels = ['Bajo\nPeso','Normal','Sobre\npeso','Ob. I','Ob. II/III'];
+      const vx = p(bmi);
+      return (
+        <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
+          {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
+          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={2.5} fill="white" />
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{bmi}</text>
+        </svg>
+      );
+    };
+
+    const AppICCBar = ({ icc, sex }: { icc: number; sex: string }) => {
+      const W = 220, H = 20, minV = 0.6, maxV = 1.15;
+      const p = (v: number) => Math.max(0, Math.min(1, (v - minV) / (maxV - minV))) * W;
+      const t1 = sex === 'Masculino' ? 0.90 : 0.85;
+      const t2 = sex === 'Masculino' ? 1.00 : 0.90;
+      const zones = [
+        { min: minV, max: t1,  color: '#bbf7d0' },
+        { min: t1,   max: t2,  color: '#fde68a' },
+        { min: t2,   max: maxV, color: '#fca5a5' },
+      ];
+      const vx = p(icc);
+      return (
+        <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
+          {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
+          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={2.5} fill="white" />
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{icc}</text>
+        </svg>
+      );
+    };
+
+    const AppAbdBar = ({ cm, sex }: { cm: number; sex: string }) => {
+      const W = 220, H = 20, minV = 55, maxV = 130;
+      const p = (v: number) => Math.max(0, Math.min(1, (v - minV) / (maxV - minV))) * W;
+      const t1 = sex === 'Masculino' ? 94  : 80;
+      const t2 = sex === 'Masculino' ? 102 : 88;
+      const zones = [
+        { min: minV, max: t1,  color: '#bbf7d0' },
+        { min: t1,   max: t2,  color: '#fde68a' },
+        { min: t2,   max: maxV, color: '#fca5a5' },
+      ];
+      const vx = p(cm);
+      return (
+        <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
+          {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
+          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={2.5} fill="white" />
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{cm}</text>
+        </svg>
+      );
+    };
+
+    const AppCompBar = ({ value, mean, maxDiff }: { value: number; mean: number; maxDiff: number }) => {
+      const W = 180, H = 16, cx = W/2;
+      const scale = (W/2) / maxDiff;
+      const vx = Math.max(4, Math.min(W-4, cx + (value - mean) * scale));
+      const isHigh = value > mean;
+      return (
+        <svg width={W} height={H} style={{ display: 'block' }}>
+          <rect x={0} y={4} width={W} height={H-8} fill="#f3f4f6" rx="3" />
+          {isHigh
+            ? <rect x={cx} y={4} width={Math.max(0,vx - cx)} height={H-8} fill="#fca5a5" rx="0" />
+            : <rect x={vx} y={4} width={Math.max(0,cx - vx)}  height={H-8} fill="#6ee7b7" rx="0" />
+          }
+          <line x1={cx} y1={1} x2={cx} y2={H-1} stroke="#9ca3af" strokeWidth={1} />
+          <circle cx={vx} cy={H/2} r={5} fill={isHigh ? '#ef4444' : '#059669'} />
+          <circle cx={vx} cy={H/2} r={2.5} fill="white" />
+        </svg>
+      );
+    };
+
+    const AppFatDistBar = ({ sup, med, inf }: { sup: number; med: number; inf: number }) => {
+      const W = 260, H = 28;
+      const tot = sup + med + inf;
+      const s1 = (sup/tot)*W, m1 = (med/tot)*W;
+      const rSup = ref.fatSuperior[0], rMed = ref.fatMedia[0], rInf = ref.fatInferior[0];
+      const rTot = rSup + rMed + rInf;
+      const rs1 = (rSup/rTot)*W, rm1 = (rMed/rTot)*W;
+      return (
+        <svg width={W} height={H + 6} style={{ display: 'block' }}>
+          <rect x={0}     y={0}  width={s1}       height={16} fill="#E05252" rx="2" />
+          <rect x={s1}    y={0}  width={m1}        height={16} fill="#D97706" rx="2" />
+          <rect x={s1+m1} y={0}  width={W-s1-m1}  height={16} fill="#7CB9A0" rx="2" />
+          {s1 > 22 && <text x={s1/2} y={11} fill="white" fontSize={8} textAnchor="middle" fontWeight="bold">{sup.toFixed(0)}%</text>}
+          {m1 > 22 && <text x={s1+m1/2} y={11} fill="white" fontSize={8} textAnchor="middle" fontWeight="bold">{med.toFixed(0)}%</text>}
+          {W-s1-m1 > 22 && <text x={s1+m1+(W-s1-m1)/2} y={11} fill="white" fontSize={8} textAnchor="middle" fontWeight="bold">{inf.toFixed(0)}%</text>}
+          <rect x={0}      y={20} width={rs1}       height={8} fill="#E05252" opacity={0.3} rx="1" />
+          <rect x={rs1}    y={20} width={rm1}        height={8} fill="#D97706" opacity={0.3} rx="1" />
+          <rect x={rs1+rm1} y={20} width={W-rs1-rm1} height={8} fill="#7CB9A0" opacity={0.3} rx="1" />
+        </svg>
+      );
+    };
     return (
       <div>
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-5 border-b border-border-color">
@@ -1350,19 +1513,42 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
           </div>
         </div>
 
-        {/* Adiposity */}
+        {/* Adiposity with visual bars */}
         <div className="bg-bg border border-border-color rounded-2xl p-5 mb-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
           <h4 className="font-bold text-base mb-4 text-primary">Índices de Adiposidad</h4>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="space-y-4">
             {[
-              { name: 'IMC', value: r.bmi, extra: classifyBMI(r.bmi), ok: r.bmi>=18.5&&r.bmi<25 },
-              { name: 'Índice Cintura-Cadera', value: r.waistHipRatio, extra: classifyWaistHip(r.waistHipRatio,r.sex), ok: classifyWaistHip(r.waistHipRatio,r.sex)==='Valores Normales' },
-              { name: 'Perímetro Abdominal', value: `${r.girth_waist} cm`, extra: classifyAbdominal(r.girth_waist,r.sex), ok: classifyAbdominal(r.girth_waist,r.sex)==='Sin Riesgo' },
+              {
+                name: 'Índice de Masa Corporal (IMC)', value: r.bmi, unit: 'kg/m²',
+                cls: classifyBMI(r.bmi), ok: r.bmi>=18.5&&r.bmi<25,
+                ref: 'Normal: 18.5 – 24.9',
+                bar: <AppBMIBar bmi={r.bmi} />
+              },
+              {
+                name: 'Índice Cintura-Cadera', value: r.waistHipRatio, unit: '',
+                cls: classifyWaistHip(r.waistHipRatio,r.sex), ok: classifyWaistHip(r.waistHipRatio,r.sex)==='Valores Normales',
+                ref: r.sex==='Masculino'?'Normal: < 0.90':'Normal: < 0.85',
+                bar: <AppICCBar icc={r.waistHipRatio} sex={r.sex} />
+              },
+              {
+                name: 'Perímetro Abdominal', value: r.girth_waist, unit: 'cm',
+                cls: classifyAbdominal(r.girth_waist,r.sex), ok: classifyAbdominal(r.girth_waist,r.sex)==='Sin Riesgo',
+                ref: r.sex==='Masculino'?'Sin riesgo: < 94 cm':'Sin riesgo: < 80 cm',
+                bar: <AppAbdBar cm={r.girth_waist} sex={r.sex} />
+              },
             ].map((item, i) => (
               <div key={i} className={`rounded-xl p-4 border-l-4 ${item.ok?'border-primary bg-primary/5':'border-danger bg-danger/5'}`}>
-                <div className="text-xs text-text-muted uppercase tracking-wider mb-1">{item.name}</div>
-                <div className="text-2xl font-bold font-mono mb-1">{item.value}</div>
-                <div className={`text-xs font-bold ${item.ok?'text-primary':'text-danger'}`}>{item.extra}</div>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex-1">
+                    <div className="text-xs text-text-muted uppercase tracking-wider mb-0.5">{item.name}</div>
+                    <div className="text-2xl font-bold font-mono">{item.value}{item.unit ? ` ${item.unit}` : ''}</div>
+                    <div className={`text-xs font-bold mt-0.5 ${item.ok?'text-primary':'text-danger'}`}>{item.cls}</div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-xs text-text-muted">{item.ref}</span>
+                    {item.bar}
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -1372,7 +1558,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
           <div className="bg-bg border border-border-color rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
             <h4 className="font-bold text-base mb-4 text-primary">Distribución Regional de Grasa</h4>
-            <table className="w-full text-sm">
+            <table className="w-full text-sm mb-4">
               <thead>
                 <tr className="border-b-2 border-border-color">
                   <th className="text-left py-2 pr-3 text-text-muted text-xs">Región</th>
@@ -1399,6 +1585,16 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
                 })}
               </tbody>
             </table>
+            <div className="mt-2">
+              <div className="text-xs text-text-muted font-semibold mb-1.5 uppercase tracking-wider">Distribución % — Paciente vs. Referencia</div>
+              <AppFatDistBar sup={r.fatSuperior} med={r.fatMedia} inf={r.fatInferior} />
+              <div className="flex gap-4 mt-2 text-xs text-text-muted">
+                <span><span style={{color:'#E05252'}} className="font-bold">■</span> Superior</span>
+                <span><span style={{color:'#D97706'}} className="font-bold">■</span> Media</span>
+                <span><span style={{color:'#7CB9A0'}} className="font-bold">■</span> Inferior</span>
+                <span className="ml-auto opacity-60">Barra inferior = referencia</span>
+              </div>
+            </div>
           </div>
           <div className="bg-bg border border-border-color rounded-2xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)]">
             <h4 className="font-bold text-base mb-4 text-primary">Perímetros Musculares</h4>
@@ -1408,23 +1604,27 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
                   <th className="text-left py-2 pr-3 text-text-muted text-xs">Perímetro</th>
                   <th className="text-left py-2 pr-3 text-text-muted text-xs">Medido</th>
                   <th className="text-left py-2 pr-3 text-text-muted text-xs">Ref.</th>
-                  <th className="text-left py-2 text-text-muted text-xs">Dif.</th>
+                  <th className="text-left py-2 pr-3 text-text-muted text-xs">Dif.</th>
+                  <th className="text-left py-2 text-text-muted text-xs">Posición</th>
                 </tr>
               </thead>
               <tbody>
                 {[
-                  { name: 'Tórax',   value: r.girth_chest, mean: ref.chestCm[0] },
-                  { name: 'Cintura', value: r.girth_waist, mean: ref.waistCm[0] },
-                  { name: 'Cadera',  value: r.girth_hip,   mean: ref.hipCm[0]   },
+                  { name: 'Tórax',   value: r.girth_chest, mean: ref.chestCm[0], sd: ref.chestCm[1]  },
+                  { name: 'Cintura', value: r.girth_waist, mean: ref.waistCm[0], sd: ref.waistCm[1]  },
+                  { name: 'Cadera',  value: r.girth_hip,   mean: ref.hipCm[0],   sd: ref.hipCm[1]    },
                 ].map((row, i) => {
                   const diff = (row.value - row.mean).toFixed(1);
                   return (
                     <tr key={i} className="border-b border-border-color">
-                      <td className="py-2 pr-3 font-medium">{row.name}</td>
-                      <td className="py-2 pr-3 font-mono font-bold">{row.value} cm</td>
-                      <td className="py-2 pr-3 text-text-muted text-xs">{row.mean.toFixed(1)} cm</td>
-                      <td className={`py-2 font-mono font-bold text-sm ${parseFloat(diff)>0?'text-danger':'text-primary'}`}>
-                        {parseFloat(diff)>0?'+':''}{diff} cm
+                      <td className="py-2.5 pr-3 font-medium">{row.name}</td>
+                      <td className="py-2.5 pr-3 font-mono font-bold">{row.value} cm</td>
+                      <td className="py-2.5 pr-3 text-text-muted text-xs">{row.mean.toFixed(1)} cm</td>
+                      <td className={`py-2.5 pr-3 font-mono font-bold text-sm ${parseFloat(diff)>0?'text-danger':'text-primary'}`}>
+                        {parseFloat(diff)>0?'+':''}{diff}
+                      </td>
+                      <td className="py-2.5">
+                        <AppCompBar value={row.value} mean={row.mean} maxDiff={Math.max(row.sd * 3, 15)} />
                       </td>
                     </tr>
                   );
