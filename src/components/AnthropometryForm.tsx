@@ -401,13 +401,25 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
   async function downloadPDF() {
     if (!pdfRef.current) return;
     const html2pdf = (await import('html2pdf.js')).default;
+    
+    // Clone the element and place it invisibly in the body to avoid overflow/clipping bugs in html2canvas
+    const clone = pdfRef.current.cloneNode(true) as HTMLElement;
+    clone.style.display = 'block';
+    clone.style.position = 'absolute';
+    clone.style.top = '0';
+    clone.style.left = '0';
+    clone.style.zIndex = '-9999';
+    document.body.appendChild(clone);
+
     await html2pdf().set({
       margin: [8, 10, 8, 10],
       filename: `Antropometria_${patientInfo?.last_name}_${results?.session_date}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true, logging: false },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(pdfRef.current).save();
+    }).from(clone).save();
+
+    document.body.removeChild(clone);
   }
 
   // ── sub-components defined INSIDE (no inputs, so remount is harmless) ──────
@@ -669,11 +681,11 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     const valoracion = generateValoracion(r, patientInfo.first_name, patientInfo.last_name, ref);
 
     return (
-      <div ref={pdfRef} style={{
-        position: 'fixed', left: '-9999px', top: 0, zIndex: -1,
-        width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
-        padding: '20px 24px', background: '#fff',
-      }}>
+      <div style={{ display: 'none' }}>
+        <div ref={pdfRef} style={{
+          width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
+          padding: '20px 24px', background: '#fff',
+        }}>
 
         {/* ── Header ── */}
         <div style={{ background: 'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)', color: '#fff', padding: '18px 24px', borderRadius: '10px', marginBottom: '4px' }}>
@@ -696,7 +708,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
         </div>
 
         {/* ── Demographics ── */}
-        <div style={{ background: '#f4f9f7', border: '1px solid #c8e0d6', borderRadius: '8px', padding: '12px 16px', marginBottom: '14px', pageBreakInside: 'avoid' }}>
+        <div style={{background:'#f4f9f7',border:'1px solid #c8e0d6',borderRadius:'8px',padding:'12px 16px',marginBottom:'14px',pageBreakInside:'avoid'}}>
           <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '2px', color: '#0A4D3C', marginBottom: '8px', textTransform: 'uppercase' }}>Datos del Evaluado</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '12px' }}>
             {[
@@ -718,7 +730,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
         </div>
 
         {/* ── Raw Measurements ── */}
-        <div style={{ marginBottom: '14px' }}>
+        <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
           <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
             MEDICIONES ANTROPOMÉTRICAS
           </div>
@@ -825,7 +837,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
         </div>
 
         {/* ── Body Composition + Pie ── */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 175px', gap: '14px', marginBottom: '14px', pageBreakInside: 'avoid' }}>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 175px',gap:'14px',marginBottom:'14px',pageBreakInside:'avoid'}}>
           <div>
             <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>COMPOSICIÓN CORPORAL</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
@@ -934,37 +946,29 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
 
         {/* ── Regional fat + Perimeters ── */}
         <div style={{ marginBottom: '22px' }}>
-          <div style={{ marginBottom: '14px', pageBreakInside: 'avoid' }}>
-            <div style={{ background: '#0A4D3C', color: '#fff', padding: '8px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
-            <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', padding: '10px 12px' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start' }}>
-                <table style={{ flex: 1, borderCollapse: 'collapse', fontSize: '11px', marginBottom: '10px' }}>
-                  <thead><tr style={{ background: '#f4f9f7' }}>
-                    <th style={{ ...tdL }}>Región</th>
-                    <th style={{ ...tdV }}>%</th>
-                    <th style={{ ...tdM }}>Ref.</th>
-                    <th style={{ ...tdV }}>Clasif.</th>
-                  </tr></thead>
-                  <tbody>
-                    {[
-                      { name: 'Superior', value: r.fatSuperior, mean: ref.fatSuperior[0], sd: ref.fatSuperior[1] },
-                      { name: 'Media',    value: r.fatMedia,    mean: ref.fatMedia[0],    sd: ref.fatMedia[1]    },
-                      { name: 'Inferior', value: r.fatInferior, mean: ref.fatInferior[0], sd: ref.fatInferior[1] },
-                    ].map((row, i) => {
-                      const cls = classify(row.value, row.mean, row.sd); const c = clsBg(cls);
-                      return (
-                        <tr key={i} style={{ background: i%2===0?'#fff':'#fafafe', borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={{ ...tdL, paddingTop: '7px', paddingBottom: '7px' }}>{row.name}</td>
-                          <td style={{ ...tdV, fontWeight: 'bold' }}>{row.value}%</td>
-                          <td style={{ ...tdM }}>{row.mean.toFixed(1)}±{row.sd.toFixed(1)}%</td>
-                          <td style={{ ...tdV }}><span style={{ background: c.bg, color: c.color, padding: '1px 5px', borderRadius: '3px', fontSize: '9px', fontWeight: 'bold' }}>{cls}</span></td>
-                        </tr>
-                      );
-                    })}
+          {/* Regional fat — full width to avoid page cuts */}
+          <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
+            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
+            <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',padding:'10px 12px'}}>
+              <div style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
+                <table style={{flex:1,borderCollapse:'collapse',fontSize:'11px'}}>
+                  <thead><tr style={{background:'#f4f9f7'}}><th style={tdL}>Región</th><th style={tdV}>%</th><th style={tdM}>Ref.</th><th style={tdV}>Clasif.</th></tr></thead>
+                  <tbody>{[
+                    {name:'Superior',value:r.fatSuperior,mean:ref.fatSuperior[0],sd:ref.fatSuperior[1]},
+                    {name:'Media',   value:r.fatMedia,    mean:ref.fatMedia[0],   sd:ref.fatMedia[1]},
+                    {name:'Inferior',value:r.fatInferior, mean:ref.fatInferior[0],sd:ref.fatInferior[1]},
+                  ].map((row,i)=>{ const cls=classify(row.value,row.mean,row.sd); const c=clsBg(cls); return (
+                    <tr key={i} style={{background:i%2===0?'#fff':'#fafafe',borderBottom:'1px solid #e5e7eb'}}>
+                      <td style={{...tdL,paddingTop:'7px',paddingBottom:'7px'}}>{row.name}</td>
+                      <td style={{...tdV,fontWeight:'bold'}}>{row.value}%</td>
+                      <td style={tdM}>{row.mean.toFixed(1)}±{row.sd.toFixed(1)}%</td>
+                      <td style={tdV}><span style={{background:c.bg,color:c.color,padding:'1px 5px',borderRadius:'3px',fontSize:'9px',fontWeight:'bold'}}>{cls}</span></td>
+                    </tr>
+                  );})}
                   </tbody>
                 </table>
-                <div style={{ paddingTop: '4px' }}>
-                  <div style={{ fontSize: '8px', color: '#666', marginBottom: '4px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Distribución %</div>
+                <div style={{paddingTop:'4px'}}>
+                  <div style={{fontSize:'8px',color:'#666',marginBottom:'4px',fontWeight:'bold',textTransform:'uppercase' as const, letterSpacing: '0.5px'}}>Distribución %</div>
                   {FatDistBar(r.fatSuperior, r.fatMedia, r.fatInferior, ref.fatSuperior[0], ref.fatMedia[0], ref.fatInferior[0])}
                   <div style={{ display: 'flex', gap: '10px', marginTop: '4px', fontSize: '7.5px', color: '#666' }}>
                     <span><span style={{ color: '#E05252', fontWeight: 'bold' }}>■</span> Superior</span>
@@ -975,36 +979,28 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
               </div>
             </div>
           </div>
-          <div style={{ pageBreakInside: 'avoid' }}>
-            <div style={{ background: '#0A4D3C', color: '#fff', padding: '8px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>PERÍMETROS MUSCULARES</div>
-            <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                <thead><tr style={{ background: '#f4f9f7' }}>
-                  <th style={{ ...tdL }}>Perímetro</th>
-                  <th style={{ ...tdV }}>Medido</th>
-                  <th style={{ ...tdM }}>Ref.</th>
-                  <th style={{ ...tdV }}>Dif.</th>
-                  <th style={{ ...tdV }}>Gráfico</th>
-                </tr></thead>
-                <tbody>
-                  {[
-                    { name: 'Tórax',   value: r.girth_chest, mean: ref.chestCm[0],  sd: ref.chestCm[1]  },
-                    { name: 'Cintura', value: r.girth_waist, mean: ref.waistCm[0],  sd: ref.waistCm[1]  },
-                    { name: 'Cadera',  value: r.girth_hip,   mean: ref.hipCm[0],    sd: ref.hipCm[1]    },
-                  ].map((row, i) => {
-                    const diff = (row.value - row.mean).toFixed(1);
-                    return (
-                      <tr key={i} style={{ background: i%2===0?'#fff':'#fafafe', borderBottom: '1px solid #e5e7eb' }}>
-                        <td style={{ ...tdL, paddingTop: '7px', paddingBottom: '7px' }}>{row.name}</td>
-                        <td style={{ ...tdV, fontWeight: 'bold' }}>{row.value} cm</td>
-                        <td style={{ ...tdM }}>{row.mean.toFixed(1)} cm</td>
-                        <td style={{ ...tdV, fontWeight: 'bold', color: parseFloat(diff)>0?'#991b1b':'#065f46' }}>
-                          {parseFloat(diff)>0?'+':''}{diff} cm
-                        </td>
-                        <td style={{ padding: '4px 8px', textAlign: 'center' }}>{CompBar(row.value, row.mean, Math.max(row.sd * 3, 15))}</td>
-                      </tr>
-                    );
-                  })}
+
+          {/* Perimeters — full width */}
+          <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
+            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>PERÍMETROS MUSCULARES</div>
+            <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',overflow:'hidden'}}>
+              <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
+                <thead><tr style={{background:'#f4f9f7'}}><th style={tdL}>Perímetro</th><th style={tdV}>Medido</th><th style={tdM}>Ref.</th><th style={tdV}>Dif.</th><th style={tdV}>Gráfico</th></tr></thead>
+                <tbody>{[
+                  {name:'Tórax',   value:r.girth_chest,mean:ref.chestCm[0],sd:ref.chestCm[1]},
+                  {name:'Cintura', value:r.girth_waist, mean:ref.waistCm[0],sd:ref.waistCm[1]},
+                  {name:'Cadera',  value:r.girth_hip,   mean:ref.hipCm[0],  sd:ref.hipCm[1]},
+                ].map((row,i)=>{ const diff=(row.value-row.mean).toFixed(1); return (
+                  <tr key={i} style={{background:i%2===0?'#fff':'#fafafe',borderBottom:'1px solid #e5e7eb'}}>
+                    <td style={{...tdL,paddingTop:'7px',paddingBottom:'7px'}}>{row.name}</td>
+                    <td style={{...tdV,fontWeight:'bold'}}>{row.value} cm</td>
+                    <td style={tdM}>{row.mean.toFixed(1)} cm</td>
+                    <td style={{...tdV,fontWeight:'bold',color:parseFloat(diff)>0?'#991b1b':'#065f46'}}>{parseFloat(diff)>0?'+':''}{diff} cm</td>
+                    <td style={{padding:'4px 8px',textAlign:'center'}}>
+                      {CompBar(row.value, row.mean, Math.max(row.sd*3, 15))}
+                    </td>
+                  </tr>
+                );})}
                 </tbody>
               </table>
             </div>
@@ -1081,14 +1077,15 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
           </div>
         )}
 
-        {/* ── Footer ── */}
-        <div style={{ borderTop: '2px solid #0A4D3C', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#555' }}>
-          <div>
-            <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>Lic. Rosana Roldán</span>
-            {' · '}
-            <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>www.nuplan.com.ar</span>
+          {/* ── Footer ── */}
+          <div style={{ borderTop: '2px solid #0A4D3C', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#555' }}>
+            <div>
+              <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>Lic. Rosana Roldán</span>
+              {' · '}
+              <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>www.nuplan.com.ar</span>
+            </div>
+            <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
-          <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
         </div>
       </div>
     );

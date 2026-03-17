@@ -40,13 +40,24 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     setShowGroupPicker(false);
     try {
       const html2pdf = (await import('html2pdf.js')).default;
+      
+      const clone = pdfRef.current.cloneNode(true) as HTMLElement;
+      clone.style.display = 'block';
+      clone.style.position = 'absolute';
+      clone.style.top = '0';
+      clone.style.left = '0';
+      clone.style.zIndex = '-9999';
+      document.body.appendChild(clone);
+
       await html2pdf().set({
         margin: [8, 10, 8, 10],
         filename: `Antropometria_${patient.last_name}_${session.session_date}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(pdfRef.current).save();
+      }).from(clone).save();
+
+      document.body.removeChild(clone);
     } finally {
       setLoading(false);
     }
@@ -145,36 +156,53 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         {loading ? 'Generando...' : 'Informe PDF'}
       </button>
 
-      {/* ── Activity Group Picker (only when missing from old sessions) ── */}
+      {/* ── Activity Group Picker (Sleek Modern Modal) ── */}
       {showGroupPicker && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[200] p-4">
-          <div className="bg-surface rounded-2xl p-6 w-full max-w-sm shadow-2xl border border-white/20">
-            <h3 className="font-bold text-lg mb-1">Grupo de Referencia</h3>
-            <p className="text-sm text-text-muted mb-4">Esta sesión no registró el grupo de referencia. Seleccioná uno para generar el informe.</p>
-            <select
-              className="w-full p-3 border-2 border-border-color rounded-lg mb-4 focus:outline-none focus:border-primary text-sm"
-              value={chosenGroup}
-              onChange={e => setChosenGroup(e.target.value)}
-            >
-              <option value="">— Seleccionar —</option>
-              {ACTIVITY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-            </select>
-            <div className="flex gap-3">
-              <button onClick={() => setShowGroupPicker(false)} className="flex-1 px-4 py-2 border-2 border-border-color rounded-lg text-sm font-semibold hover:bg-bg transition-colors">Cancelar</button>
+        <div className="fixed inset-0 bg-text-main/40 backdrop-blur-md flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
+          <div className="bg-surface rounded-3xl p-8 w-full max-w-sm shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-border-color animate-in zoom-in-95 duration-300">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            </div>
+            <h3 className="font-bold text-xl text-text-main mb-2">Grupo de Referencia</h3>
+            <p className="text-sm text-text-muted mb-6 leading-relaxed">Esta sesión es antigua y no tiene grupo de referencia. Elegí uno para comparar los resultados.</p>
+            
+            <div className="relative mb-6">
+              <select
+                className="w-full pl-4 pr-10 py-3.5 bg-bg border border-border-color rounded-xl appearance-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm font-medium transition-all"
+                value={chosenGroup}
+                onChange={e => setChosenGroup(e.target.value)}
+              >
+                <option value="">— Seleccionar grupo —</option>
+                {ACTIVITY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
               <button
                 onClick={() => { if (chosenGroup) handleDownload(chosenGroup); }}
                 disabled={!chosenGroup}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary-light transition-colors disabled:opacity-50"
-              >Generar PDF</button>
+                className="w-full py-3.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-all active:scale-[0.98] disabled:opacity-50 shadow-lg shadow-primary/20"
+              >
+                Generar Informe
+              </button>
+              <button 
+                onClick={() => setShowGroupPicker(false)} 
+                className="w-full py-3 text-sm font-bold text-text-muted hover:text-text-main transition-colors"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Off-screen PDF Report (never toggled, no flash) ── */}
+      {/* ── Hidden PDF Report ── */}
       {r && (
+        <div style={{ display: 'none' }}>
         <div ref={pdfRef} style={{
-          position: 'fixed', left: '-9999px', top: 0, zIndex: -1,
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',
         }}>
@@ -394,9 +422,10 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
           {/* Footer */}
           <div style={{borderTop:'2px solid #0A4D3C',paddingTop:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'9px',color:'#555'}}>
-            <div><span style={{fontWeight:'bold',color:'#0A4D3C'}}>Lic. Rosana Roldán</span>{' · '}<span style={{fontWeight:'bold',color:'#0A4D3C'}}>www.nuplan.com.ar</span></div>
+            <div><span style={{fontWeight:'bold',color:'#0A4D3C'}}>Lic. Rosana Roldán</span> · <span style={{fontWeight:'bold',color:'#0A4D3C'}}>www.nuplan.com.ar</span></div>
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
+        </div>
         </div>
       )}
     </>
