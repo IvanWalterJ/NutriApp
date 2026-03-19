@@ -46,7 +46,7 @@ const tabs = [
 
 export default function Tabs({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) {
   return (
-    <div className="bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color grid grid-cols-2 md:flex md:flex-row gap-2">
+    <div className="print:hidden bg-surface/50 backdrop-blur-sm rounded-2xl p-2 mb-8 border-2 border-border-color grid grid-cols-2 md:flex md:flex-row gap-2">
       {tabs.map(({ id, label, Icon }) => (
         <button
           key={id}

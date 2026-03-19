@@ -77,7 +77,6 @@ export default function MealPlanGenerator() {
   });
   
   const [loading, setLoading] = useState(false);
-  const [downloading, setDownloading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   
@@ -204,29 +203,10 @@ export default function MealPlanGenerator() {
     }
   }
 
-  async function downloadPDF() {
-    if (!pdfRef.current) return;
-    setDownloading(true);
-    showToast('Generando archivo PDF...', 'info');
-    try {
-      const html2pdfModule = await import('html2pdf.js');
-      const html2pdf = (html2pdfModule.default || html2pdfModule) as any;
-
-      const opt = {
-          margin: 10,
-          filename: `Plan_Nutricional_${patientData?.lastName}_${new Date().toISOString().split('T')[0]}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      };
-      await html2pdf().set(opt).from(pdfRef.current).save();
-      showToast('Plan descargado correctamente', 'success');
-    } catch (e: any) {
-      console.error(e);
-      showToast('Error al descargar el archivo. Por favor intenta de nuevo.', 'error');
-    } finally {
-      setDownloading(false);
-    }
+  function downloadPDF() {
+    // html2pdf fails with modern Tailwind V4 oklch colors. 
+    // The native window.print() is 100% robust, vector-based, and generates much better PDFs.
+    window.print();
   }
 
   function handleReset() {
@@ -425,20 +405,15 @@ export default function MealPlanGenerator() {
                 Índice de Bienestar Nutricional NuPlan · {selectedCompany.toUpperCase()}
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex flex-col sm:flex-row gap-3 print:hidden">
               <button 
                 onClick={downloadPDF} 
-                disabled={downloading}
-                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer relative z-10 shadow-sm"
               >
-                {downloading ? (
-                  <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"></div>
-                ) : (
-                  <Printer /> 
-                )}
-                {downloading ? 'Descargando...' : 'Descargar PDF'}
+                <Printer /> 
+                Descargar PDF
               </button>
-              <button onClick={handleReset} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2">
+              <button onClick={handleReset} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer relative z-10 shadow-sm">
                 <RotateCcw /> Volver a Empezar
               </button>
             </div>
