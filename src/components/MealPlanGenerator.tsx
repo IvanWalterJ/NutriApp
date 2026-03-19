@@ -77,6 +77,7 @@ export default function MealPlanGenerator() {
   });
   
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
   
@@ -205,43 +206,69 @@ export default function MealPlanGenerator() {
 
   async function downloadPDF() {
     if (!pdfRef.current) return;
-    const html2pdf = (await import('html2pdf.js')).default;
+    setDownloading(true);
+    showToast('Generando archivo PDF...', 'info');
+    try {
+      const html2pdfModule = await import('html2pdf.js');
+      const html2pdf = (html2pdfModule.default || html2pdfModule) as any;
 
-    await html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename: `Plan_${patientData?.lastName}_${new Date().toISOString().split('T')[0]}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(pdfRef.current).save();
+      const opt = {
+          margin: 10,
+          filename: `Plan_Nutricional_${patientData?.lastName}_${new Date().toISOString().split('T')[0]}.pdf`,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      };
+      await html2pdf().set(opt).from(pdfRef.current).save();
+      showToast('Plan descargado correctamente', 'success');
+    } catch (e: any) {
+      console.error(e);
+      showToast('Error al descargar el archivo. Por favor intenta de nuevo.', 'error');
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  function handleReset() {
+    setGeneratedPlan(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
 
-  // --- Subcomponents for Rendering Plan ---
   const PieChart = ({ pV, pP, pC, pF }: { pV: number, pP: number, pC: number, pF: number }) => {
     const size = 200;
-    const cx = size/2, cy = size/2, r = size/2 - 10;
+    const cx = size/2, cy = size/2, r = size/2 - 15;
     const slices = [
-      { pct: pV/100, color: '#e8fae8', label: 'VEGETALES' },
-      { pct: pP/100, color: '#e0f2fe', label: 'PROTEÍNAS' },
-      { pct: pC/100, color: '#fef3c7', label: 'CARBOHIDRATOS' },
-      { pct: pF/100, color: '#f3e8ff', label: 'GRASAS' }
+      { pct: pV/100, color: 'url(#grad-v)', label: 'VEGETALES' },
+      { pct: pP/100, color: 'url(#grad-p)', label: 'PROTEÍNAS' },
+      { pct: pC/100, color: 'url(#grad-C)', label: 'CARBOHIDRATOS' },
+      { pct: pF/100, color: 'url(#grad-f)', label: 'GRASAS' }
     ];
     let cum = -Math.PI / 2;
     return (
       <div className="relative">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-          {slices.map((s, i) => {
-            const start = cum, end = cum + s.pct * 2 * Math.PI; cum = end;
-            const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
-            const x2 = cx + r*Math.cos(end), y2 = cy + r*Math.sin(end);
-            const largeArc = s.pct > 0.5 ? 1 : 0;
-            return <path key={i} d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`} fill={s.color} stroke="#fff" strokeWidth="3" />;
-          })}
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="filter overflow-visible">
+          <defs>
+            <linearGradient id="grad-v" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#4ade80"/><stop offset="100%" stopColor="#16a34a"/></linearGradient>
+            <linearGradient id="grad-p" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#60a5fa"/><stop offset="100%" stopColor="#2563eb"/></linearGradient>
+            <linearGradient id="grad-C" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#fbbf24"/><stop offset="100%" stopColor="#d97706"/></linearGradient>
+            <linearGradient id="grad-f" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#c084fc"/><stop offset="100%" stopColor="#9333ea"/></linearGradient>
+            <filter id="pie-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.15" />
+              <feDropShadow dx="-2" dy="-2" stdDeviation="3" floodColor="#ffffff" floodOpacity="0.5" />
+            </filter>
+          </defs>
+          <g filter="url(#pie-shadow)">
+            {slices.map((s, i) => {
+              if (s.pct === 0) return null;
+              const start = cum, end = cum + s.pct * 2 * Math.PI; cum = end;
+              const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
+              const x2 = cx + r*Math.cos(end), y2 = cy + r*Math.sin(end);
+              const largeArc = s.pct > 0.5 ? 1 : 0;
+              return <path key={i} d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`} fill={s.color} stroke="#ffffff" strokeWidth="2.5" />;
+            })}
+          </g>
         </svg>
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          {/* A simple overlay indicating contents, visually approximating the chart labels on the image */}
-        </div>
       </div>
     );
   };
@@ -399,10 +426,19 @@ export default function MealPlanGenerator() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={downloadPDF} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2">
-                <Printer /> Imprimir PDF
+              <button 
+                onClick={downloadPDF} 
+                disabled={downloading}
+                className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {downloading ? (
+                  <div className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"></div>
+                ) : (
+                  <Printer /> 
+                )}
+                {downloading ? 'Descargando...' : 'Descargar PDF'}
               </button>
-              <button onClick={() => setGeneratedPlan(null)} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2">
+              <button onClick={handleReset} className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2">
                 <RotateCcw /> Volver a Empezar
               </button>
             </div>
@@ -570,6 +606,46 @@ export default function MealPlanGenerator() {
                 </div>
 
               </div>
+
+              {/* Suplementos y Sustitutos */}
+              {(generatedPlan.supplements?.length > 0 || generatedPlan.substitutes?.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                  {generatedPlan.supplements?.length > 0 && (
+                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
+                      <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Suplementación Sugerida</h3>
+                      <div className="space-y-3">
+                        {generatedPlan.supplements.map((s: any, i: number) => (
+                          <div key={i} className="p-3 bg-[#e8fae8] border border-[#bbf7d0] rounded-xl">
+                            <div className="font-bold text-sm text-[#0A4D3C]">{s.name}</div>
+                            {s.dosage && <div className="text-xs text-[#0A4D3C]/70 mb-1 font-mono">{s.dosage}</div>}
+                            <div className="text-[11px] text-gray-700 mt-1">💡 {s.reason}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {generatedPlan.substitutes?.length > 0 && (
+                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
+                      <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-accent-dark">Opciones de Sustitución</h3>
+                      <div className="space-y-4">
+                        {generatedPlan.substitutes.map((sub: any, i: number) => (
+                          <div key={i}>
+                            <h4 className="text-[11px] font-bold text-gray-800 uppercase mb-1.5">{sub.category}</h4>
+                            <div className="flex flex-wrap gap-1.5">
+                              {sub.options.map((opt: string, j: number) => (
+                                <span key={j} className="text-[10px] px-2 py-1 bg-surface border border-border-color rounded-md text-gray-700 shadow-sm">
+                                  {opt}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           </div>

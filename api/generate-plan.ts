@@ -102,7 +102,14 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
     "proteins": ["..."],
     "carbsAndLegumes": ["..."],
     "fatsAndDairy": ["..."]
-  }
+  },
+  "supplements": [
+    { "name": "Ejemplo: Vitamina B12", "dosage": "Dosis...", "reason": "Justificación..." }
+  ],
+  "substitutes": [
+    { "category": "Carbohidratos Base", "options": ["Arroz Integral", "Quinoa", "Boniato"] },
+    { "category": "Proteína Base", "options": ["Pollo magro", "Pescado", "Tofu"] }
+  ]
 }
 `;
 
