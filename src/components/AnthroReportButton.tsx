@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
   REFERENCE, ACTIVITY_GROUPS, RefGroup,
   classify, classifyBMI, classifyWaistHip, classifyAbdominal,
@@ -23,35 +23,33 @@ function getAge(birthDate: string): number {
 
 export default function AnthroReportButton({ session, patient, latestConsult }: Props) {
   const { selectedCompany } = useCompany();
-  const pdfRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [chosenGroup, setChosenGroup] = useState('');
 
   // Determine activity_group: use stored value or ask user
   const activityGroup = session.activity_group || chosenGroup;
-  const pdfId = `pdf-report-${session.id}`;
 
-  async function handleDownload(group?: string) {
+  function handleDownload(group?: string) {
     const ag = group || activityGroup;
     if (!ag) { setShowGroupPicker(true); return; }
-    if (!pdfRef.current) return;
 
     setLoading(true);
     setShowGroupPicker(false);
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      await html2pdf().set({
-        margin: [8, 10, 8, 10],
-        filename: `Antropometria_${patient.last_name}_${session.session_date}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      }).from(pdfRef.current).save();
-    } finally {
-      setLoading(false);
-    }
+
+    const originalTitle = document.title;
+    document.title = `Informe Antropométrico - ${patient.last_name}, ${patient.first_name}`;
+    document.body.classList.add('anthro-printing');
+
+    // Two rAF to let the browser apply the CSS class before opening the print dialog
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        window.print();
+        document.body.classList.remove('anthro-printing');
+        document.title = originalTitle;
+        setLoading(false);
+      });
+    });
   }
 
   // ── Compute results ────────────────────────────────────────────────────────
@@ -190,11 +188,12 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         </div>
       )}
 
-      {/* ── Hidden PDF Report ── */}
+      {/* ── Hidden Report (shown only in print mode via anthro-printing CSS) ── */}
       {r && (
-        <div style={{ position: 'absolute', top: 0, left: 0, zIndex: -9999, pointerEvents: 'none', opacity: 0 }}>
-        <div ref={pdfRef} style={{
-          width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
+        <div id="anthro-print-report" style={{
+          position: 'absolute', top: '-99999px', left: 0,
+          visibility: 'hidden', pointerEvents: 'none',
+          width: '100%', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',
         }}>
           {/* Header */}
@@ -416,7 +415,6 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
             <div><span style={{fontWeight:'bold',color:'#0A4D3C'}}>Lic. Rosana Roldán</span> · <span style={{fontWeight:'bold',color:'#0A4D3C'}}>www.nuplan.com.ar</span></div>
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
-        </div>
         </div>
       )}
     </>

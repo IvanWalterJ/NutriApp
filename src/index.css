@@ -125,6 +125,29 @@ body {
 }
 
 
+/* Anthropometry print mode — triggered by body.anthro-printing */
+@media print {
+  /* Hide everything, then reveal only the report */
+  body.anthro-printing * {
+    visibility: hidden !important;
+  }
+  body.anthro-printing #anthro-print-report {
+    visibility: visible !important;
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    background: white !important;
+    padding: 8mm 10mm !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    overflow: visible !important;
+    z-index: 9999 !important;
+  }
+  body.anthro-printing #anthro-print-report * {
+    visibility: visible !important;
+  }
+}
+
 /* Print Styles */
 @media print {
   @page {
