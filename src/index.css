@@ -128,7 +128,7 @@ body {
 /* Print Styles */
 @media print {
   @page {
-    margin: 10mm 8mm;
+    margin: 0;
     size: A4 portrait;
   }
 
@@ -157,12 +157,12 @@ body {
     margin: 0 !important;
   }
 
-  /* Force the plan container to fit A4 width */
+  /* Force the plan container to fit A4 width, with padding to replace @page margins */
   #generated-plan-view {
     max-width: 100% !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 8mm 10mm !important;
   }
 
   /* Prevent horizontal overflow that causes cutoff */
@@ -178,6 +178,20 @@ body {
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* Ensure meal item cards show borders and background in print */
+  .bg-gray-50\/50 {
+    background-color: #f9fafb !important;
+    border: 1px solid #e5e7eb !important;
+  }
+
+  /* Ensure colored tag backgrounds print */
+  [class*="bg-\[#ecfdf5\]"] { background-color: #ecfdf5 !important; }
+  [class*="bg-\[#eff6ff\]"] { background-color: #eff6ff !important; }
+  [class*="bg-\[#fffbeb\]"] { background-color: #fffbeb !important; }
+  [class*="bg-\[#faf5ff\]"] { background-color: #faf5ff !important; }
+  [class*="bg-\[#f0fdf4\]"] { background-color: #f0fdf4 !important; }
+  [class*="bg-\[#e8fae8\]"] { background-color: #e8fae8 !important; }
 
   .bg-surface {
     border: none !important;

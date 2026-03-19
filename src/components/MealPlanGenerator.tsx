@@ -204,9 +204,10 @@ export default function MealPlanGenerator() {
   }
 
   function downloadPDF() {
-    // html2pdf fails with modern Tailwind V4 oklch colors. 
-    // The native window.print() is 100% robust, vector-based, and generates much better PDFs.
+    const originalTitle = document.title;
+    document.title = `Plan Nutricional - ${patientData.firstName} ${patientData.lastName}`;
     window.print();
+    setTimeout(() => { document.title = originalTitle; }, 2000);
   }
 
   function handleReset() {
@@ -215,11 +216,26 @@ export default function MealPlanGenerator() {
   }
 
 
-  const PieChart = ({ pV, pP, pC, pF }: { pV: number, pP: number, pC: number, pF: number }) => {
+  const veggieEmojiMap: Record<string, string> = {
+    tomate: '🍅', zanahoria: '🥕', brócoli: '🥦', brocoli: '🥦', espinaca: '🥬', lechuga: '🥬',
+    pepino: '🥒', cebolla: '🧅', ajo: '🧄', pimiento: '🫑', berenjena: '🍆', zapallo: '🎃',
+    zucchini: '🥒', apio: '🌿', remolacha: '🫚', papa: '🥔', batata: '🍠', boniato: '🍠',
+    choclo: '🌽', maíz: '🌽', arveja: '🫛', poroto: '🫘', lenteja: '🫘', garbanzo: '🫘',
+    repollo: '🥬', coliflor: '🥦', acelga: '🥬', hinojo: '🌿', rúcula: '🥬',
+    puerro: '🥬', nabo: '🫚', alcaucil: '🌿', chaucha: '🫛',
+  };
+  function getVeggieEmoji(name: string): string {
+    const lower = name.toLowerCase();
+    for (const [key, emoji] of Object.entries(veggieEmojiMap)) {
+      if (lower.includes(key)) return emoji;
+    }
+    return '🥦';
+  }
+
+  const PieChart = ({ pP, pC, pF }: { pP: number, pC: number, pF: number }) => {
     const size = 200;
     const cx = size/2, cy = size/2, r = size/2 - 15;
     const slices = [
-      { pct: pV/100, color: 'url(#grad-v)', label: 'VEGETALES' },
       { pct: pP/100, color: 'url(#grad-p)', label: 'PROTEÍNAS' },
       { pct: pC/100, color: 'url(#grad-C)', label: 'CARBOHIDRATOS' },
       { pct: pF/100, color: 'url(#grad-f)', label: 'GRASAS' }
@@ -229,7 +245,6 @@ export default function MealPlanGenerator() {
       <div className="relative">
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="filter overflow-visible">
           <defs>
-            <linearGradient id="grad-v" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#4ade80"/><stop offset="100%" stopColor="#16a34a"/></linearGradient>
             <linearGradient id="grad-p" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#60a5fa"/><stop offset="100%" stopColor="#2563eb"/></linearGradient>
             <linearGradient id="grad-C" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#fbbf24"/><stop offset="100%" stopColor="#d97706"/></linearGradient>
             <linearGradient id="grad-f" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#c084fc"/><stop offset="100%" stopColor="#9333ea"/></linearGradient>
@@ -452,29 +467,24 @@ export default function MealPlanGenerator() {
                 )}
               </div>
 
-              {/* Plato Saludable Recomendado */}
+              {/* Distribución de Macros */}
               <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8">
                 <div className="shrink-0 relative flex flex-col items-center">
-                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Distribución Ideal</div>
-                  <PieChart 
-                    pV={generatedPlan.healthyPlate.vegetablesPct} 
-                    pP={generatedPlan.healthyPlate.proteinsPct} 
-                    pC={generatedPlan.healthyPlate.carbsPct} 
-                    pF={generatedPlan.healthyPlate.fatsPct} 
+                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Distribución de Macros</div>
+                  <PieChart
+                    pP={generatedPlan.healthyPlate.proteinsPct}
+                    pC={generatedPlan.healthyPlate.carbsPct}
+                    pF={generatedPlan.healthyPlate.fatsPct}
                   />
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Tu Plato Saludable Recomendado</h3>
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
                   <p className="text-sm text-text-muted leading-relaxed mb-6">
-                    Para tu objetivo, tu plato prioriza <strong className="text-[#059669]">vegetales ({generatedPlan.healthyPlate.vegetablesPct}%)</strong>, 
-                    seguido de <strong className="text-[#2563eb]">proteínas ({generatedPlan.healthyPlate.proteinsPct}%)</strong> y una porción moderada de <strong className="text-[#d97706]">carbohidratos ({generatedPlan.healthyPlate.carbsPct}%)</strong>. 
-                    Las grasas saludables se incorporan como complemento.
+                    Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({generatedPlan.healthyPlate.carbsPct}%)</strong>,
+                    con aporte proteico de <strong className="text-[#2563eb]">{generatedPlan.healthyPlate.proteinsPct}%</strong> y
+                    grasas saludables del <strong className="text-[#9333ea]">{generatedPlan.healthyPlate.fatsPct}%</strong>.
                   </p>
-                  
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-sm font-bold">
-                    <div className="bg-[#ecfdf5] border border-[#d1fae5] rounded-xl p-3 text-[#059669]">
-                      🥦 Vegetales<br/><span className="text-2xl mt-1 block">{generatedPlan.healthyPlate.vegetablesPct}%</span>
-                    </div>
+                  <div className="grid grid-cols-3 gap-3 text-center text-sm font-bold">
                     <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-3 text-[#2563eb]">
                       🍗 Proteínas<br/><span className="text-2xl mt-1 block">{generatedPlan.healthyPlate.proteinsPct}%</span>
                     </div>
@@ -487,6 +497,43 @@ export default function MealPlanGenerator() {
                   </div>
                 </div>
               </div>
+
+              {/* Verduras Recomendadas */}
+              {generatedPlan.recommendedGroups && (
+                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
+                  <h3 className="font-bold text-lg text-center mb-5 uppercase tracking-widest text-[#2c3e50]">Verduras Recomendadas</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {generatedPlan.recommendedGroups.vegetablesA?.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-[#059669] uppercase tracking-widest mb-3 flex items-center gap-2">
+                          🥗 Grupo A — Sin almidón
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {generatedPlan.recommendedGroups.vegetablesA.map((v: string, i: number) => (
+                            <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] rounded-full font-medium">
+                              {getVeggieEmoji(v)} {v}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {generatedPlan.recommendedGroups.vegetablesB?.length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-bold text-[#047857] uppercase tracking-widest mb-3 flex items-center gap-2">
+                          🥕 Grupo B — Con almidón
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {generatedPlan.recommendedGroups.vegetablesB.map((v: string, i: number) => (
+                            <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] rounded-full font-medium">
+                              {getVeggieEmoji(v)} {v}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Plan Diario */}
               <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
