@@ -73,7 +73,8 @@ export default function MealPlanGenerator() {
   const [preferences, setPreferences] = useState({
     dietType: 'Normal',
     activityLevel: 'Sedentario',
-    objectives: ''
+    objectives: '',
+    foodRestrictions: ''
   });
   
   const [loading, setLoading] = useState(false);
@@ -188,6 +189,10 @@ export default function MealPlanGenerator() {
       }
 
       const planJson = await response.json();
+      // Override hydration with deterministic calculation (35ml/kg) to avoid variability from AI
+      const targetLiters = parseFloat((patientData.weight * 35 / 1000).toFixed(1));
+      planJson.hydrationPlan.targetLiters = targetLiters;
+      planJson.hydrationPlan.equivalentGlasses = Math.round(targetLiters * 1000 / 250);
       setGeneratedPlan(planJson);
       showToast('¡Plan generado con éxito!', 'success');
       
@@ -318,9 +323,20 @@ export default function MealPlanGenerator() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>4. OBJETIVOS ESPECÍFICOS (Opcional)</label>
-                      <textarea 
-                        className={inputCls} 
+                      <label className={labelCls}>4. ALIMENTOS QUE NO PUEDE CONSUMIR (Opcional)</label>
+                      <textarea
+                        className={inputCls}
+                        placeholder="Ej: mariscos, nueces, lácteos, huevo..."
+                        rows={2}
+                        value={preferences.foodRestrictions}
+                        onChange={e => setPreferences({...preferences, foodRestrictions: e.target.value})}
+                      />
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>5. OBJETIVOS ESPECÍFICOS (Opcional)</label>
+                      <textarea
+                        className={inputCls}
                         placeholder="Ej: Bajar índice glucémico, reducir inflamación intestinal..."
                         rows={3}
                         value={preferences.objectives}
