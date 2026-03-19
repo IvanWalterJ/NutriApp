@@ -13,6 +13,7 @@ import EmployeesTable from './components/EmployeesTable';
 import ConsultationForm from './components/ConsultationForm';
 import AnthropometryForm from './components/AnthropometryForm';
 import Parameters from './components/Parameters';
+import MealPlanGenerator from './components/MealPlanGenerator';
 import Footer from './components/Footer';
 import Auth from './components/Auth';
 import { CompanyProvider } from './context/CompanyContext';
@@ -124,6 +125,10 @@ export default function App() {
 
         {activeTab === 'parametros' && (
           <Parameters />
+        )}
+
+        {activeTab === 'generador' && (
+          <MealPlanGenerator />
         )}
       </main>
 
