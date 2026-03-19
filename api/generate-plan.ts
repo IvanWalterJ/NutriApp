@@ -27,8 +27,9 @@ Datos del paciente:
 
 IMPORTANTE REGLAS DE ORO: 
 1. El paciente sigue una dieta de tipo: ${preferences.dietType}. NO incluyas alimentos que rompan esta regla bajo ninguna circunstancia (Ej: si es vegano/vegetariano, prohíbe las carnes de todo tipo. Si es Celíaco, debe ser estricto sin TACC. Si es sin lactosa, usa opciones vegetales o deslactosadas).
-2. Prioriza carbohidratos de absorción lenta / integrales.
-3. Las porciones en el plan diario deben aproximadamente coincidir con las calorías objetivo (${metrics.calories} kcal) y distribución de macros indicada. Da cantidades en gramos, tazas o medidas caseras.
+2. Prioriza carbohidratos de absorción lenta / integrales obligatoriamente.
+3. Las porciones en el plan diario deben coincidir métricamente con las calorías objetivo (${metrics.calories} kcal) y distribución de macros indicada. Da cantidades concretas en gramos, tazas o medidas caseras.
+4. Con base en los "Objetivos específicos que lograr para la próxima consulta", devuelve 2 recomendaciones u opciones de recetas prácticas.
 
 Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y parseable, con la siguiente estructura exacta:
 {
@@ -109,6 +110,9 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
   "substitutes": [
     { "category": "Carbohidratos Base", "options": ["Arroz Integral", "Quinoa", "Boniato"] },
     { "category": "Proteína Base", "options": ["Pollo magro", "Pescado", "Tofu"] }
+  ],
+  "recommendationsAndRecipes": [
+    { "title": "Receta / Recomendación alineada al objetivo", "content": "Pasos o descripción..." }
   ]
 }
 `;

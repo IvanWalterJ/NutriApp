@@ -47,7 +47,7 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   // Macros
   let macros = { carbs: 55, protein: 15, fats: 30 };
   if (activityLevel === 'Deportista') {
-    macros = { carbs: 55, protein: 20, fats: 25 }; 
+    macros = { carbs: 55, protein: 17, fats: 28 }; 
   }
 
   return {
@@ -586,7 +586,7 @@ export default function MealPlanGenerator() {
               {(generatedPlan.supplements?.length > 0 || generatedPlan.substitutes?.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
                   {generatedPlan.supplements?.length > 0 && (
-                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
+                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
                       <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Suplementación Sugerida</h3>
                       <div className="space-y-3">
                         {generatedPlan.supplements.map((s: any, i: number) => (
@@ -601,7 +601,7 @@ export default function MealPlanGenerator() {
                   )}
 
                   {generatedPlan.substitutes?.length > 0 && (
-                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
+                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
                       <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-accent-dark">Opciones de Sustitución</h3>
                       <div className="space-y-4">
                         {generatedPlan.substitutes.map((sub: any, i: number) => (
@@ -619,6 +619,21 @@ export default function MealPlanGenerator() {
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Recomendaciones y Recetas */}
+              {generatedPlan.recommendationsAndRecipes?.length > 0 && (
+                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm pb-6 break-inside-avoid">
+                  <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Recomendaciones & Recetas Clave</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {generatedPlan.recommendationsAndRecipes.map((rec: any, i: number) => (
+                      <div key={i} className="bg-bg border border-border-color rounded-xl p-4">
+                        <div className="font-bold text-sm text-text-main mb-2">✦ {rec.title}</div>
+                        <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{rec.content}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
