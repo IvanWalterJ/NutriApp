@@ -49,12 +49,16 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
       <meta charset="utf-8">
       <title>Informe Antropométrico - ${patientName}</title>
       <style>
-        @page { margin: 8mm 10mm; size: A4 portrait; }
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background: white; }
+        @page { margin: 10mm; size: A4 portrait; }
+        html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background: white; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-        table { width: 100%; }
+        #anthro-content-wrapper { max-width: 190mm; width: 100%; overflow: hidden; }
+        table { width: 100%; table-layout: auto; }
+        svg { max-width: 100%; height: auto; }
+        /* Prevent any element from overflowing the page */
+        div, td, th, p, span { max-width: 100%; word-break: break-word; }
       </style>
-    </head><body>${reportEl.innerHTML}</body></html>`);
+    </head><body><div id="anthro-content-wrapper">${reportEl.innerHTML}</div></body></html>`);
     printWin.document.close();
 
     setTimeout(() => {
