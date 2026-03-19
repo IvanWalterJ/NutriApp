@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   REFERENCE, ACTIVITY_GROUPS, RefGroup,
@@ -27,7 +27,9 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
   const [loading, setLoading] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [chosenGroup, setChosenGroup] = useState('');
-  const reportRef = useRef<HTMLDivElement>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const pendingTitle = useRef('');
+  const prevTitle = useRef('');
 
   // Determine activity_group: use stored value or ask user
   const activityGroup = session.activity_group || chosenGroup;
@@ -38,22 +40,26 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
     setLoading(true);
     setShowGroupPicker(false);
+    pendingTitle.current = `Informe Antropométrico - ${patient.last_name}, ${patient.first_name}`;
+    prevTitle.current = document.title;
+    setIsPrinting(true);
+  }
 
-    const patientName = `${patient.last_name}, ${patient.first_name}`;
-    const prevTitle = document.title;
-    document.title = `Informe Antropométrico - ${patientName}`;
+  // Fires after React commits the portal to the DOM — safe to print
+  useEffect(() => {
+    if (!isPrinting) return;
+    document.title = pendingTitle.current;
     document.body.classList.add('anthro-printing');
-
     window.print();
-
     const cleanup = () => {
-      document.title = prevTitle;
+      document.title = prevTitle.current;
       document.body.classList.remove('anthro-printing');
+      setIsPrinting(false);
       setLoading(false);
       window.removeEventListener('afterprint', cleanup);
     };
     window.addEventListener('afterprint', cleanup);
-  }
+  }, [isPrinting]);
 
   // ── Compute results ────────────────────────────────────────────────────────
   const sex = patient.sex || 'Masculino';
@@ -192,8 +198,8 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
       )}
 
       {/* ── Hidden Report — portal renders as direct child of body so print CSS positions it correctly ── */}
-      {r && createPortal(
-        <div id="anthro-print-portal" ref={reportRef} style={{
+      {r && isPrinting && createPortal(
+        <div id="anthro-print-portal" style={{
           position: 'absolute', top: '-99999px', left: 0,
           visibility: 'hidden', pointerEvents: 'none',
           width: '190mm', fontFamily: 'Arial, sans-serif', color: '#111',
