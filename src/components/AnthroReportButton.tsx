@@ -37,19 +37,32 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     setLoading(true);
     setShowGroupPicker(false);
 
-    const originalTitle = document.title;
-    document.title = `Informe Antropométrico - ${patient.last_name}, ${patient.first_name}`;
-    document.body.classList.add('anthro-printing');
+    const reportEl = document.getElementById('anthro-print-report');
+    if (!reportEl) { setLoading(false); return; }
 
-    // Two rAF to let the browser apply the CSS class before opening the print dialog
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        window.print();
-        document.body.classList.remove('anthro-printing');
-        document.title = originalTitle;
-        setLoading(false);
-      });
-    });
+    const patientName = `${patient.last_name}, ${patient.first_name}`;
+    // Open a clean blank window — triggered directly from a click so popup blockers allow it
+    const printWin = window.open('', '_blank');
+    if (!printWin) { setLoading(false); return; }
+
+    printWin.document.write(`<!DOCTYPE html><html><head>
+      <meta charset="utf-8">
+      <title>Informe Antropométrico - ${patientName}</title>
+      <style>
+        @page { margin: 8mm 10mm; size: A4 portrait; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background: white; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
+        table { width: 100%; }
+      </style>
+    </head><body>${reportEl.innerHTML}</body></html>`);
+    printWin.document.close();
+
+    setTimeout(() => {
+      printWin.focus();
+      printWin.print();
+      printWin.addEventListener('afterprint', () => printWin.close());
+      setLoading(false);
+    }, 400);
   }
 
   // ── Compute results ────────────────────────────────────────────────────────
