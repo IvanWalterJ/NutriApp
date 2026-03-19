@@ -25,11 +25,12 @@ Datos del paciente:
 - Nivel de Actividad: ${preferences.activityLevel}
 - Objetivos específicos que lograr para la próxima consulta: ${preferences.objectives || 'Mejorar hábitos generales'}
 
-IMPORTANTE REGLAS DE ORO: 
+IMPORTANTE REGLAS DE ORO:
 1. El paciente sigue una dieta de tipo: ${preferences.dietType}. NO incluyas alimentos que rompan esta regla bajo ninguna circunstancia (Ej: si es vegano/vegetariano, prohíbe las carnes de todo tipo. Si es Celíaco, debe ser estricto sin TACC. Si es sin lactosa, usa opciones vegetales o deslactosadas).
 2. Prioriza carbohidratos de absorción lenta / integrales obligatoriamente.
 3. Las porciones en el plan diario deben coincidir métricamente con las calorías objetivo (${metrics.calories} kcal) y distribución de macros indicada. Da cantidades concretas en gramos, tazas o medidas caseras.
 4. Con base en los "Objetivos específicos que lograr para la próxima consulta", devuelve 2 recomendaciones u opciones de recetas prácticas.
+5. CRÍTICO para "healthyPlate": los campos vegetablesPct, proteinsPct, carbsPct y fatsPct deben reflejar EXACTAMENTE la distribución de macros del paciente: carbsPct=${metrics.macros.carbs}, proteinsPct=${metrics.macros.protein}, fatsPct=${metrics.macros.fats}. Los vegetales no tienen macro asignada, por lo que vegetablesPct=0 (o distribúyelos quitando de carbsPct). La suma debe ser 100.
 
 Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y parseable, con la siguiente estructura exacta:
 {
@@ -41,10 +42,10 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
     "insufficientHydrationAlert": false
   },
   "healthyPlate": {
-    "vegetablesPct": 50,
-    "proteinsPct": 25,
-    "carbsPct": 20,
-    "fatsPct": 5
+    "vegetablesPct": 0,
+    "proteinsPct": ${metrics.macros.protein},
+    "carbsPct": ${metrics.macros.carbs},
+    "fatsPct": ${metrics.macros.fats}
   },
   "dailyPlan": [
     {

@@ -128,11 +128,12 @@ body {
 /* Print Styles */
 @media print {
   @page {
-    margin: 0;
-    size: auto;
+    margin: 10mm 8mm;
+    size: A4 portrait;
   }
 
   .no-print,
+  .print\:hidden,
   header,
   nav,
   .Tabs,
@@ -147,6 +148,7 @@ body {
     margin: 0 !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    font-size: 11px !important;
   }
 
   main {
@@ -155,8 +157,35 @@ body {
     margin: 0 !important;
   }
 
+  /* Force the plan container to fit A4 width */
+  #generated-plan-view {
+    max-width: 100% !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Prevent horizontal overflow that causes cutoff */
+  * {
+    overflow-x: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Avoid page breaks inside meal cards and info blocks */
+  .break-inside-avoid,
+  [class*="rounded-2xl"],
+  [class*="rounded-xl"] {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   .bg-surface {
     border: none !important;
     box-shadow: none !important;
+  }
+
+  /* Scale down the header to fit */
+  [class*="bg-primary"][class*="rounded-t-2xl"] {
+    border-radius: 0 !important;
   }
 }

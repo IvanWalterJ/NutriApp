@@ -47,7 +47,7 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   // Macros
   let macros = { carbs: 55, protein: 15, fats: 30 };
   if (activityLevel === 'Deportista') {
-    macros = { carbs: 55, protein: 17, fats: 28 }; 
+    macros = { carbs: 55, protein: 23, fats: 22 }; // Rosana: 55C/17P/22F → normalizado a 100% con proteína en 23%
   }
 
   return {
