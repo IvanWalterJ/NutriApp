@@ -127,23 +127,23 @@ body {
 
 /* Anthropometry print mode — triggered by body.anthro-printing */
 @media print {
-  /* Hide everything, then reveal only the report */
-  body.anthro-printing * {
-    visibility: hidden !important;
+  /* Hide all direct body children except the portal */
+  body.anthro-printing > *:not(#anthro-print-portal) {
+    display: none !important;
   }
-  body.anthro-printing #anthro-print-report {
+  body.anthro-printing > #anthro-print-portal {
+    display: block !important;
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
     visibility: visible !important;
-    position: fixed !important;
-    inset: 0 !important;
     width: 100% !important;
-    background: white !important;
     padding: 8mm 10mm !important;
+    background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-    overflow: visible !important;
-    z-index: 9999 !important;
   }
-  body.anthro-printing #anthro-print-report * {
+  body.anthro-printing > #anthro-print-portal * {
     visibility: visible !important;
   }
 }

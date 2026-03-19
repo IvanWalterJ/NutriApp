@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   REFERENCE, ACTIVITY_GROUPS, RefGroup,
   classify, classifyBMI, classifyWaistHip, classifyAbdominal,
@@ -38,36 +39,20 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     setLoading(true);
     setShowGroupPicker(false);
 
-    const reportEl = reportRef.current;
-    if (!reportEl) { setLoading(false); return; }
-
     const patientName = `${patient.last_name}, ${patient.first_name}`;
-    // Open a clean blank window — triggered directly from a click so popup blockers allow it
-    const printWin = window.open('', '_blank');
-    if (!printWin) { setLoading(false); return; }
+    const prevTitle = document.title;
+    document.title = `Informe Antropométrico - ${patientName}`;
+    document.body.classList.add('anthro-printing');
 
-    printWin.document.write(`<!DOCTYPE html><html><head>
-      <meta charset="utf-8">
-      <title>Informe Antropométrico - ${patientName}</title>
-      <style>
-        @page { margin: 10mm; size: A4 portrait; }
-        html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background: white; }
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-        #anthro-content-wrapper { width: 190mm; overflow-x: hidden; }
-        table { width: 100%; table-layout: auto; }
-        svg { max-width: 100%; height: auto; }
-        /* Prevent any element from overflowing the page */
-        div, td, th, p, span { max-width: 100%; word-break: break-word; }
-      </style>
-    </head><body><div id="anthro-content-wrapper">${reportEl.innerHTML}</div></body></html>`);
-    printWin.document.close();
+    window.print();
 
-    setTimeout(() => {
-      printWin.focus();
-      printWin.print();
-      printWin.addEventListener('afterprint', () => printWin.close());
+    const cleanup = () => {
+      document.title = prevTitle;
+      document.body.classList.remove('anthro-printing');
       setLoading(false);
-    }, 400);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
   }
 
   // ── Compute results ────────────────────────────────────────────────────────
@@ -206,13 +191,13 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         </div>
       )}
 
-      {/* ── Hidden Report (shown only in print mode via anthro-printing CSS) ── */}
-      {r && (
-        <div ref={reportRef} style={{
+      {/* ── Hidden Report — portal renders as direct child of body so print CSS positions it correctly ── */}
+      {r && createPortal(
+        <div id="anthro-print-portal" ref={reportRef} style={{
           position: 'absolute', top: '-99999px', left: 0,
           visibility: 'hidden', pointerEvents: 'none',
-          width: '100%', fontFamily: 'Arial, sans-serif', color: '#111',
-          padding: '20px 24px', background: '#fff',
+          width: '190mm', fontFamily: 'Arial, sans-serif', color: '#111',
+          padding: '8mm 10mm', background: '#fff',
         }}>
           {/* Header */}
           <div style={{background:'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)',color:'#fff',padding:'18px 24px',borderRadius:'10px',marginBottom:'4px'}}>
@@ -434,7 +419,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
         </div>
-      )}
+      , document.body)}
     </>
   );
 }
