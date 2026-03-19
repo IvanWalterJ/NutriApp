@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   REFERENCE, ACTIVITY_GROUPS, RefGroup,
   classify, classifyBMI, classifyWaistHip, classifyAbdominal,
@@ -26,6 +26,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
   const [loading, setLoading] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [chosenGroup, setChosenGroup] = useState('');
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // Determine activity_group: use stored value or ask user
   const activityGroup = session.activity_group || chosenGroup;
@@ -37,7 +38,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     setLoading(true);
     setShowGroupPicker(false);
 
-    const reportEl = document.getElementById('anthro-print-report');
+    const reportEl = reportRef.current;
     if (!reportEl) { setLoading(false); return; }
 
     const patientName = `${patient.last_name}, ${patient.first_name}`;
@@ -52,7 +53,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         @page { margin: 10mm; size: A4 portrait; }
         html, body { margin: 0; padding: 0; font-family: Arial, sans-serif; color: #111; background: white; }
         * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; box-sizing: border-box; }
-        #anthro-content-wrapper { max-width: 190mm; width: 100%; overflow: hidden; }
+        #anthro-content-wrapper { width: 190mm; overflow-x: hidden; }
         table { width: 100%; table-layout: auto; }
         svg { max-width: 100%; height: auto; }
         /* Prevent any element from overflowing the page */
@@ -207,7 +208,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
       {/* ── Hidden Report (shown only in print mode via anthro-printing CSS) ── */}
       {r && (
-        <div id="anthro-print-report" style={{
+        <div ref={reportRef} style={{
           position: 'absolute', top: '-99999px', left: 0,
           visibility: 'hidden', pointerEvents: 'none',
           width: '100%', fontFamily: 'Arial, sans-serif', color: '#111',
