@@ -10,6 +10,8 @@ const Printer = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none
 const RotateCcw = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>;
 const Info = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>;
 const ArrowRight = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
+const Pencil = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+const SaveIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 
 // -- CALCULATIONS --
 // ── Factores de Actividad (Harris-Benedict estándar) usados para normopeso/bajo peso ──
@@ -94,17 +96,12 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   const refWeight = bmi >= 25 ? pic : weight;
   const proteinGrams = Math.round(proteinGPerKg * refWeight);
 
-  // ── Distribución de macros ──
-  let macros: { carbs: number; protein: number; fats: number };
-  if (isAthlete) {
-    macros = { carbs: 61, protein: 17, fats: 22 };
-  } else {
-    const proteinCalories = proteinGrams * 4;
-    const proteinPct = Math.round((proteinCalories / Math.round(calories)) * 100);
-    const fatsPct = 25;
-    const carbsPct = Math.max(100 - proteinPct - fatsPct, 40);
-    macros = { carbs: carbsPct, protein: proteinPct, fats: fatsPct };
-  }
+  // ── Distribución de macros (porcentajes fijos según indicación de Rosana) ──
+  // Normal:    55% CHO / 15% PRO / 30% GRASAS
+  // Deportista: 55% CHO / 17% PRO / 28% GRASAS
+  const macros = isAthlete
+    ? { carbs: 55, protein: 17, fats: 28 }
+    : { carbs: 55, protein: 15, fats: 30 };
 
   return {
     idealWeight:         parseFloat(idealWeight.toFixed(3)),
@@ -159,6 +156,9 @@ export default function MealPlanGenerator() {
   const [loading, setLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
+  const [editMode, setEditMode] = useState(false);
+  // editedPlan mirrors generatedPlan but with user overrides
+  const [editedPlan, setEditedPlan] = useState<any>(null);
   
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -273,6 +273,8 @@ export default function MealPlanGenerator() {
       planJson.hydrationPlan.targetLiters = targetLiters;
       planJson.hydrationPlan.equivalentGlasses = Math.round(targetLiters * 1000 / 250);
       setGeneratedPlan(planJson);
+      setEditedPlan(JSON.parse(JSON.stringify(planJson))); // deep copy for editing
+      setEditMode(false);
       showToast('¡Plan generado con éxito!', 'success');
       
       setTimeout(() => {
@@ -294,8 +296,55 @@ export default function MealPlanGenerator() {
     setTimeout(() => { document.title = originalTitle; }, 2000);
   }
 
+  function updateMealItem(mealIdx: number, itemIdx: number, value: string) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.dailyPlan[mealIdx].items[itemIdx] = value;
+      return next;
+    });
+  }
+
+  function updateMealTip(mealIdx: number, value: string) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.dailyPlan[mealIdx].tip = value;
+      return next;
+    });
+  }
+
+  function updateMealTitle(mealIdx: number, value: string) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.dailyPlan[mealIdx].title = value;
+      return next;
+    });
+  }
+
+  function addMealItem(mealIdx: number) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.dailyPlan[mealIdx].items.push('');
+      return next;
+    });
+  }
+
+  function removeMealItem(mealIdx: number, itemIdx: number) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      next.dailyPlan[mealIdx].items.splice(itemIdx, 1);
+      return next;
+    });
+  }
+
+  function saveEdits() {
+    setGeneratedPlan(JSON.parse(JSON.stringify(editedPlan)));
+    setEditMode(false);
+  }
+
   function handleReset() {
     setGeneratedPlan(null);
+    setEditedPlan(null);
+    setEditMode(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -576,6 +625,21 @@ export default function MealPlanGenerator() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 print:hidden">
+              {editMode ? (
+                <button
+                  onClick={saveEdits}
+                  className="bg-green-500 hover:bg-green-400 border border-green-300 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <SaveIcon /> Guardar Cambios
+                </button>
+              ) : (
+                <button
+                  onClick={() => { setEditedPlan(JSON.parse(JSON.stringify(generatedPlan))); setEditMode(true); }}
+                  className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                >
+                  <Pencil /> Editar Plan
+                </button>
+              )}
               <button 
                 onClick={downloadPDF} 
                 className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer relative z-10 shadow-sm"
@@ -662,30 +726,81 @@ export default function MealPlanGenerator() {
               )}
 
               {/* 4. PLAN DIARIO */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg text-center mb-6 uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
+              <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm ${editMode ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
+                  {editMode && (
+                    <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full border border-amber-300">
+                      ✏️ Modo Edición activo
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-4">
-                  {generatedPlan.dailyPlan.map((meal: any, i: number) => (
-                    <div key={i} className="flex gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                  {(editMode ? editedPlan : generatedPlan).dailyPlan.map((meal: any, i: number) => (
+                    <div key={i} className={`flex gap-4 p-4 rounded-xl border bg-gray-50/50 ${editMode ? 'border-amber-200' : 'border-gray-100'}`}>
                       <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
                         <div className="font-black text-gray-800 text-lg">{meal.time}</div>
                         <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                        {editMode ? (
+                          <input
+                            className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none focus:border-amber-500"
+                            value={meal.title}
+                            onChange={e => updateMealTitle(i, e.target.value)}
+                          />
+                        ) : (
+                          <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                        )}
                         <ul className="space-y-1 mb-3">
                           {meal.items.map((item: string, j: number) => (
                             <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
-                              <span className="text-primary mt-1">•</span>
-                              <span>{item}</span>
+                              {editMode ? (
+                                <>
+                                  <span className="text-amber-400 mt-2">•</span>
+                                  <input
+                                    className="flex-1 border border-amber-200 bg-amber-50 rounded px-2 py-1 text-[13px] focus:outline-none focus:border-amber-400"
+                                    value={item}
+                                    onChange={e => updateMealItem(i, j, e.target.value)}
+                                  />
+                                  <button
+                                    onClick={() => removeMealItem(i, j)}
+                                    className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1"
+                                    title="Eliminar ítem"
+                                  >×</button>
+                                </>
+                              ) : (
+                                <>
+                                  <span className="text-primary mt-1">•</span>
+                                  <span>{item}</span>
+                                </>
+                              )}
                             </li>
                           ))}
                         </ul>
-                        {meal.tip && (
+                        {editMode && (
+                          <button
+                            onClick={() => addMealItem(i)}
+                            className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full mb-2 transition-colors"
+                          >
+                            + Agregar ítem
+                          </button>
+                        )}
+                        {editMode ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-[#047857]">💡</span>
+                            <input
+                              className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none focus:border-amber-400"
+                              value={meal.tip || ''}
+                              placeholder="Consejo (opcional)"
+                              onChange={e => updateMealTip(i, e.target.value)}
+                            />
+                          </div>
+                        ) : meal.tip ? (
                           <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
                             💡 {meal.tip}
                           </div>
-                        )}
+                        ) : null}
                       </div>
                     </div>
                   ))}
