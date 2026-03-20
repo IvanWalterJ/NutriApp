@@ -343,7 +343,6 @@ export default function MealPlanGenerator() {
   }
 
   function saveEdits() {
-    // Commit all edits — close all open sections
     setGeneratedPlan(JSON.parse(JSON.stringify(editedPlan)));
     setEditingSections({});
   }
@@ -353,6 +352,15 @@ export default function MealPlanGenerator() {
   }
 
   const anyEditing = Object.values(editingSections).some(Boolean);
+
+  // Generic deep mutator for editedPlan
+  function mut(updater: (plan: any) => void) {
+    setEditedPlan((prev: any) => {
+      const next = JSON.parse(JSON.stringify(prev));
+      updater(next);
+      return next;
+    });
+  }
 
   function handleReset() {
     setGeneratedPlan(null);
@@ -654,92 +662,143 @@ export default function MealPlanGenerator() {
           <div ref={pdfRef} className="bg-bg print:pt-10">
             <div className="p-6 md:p-8 space-y-6">
 
+              {/* ── HELPER: inline edit/save button ── */}
+              {/* Used in each section header */}
+
               {/* 1. OBJETIVO DEL PLAN */}
-              {generatedPlan.planObjective && (
-                <div className="bg-[#f0fdf4] border-2 border-[#86efac] rounded-2xl p-5 flex items-center gap-4 shadow-sm">
-                  <div className="text-3xl shrink-0">🎯</div>
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-[#166534] mb-1">Objetivo del Plan</div>
-                    <p className="text-[#14532d] font-semibold text-base">{generatedPlan.planObjective}</p>
+              {(editedPlan || generatedPlan).planObjective != null && (() => {
+                const sec = 'objective';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                return (
+                  <div className={`border-2 rounded-2xl p-5 shadow-sm ${isE ? 'bg-amber-50 border-amber-400' : 'bg-[#f0fdf4] border-[#86efac]'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <div className="text-3xl shrink-0">🎯</div>
+                        <div className="text-xs font-bold uppercase tracking-widest text-[#166534]">Objetivo del Plan</div>
+                      </div>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-white/60 text-[#166534] border-[#86efac] hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    {isE
+                      ? <textarea className="w-full border border-amber-300 bg-white rounded-lg p-3 text-[#14532d] text-sm font-semibold focus:outline-none focus:border-amber-500 resize-none" rows={3} value={dp.planObjective} onChange={e => mut(p => { p.planObjective = e.target.value; })} />
+                      : <p className="text-[#14532d] font-semibold text-base">{dp.planObjective}</p>
+                    }
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 2. LISTA DE COMPRAS */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Lista de Compras</h3>
-                <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {[
-                    { key: 'carbsAndLegumes',      label: 'Carbohidratos', color: 'text-[#d97706]', border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', icon: '🍞' },
-                    { key: 'proteins',             label: 'Proteínas',     color: 'text-[#2563eb]', border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', icon: '🥩' },
-                    { key: 'vegetablesAndFruits',  label: 'Verduras y Frutas', color: 'text-[#059669]', border: 'border-[#a7f3d0]', bg: 'bg-[#ecfdf5]', icon: '🥦' },
-                    { key: 'fatsAndDairy',         label: 'Grasas Saludables', color: 'text-[#7c3aed]', border: 'border-[#ddd6fe]', bg: 'bg-[#f5f3ff]', icon: '🥑' },
-                    { key: 'canned',               label: 'Enlátados',     color: 'text-[#0891b2]', border: 'border-[#a5f3fc]', bg: 'bg-[#ecfeff]', icon: '🥫' },
-                    { key: 'frozen',               label: 'Congelados',    color: 'text-[#6366f1]', border: 'border-[#c7d2fe]', bg: 'bg-[#eef2ff]', icon: '❄️' },
-                  ].map(({ key, label, color, border, bg, icon }) => {
-                    const items: string[] = generatedPlan.shoppingList?.[key] || [];
-                    if (!items.length) return null;
-                    return (
-                      <div key={key} className={`${bg} border ${border} rounded-xl p-3`}>
-                        <h4 className={`text-[11px] font-bold ${color} uppercase mb-2 flex items-center gap-1`}>{icon} {label}</h4>
-                        <ul className="text-[10px] text-gray-700 space-y-1">
-                          {items.map((t: string) => <li key={t} className="flex items-start gap-1"><span className="shrink-0">✓</span>{t}</li>)}
-                        </ul>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* 3. GRUPOS DE ALIMENTOS CON PORCIONES */}
-              {generatedPlan.foodGroupsDetail && (
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                  <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Grupos de Alimentos</h3>
-                  <p className="text-center text-xs text-text-muted mb-5">Porciones recomendadas para tu requerimiento diario</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {[
-                      { key: 'carbs',    label: 'Carbohidratos',     icon: '🍞', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', color: 'text-[#92400e]' },
-                      { key: 'proteins', label: 'Proteínas',          icon: '🥩', bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', color: 'text-[#1e40af]' },
-                      { key: 'fats',     label: 'Grasas Saludables',  icon: '🥑', bg: 'bg-[#f5f3ff]', border: 'border-[#ddd6fe]', color: 'text-[#4c1d95]' },
-                    ].map(({ key, label, icon, bg, border, color }) => {
-                      const items: string[] = generatedPlan.foodGroupsDetail?.[key] || [];
-                      if (!items.length) return null;
-                      return (
-                        <div key={key} className={`${bg} border ${border} rounded-xl p-4`}>
-                          <h4 className={`text-sm font-bold ${color} mb-3 flex items-center gap-2`}>{icon} {label}</h4>
-                          <ul className="space-y-2">
-                            {items.map((item: string, i: number) => (
-                              <li key={i} className="text-[12px] text-gray-700 flex items-start gap-2">
-                                <span className="text-gray-400 shrink-0 mt-0.5">•</span>
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      );
-                    })}
+              {(() => {
+                const sec = 'shoppingList';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                const cats = [
+                  { key: 'carbsAndLegumes',     label: 'Carbohidratos',    color: 'text-[#d97706]', border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', icon: '🍞' },
+                  { key: 'proteins',            label: 'Proteínas',        color: 'text-[#2563eb]', border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', icon: '🥩' },
+                  { key: 'vegetablesAndFruits', label: 'Verduras y Frutas',color: 'text-[#059669]', border: 'border-[#a7f3d0]', bg: 'bg-[#ecfdf5]', icon: '🥦' },
+                  { key: 'fatsAndDairy',        label: 'Grasas Saludables',color: 'text-[#7c3aed]', border: 'border-[#ddd6fe]', bg: 'bg-[#f5f3ff]', icon: '🥑' },
+                  { key: 'canned',              label: 'Enlatados',        color: 'text-[#0891b2]', border: 'border-[#a5f3fc]', bg: 'bg-[#ecfeff]', icon: '🥫' },
+                  { key: 'frozen',              label: 'Congelados',       color: 'text-[#6366f1]', border: 'border-[#c7d2fe]', bg: 'bg-[#eef2ff]', icon: '❄️' },
+                ];
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Lista de Compras</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    {!isE && <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>}
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                      {cats.map(({ key, label, color, border, bg, icon }) => {
+                        const items: string[] = dp.shoppingList?.[key] || [];
+                        if (!isE && !items.length) return null;
+                        return (
+                          <div key={key} className={`${bg} border ${isE ? 'border-amber-200' : border} rounded-xl p-3`}>
+                            <h4 className={`text-[11px] font-bold ${color} uppercase mb-2 flex items-center gap-1`}>{icon} {label}</h4>
+                            {isE ? (
+                              <div className="space-y-1">
+                                {items.map((t, idx) => (
+                                  <div key={idx} className="flex gap-1">
+                                    <input className="flex-1 text-[11px] border border-amber-200 bg-white rounded px-1.5 py-1 focus:outline-none" value={t} onChange={e => mut(p => { p.shoppingList[key][idx] = e.target.value; })} />
+                                    <button onClick={() => mut(p => { p.shoppingList[key].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => mut(p => { p.shoppingList[key].push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-full mt-1">+ Agregar</button>
+                              </div>
+                            ) : (
+                              <ul className="text-[10px] text-gray-700 space-y-1">
+                                {items.map((t) => <li key={t} className="flex items-start gap-1"><span className="shrink-0">✓</span>{t}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
-              {/* 4. PLAN DIARIO */}
+              {/* 3. GRUPOS DE ALIMENTOS */}
+              {(editedPlan || generatedPlan).foodGroupsDetail && (() => {
+                const sec = 'foodGroups';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                const groups = [
+                  { key: 'carbs',    label: 'Carbohidratos',    icon: '🍞', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', color: 'text-[#92400e]' },
+                  { key: 'proteins', label: 'Proteínas',         icon: '🥩', bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', color: 'text-[#1e40af]' },
+                  { key: 'fats',     label: 'Grasas Saludables', icon: '🥑', bg: 'bg-[#f5f3ff]', border: 'border-[#ddd6fe]', color: 'text-[#4c1d95]' },
+                ];
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Grupos de Alimentos</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    {!isE && <p className="text-center text-xs text-text-muted mb-5">Porciones recomendadas para tu requerimiento diario</p>}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                      {groups.map(({ key, label, icon, bg, border, color }) => {
+                        const items: string[] = dp.foodGroupsDetail?.[key] || [];
+                        return (
+                          <div key={key} className={`${bg} border ${isE ? 'border-amber-200' : border} rounded-xl p-4`}>
+                            <h4 className={`text-sm font-bold ${color} mb-3 flex items-center gap-2`}>{icon} {label}</h4>
+                            {isE ? (
+                              <div className="space-y-1">
+                                {items.map((item, idx) => (
+                                  <div key={idx} className="flex gap-1">
+                                    <input className="flex-1 text-[12px] border border-amber-200 bg-white rounded px-2 py-1 focus:outline-none" value={item} onChange={e => mut(p => { p.foodGroupsDetail[key][idx] = e.target.value; })} />
+                                    <button onClick={() => mut(p => { p.foodGroupsDetail[key].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => mut(p => { p.foodGroupsDetail[key].push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-full mt-1">+ Agregar</button>
+                              </div>
+                            ) : (
+                              <ul className="space-y-2">
+                                {items.map((item, i) => <li key={i} className="text-[12px] text-gray-700 flex items-start gap-2"><span className="text-gray-400 shrink-0 mt-0.5">•</span><span>{item}</span></li>)}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* 4. PLAN DIARIO — already done above */}
               {(() => {
                 const sec = 'dailyPlan';
                 const isEditing = !!editingSections[sec];
-                const plan = isEditing ? editedPlan : (editedPlan || generatedPlan);
+                const plan = editedPlan || generatedPlan;
                 return (
                   <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm ${isEditing ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
                     <div className="flex items-center justify-between mb-6">
                       <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
-                      <button
-                        onClick={() => toggleSection(sec)}
-                        className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${
-                          isEditing
-                            ? 'bg-green-500 text-white border-green-400 hover:bg-green-600'
-                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
-                        }`}
-                      >
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isEditing ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
                         {isEditing ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
                       </button>
                     </div>
@@ -751,64 +810,30 @@ export default function MealPlanGenerator() {
                             <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
                           </div>
                           <div className="flex-1">
-                            {isEditing ? (
-                              <input
-                                className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none focus:border-amber-500"
-                                value={meal.title}
-                                onChange={e => updateMealTitle(i, e.target.value)}
-                              />
-                            ) : (
-                              <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
-                            )}
+                            {isEditing
+                              ? <input className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none" value={meal.title} onChange={e => updateMealTitle(i, e.target.value)} />
+                              : <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                            }
                             <ul className="space-y-1 mb-3">
                               {meal.items.map((item: string, j: number) => (
                                 <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
                                   {isEditing ? (
                                     <>
                                       <span className="text-amber-400 mt-2">•</span>
-                                      <input
-                                        className="flex-1 border border-amber-200 bg-amber-50 rounded px-2 py-1 text-[13px] focus:outline-none focus:border-amber-400"
-                                        value={item}
-                                        onChange={e => updateMealItem(i, j, e.target.value)}
-                                      />
-                                      <button
-                                        onClick={() => removeMealItem(i, j)}
-                                        className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1"
-                                        title="Eliminar ítem"
-                                      >×</button>
+                                      <input className="flex-1 border border-amber-200 bg-amber-50 rounded px-2 py-1 text-[13px] focus:outline-none" value={item} onChange={e => updateMealItem(i, j, e.target.value)} />
+                                      <button onClick={() => removeMealItem(i, j)} className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1" title="Eliminar ítem">×</button>
                                     </>
                                   ) : (
-                                    <>
-                                      <span className="text-primary mt-1">•</span>
-                                      <span>{item}</span>
-                                    </>
+                                    <><span className="text-primary mt-1">•</span><span>{item}</span></>
                                   )}
                                 </li>
                               ))}
                             </ul>
-                            {isEditing && (
-                              <button
-                                onClick={() => addMealItem(i)}
-                                className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full mb-2 transition-colors"
-                              >
-                                + Agregar ítem
-                              </button>
-                            )}
-                            {isEditing ? (
-                              <div className="flex items-center gap-2">
-                                <span className="text-[11px] text-[#047857]">💡</span>
-                                <input
-                                  className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none focus:border-amber-400"
-                                  value={meal.tip || ''}
-                                  placeholder="Consejo (opcional)"
-                                  onChange={e => updateMealTip(i, e.target.value)}
-                                />
-                              </div>
-                            ) : meal.tip ? (
-                              <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
-                                💡 {meal.tip}
-                              </div>
-                            ) : null}
+                            {isEditing && <button onClick={() => addMealItem(i)} className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full mb-2 transition-colors">+ Agregar ítem</button>}
+                            {isEditing
+                              ? <div className="flex items-center gap-2"><span className="text-[11px] text-[#047857]">💡</span><input className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none" value={meal.tip || ''} placeholder="Consejo (opcional)" onChange={e => updateMealTip(i, e.target.value)} /></div>
+                              : meal.tip ? <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">💡 {meal.tip}</div> : null
+                            }
                           </div>
                         </div>
                       ))}
@@ -818,176 +843,269 @@ export default function MealPlanGenerator() {
               })()}
 
               {/* 5. IDEAS DE MENÚ */}
-              {generatedPlan.menuIdeas && (
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                  <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Ideas de Menú</h3>
-                  <p className="text-center text-xs text-text-muted mb-5">Opciones para armar tus platos del día a día</p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-xs font-bold text-[#d97706] uppercase tracking-widest mb-3 flex items-center gap-2">🍞 Con Carbohidratos</h4>
-                      <ul className="space-y-2">
-                        {(generatedPlan.menuIdeas.carbsIdeas || []).map((idea: string, i: number) => (
-                          <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2 p-2 bg-[#fffbeb] rounded-lg border border-[#fef3c7]">
-                            <span className="text-[#d97706] shrink-0">›</span>{idea}
-                          </li>
-                        ))}
-                      </ul>
+              {(editedPlan || generatedPlan).menuIdeas && (() => {
+                const sec = 'menuIdeas';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Ideas de Menú</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
                     </div>
-                    <div>
-                      <h4 className="text-xs font-bold text-[#2563eb] uppercase tracking-widest mb-3 flex items-center gap-2">🥩 Con Proteínas</h4>
-                      <ul className="space-y-2">
-                        {(generatedPlan.menuIdeas.proteinIdeas || []).map((idea: string, i: number) => (
-                          <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2 p-2 bg-[#eff6ff] rounded-lg border border-[#dbeafe]">
-                            <span className="text-[#2563eb] shrink-0">›</span>{idea}
-                          </li>
-                        ))}
-                      </ul>
+                    {!isE && <p className="text-center text-xs text-text-muted mb-5">Opciones para armar tus platos del día a día</p>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                      {[
+                        { listKey: 'carbsIdeas',   label: '🍞 Con Carbohidratos', color: 'text-[#d97706]', bg: 'bg-[#fffbeb]', border: 'border-[#fef3c7]' },
+                        { listKey: 'proteinIdeas', label: '🥩 Con Proteínas',     color: 'text-[#2563eb]', bg: 'bg-[#eff6ff]', border: 'border-[#dbeafe]' },
+                      ].map(({ listKey, label, color, bg, border }) => {
+                        const ideas: string[] = dp.menuIdeas?.[listKey] || [];
+                        return (
+                          <div key={listKey}>
+                            <h4 className={`text-xs font-bold ${color} uppercase tracking-widest mb-3 flex items-center gap-2`}>{label}</h4>
+                            {isE ? (
+                              <div className="space-y-1.5">
+                                {ideas.map((idea, idx) => (
+                                  <div key={idx} className="flex gap-1.5">
+                                    <input className="flex-1 text-[13px] border border-amber-200 bg-amber-50 rounded px-2 py-1.5 focus:outline-none" value={idea} onChange={e => mut(p => { p.menuIdeas[listKey][idx] = e.target.value; })} />
+                                    <button onClick={() => mut(p => { p.menuIdeas[listKey].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => mut(p => { p.menuIdeas[listKey].push(''); })} className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full">+ Agregar</button>
+                              </div>
+                            ) : (
+                              <ul className="space-y-2">
+                                {ideas.map((idea, i) => <li key={i} className={`text-[13px] text-gray-700 flex items-start gap-2 p-2 ${bg} rounded-lg border ${border}`}><span className={`${color} shrink-0`}>›</span>{idea}</li>)}
+                              </ul>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
-              {/* 6. PLATO SALUDABLE / MACROS */}
+              {/* 6. PLATO SALUDABLE / MACROS — no editable (es display del cálculo) */}
               <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8 break-inside-avoid">
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Plato Saludable</div>
-                  <PieChart
-                    pP={generatedPlan.healthyPlate.proteinsPct}
-                    pC={generatedPlan.healthyPlate.carbsPct}
-                    pF={generatedPlan.healthyPlate.fatsPct}
-                  />
+                  <PieChart pP={(editedPlan||generatedPlan).healthyPlate.proteinsPct} pC={(editedPlan||generatedPlan).healthyPlate.carbsPct} pF={(editedPlan||generatedPlan).healthyPlate.fatsPct} />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
                   <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({generatedPlan.healthyPlate.carbsPct}%)</strong>,
-                    con aporte proteico de <strong className="text-[#2563eb]">{generatedPlan.healthyPlate.proteinsPct}%</strong> y
-                    grasas saludables del <strong className="text-[#9333ea]">{generatedPlan.healthyPlate.fatsPct}%</strong>.
+                    Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({(editedPlan||generatedPlan).healthyPlate.carbsPct}%)</strong>,
+                    con aporte proteico de <strong className="text-[#2563eb]">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</strong> y
+                    grasas saludables del <strong className="text-[#9333ea]">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</strong>.
                   </p>
                   <div className="grid grid-cols-3 gap-3 text-center text-sm font-bold">
-                    <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-3 text-[#2563eb]">
-                      🍗 Proteínas<br/><span className="text-2xl mt-1 block">{generatedPlan.healthyPlate.proteinsPct}%</span>
-                    </div>
-                    <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-xl p-3 text-[#d97706]">
-                      🍞 Carbos<br/><span className="text-2xl mt-1 block">{generatedPlan.healthyPlate.carbsPct}%</span>
-                    </div>
-                    <div className="bg-[#faf5ff] border border-[#f3e8ff] rounded-xl p-3 text-[#9333ea]">
-                      🥑 Grasas<br/><span className="text-2xl mt-1 block">{generatedPlan.healthyPlate.fatsPct}%</span>
-                    </div>
+                    <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-3 text-[#2563eb]">🍗 Proteínas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</span></div>
+                    <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-xl p-3 text-[#d97706]">🍞 Carbos<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.carbsPct}%</span></div>
+                    <div className="bg-[#faf5ff] border border-[#f3e8ff] rounded-xl p-3 text-[#9333ea]">🥑 Grasas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</span></div>
                   </div>
                 </div>
               </div>
 
               {/* 7. VERDURAS RECOMENDADAS */}
-              {generatedPlan.recommendedGroups && (
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                  <h3 className="font-bold text-lg text-center mb-5 uppercase tracking-widest text-[#2c3e50]">Verduras Recomendadas</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {generatedPlan.recommendedGroups.vegetablesA?.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-bold text-[#059669] uppercase tracking-widest mb-3">🥗 Grupo A — Sin almidón</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {generatedPlan.recommendedGroups.vegetablesA.map((v: string, i: number) => (
-                            <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] rounded-full font-medium">
-                              {getVeggieEmoji(v)} {v}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                    {generatedPlan.recommendedGroups.vegetablesB?.length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-bold text-[#047857] uppercase tracking-widest mb-3">🥕 Grupo B — Con almidón</h4>
-                        <div className="flex flex-wrap gap-2">
-                          {generatedPlan.recommendedGroups.vegetablesB.map((v: string, i: number) => (
-                            <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] rounded-full font-medium">
-                              {getVeggieEmoji(v)} {v}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+              {(editedPlan || generatedPlan).recommendedGroups && (() => {
+                const sec = 'vegetables';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-5">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Verduras Recomendadas</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {[
+                        { gk: 'vegetablesA', label: '🥗 Grupo A — Sin almidón', color: 'text-[#059669]', bg: 'bg-[#ecfdf5]', border: 'border-[#a7f3d0]', txt: 'text-[#065f46]' },
+                        { gk: 'vegetablesB', label: '🥕 Grupo B — Con almidón', color: 'text-[#047857]', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]', txt: 'text-[#166534]' },
+                      ].map(({ gk, label, color, bg, border, txt }) => {
+                        const vegs: string[] = dp.recommendedGroups?.[gk] || [];
+                        if (!isE && !vegs.length) return null;
+                        return (
+                          <div key={gk}>
+                            <h4 className={`text-xs font-bold ${color} uppercase tracking-widest mb-3`}>{label}</h4>
+                            {isE ? (
+                              <div className="space-y-1.5">
+                                {vegs.map((v, idx) => (
+                                  <div key={idx} className="flex gap-1.5">
+                                    <input className="flex-1 text-sm border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none" value={v} onChange={e => mut(p => { p.recommendedGroups[gk][idx] = e.target.value; })} />
+                                    <button onClick={() => mut(p => { p.recommendedGroups[gk].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                                  </div>
+                                ))}
+                                <button onClick={() => mut(p => { p.recommendedGroups[gk].push(''); })} className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full">+ Agregar</button>
+                              </div>
+                            ) : (
+                              <div className="flex flex-wrap gap-2">
+                                {vegs.map((v, i) => <span key={i} className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 ${bg} border ${border} ${txt} rounded-full font-medium`}>{getVeggieEmoji(v)} {v}</span>)}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* 8. HIDRATACIÓN */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center">Plan de Hidratación</h3>
-                <div className="bg-[#eff6ff] rounded-xl p-4 text-center border border-[#bfdbfe] mb-4">
-                  <div className="text-primary text-xs font-bold uppercase tracking-wider mb-1">Meta Diaria</div>
-                  <div className="text-2xl font-black text-[#1e3a8a]">{generatedPlan.hydrationPlan.targetLiters} litros de agua</div>
-                  <div className="text-xs text-[#3b82f6] mt-1 font-medium">Equivale a {generatedPlan.hydrationPlan.equivalentGlasses} vasos de 250ml</div>
-                  <div className="flex justify-center gap-1 mt-3">
-                    {Array.from({length: Math.min(generatedPlan.hydrationPlan.equivalentGlasses, 12)}).map((_,i) => (
-                      <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-                    ))}
+              {(() => {
+                const sec = 'hydration';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-[15px] uppercase tracking-widest">Plan de Hidratación</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    <div className="bg-[#eff6ff] rounded-xl p-4 text-center border border-[#bfdbfe] mb-4">
+                      <div className="text-primary text-xs font-bold uppercase tracking-wider mb-1">Meta Diaria</div>
+                      {isE
+                        ? <input type="number" step="0.1" className="text-2xl font-black text-[#1e3a8a] w-24 text-center border-b-2 border-amber-300 bg-transparent focus:outline-none" value={dp.hydrationPlan.targetLiters} onChange={e => mut(p => { p.hydrationPlan.targetLiters = parseFloat(e.target.value) || 0; p.hydrationPlan.equivalentGlasses = Math.round(parseFloat(e.target.value)*1000/250) || 0; })} />
+                        : <div className="text-2xl font-black text-[#1e3a8a]">{dp.hydrationPlan.targetLiters} litros de agua</div>
+                      }
+                      <div className="text-xs text-[#3b82f6] mt-1 font-medium">Equivale a {dp.hydrationPlan.equivalentGlasses} vasos de 250ml</div>
+                      <div className="flex justify-center gap-1 mt-3">
+                        {Array.from({length: Math.min(dp.hydrationPlan.equivalentGlasses, 12)}).map((_,i) => (
+                          <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 text-[11px]">
+                      {[
+                        { field: 'wakeupTip',  icon: '🌅' },
+                        { field: 'workDayTip', icon: '💧' },
+                        { field: 'nightTip',   icon: '🌙' },
+                      ].map(({ field, icon }) => (
+                        <div key={field} className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
+                          <span className="text-lg">{icon}</span>
+                          {isE
+                            ? <input className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none" value={dp.hydrationPlan[field] || ''} onChange={e => mut(p => { p.hydrationPlan[field] = e.target.value; })} />
+                            : <span className="text-gray-600 font-medium">{dp.hydrationPlan[field]}</span>
+                          }
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="grid grid-cols-1 gap-2 text-[11px]">
-                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                    <span className="text-lg">🌅</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.wakeupTip}</span>
-                  </div>
-                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                    <span className="text-lg">💧</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.workDayTip}</span>
-                  </div>
-                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                    <span className="text-lg">🌙</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.nightTip}</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* 9. SUPLEMENTOS Y SUSTITUTOS */}
-              {(generatedPlan.supplements?.length > 0 || generatedPlan.substitutes?.length > 0) && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
-                  {generatedPlan.supplements?.length > 0 && (
-                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                      <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Suplementación Sugerida</h3>
-                      <div className="space-y-3">
-                        {generatedPlan.supplements.map((s: any, i: number) => (
-                          <div key={i} className="p-3 bg-[#e8fae8] border border-[#bbf7d0] rounded-xl">
-                            <div className="font-bold text-sm text-[#0A4D3C]">{s.name}</div>
-                            {s.dosage && <div className="text-xs text-[#0A4D3C]/70 mb-1 font-mono">{s.dosage}</div>}
-                            <div className="text-[11px] text-gray-700 mt-1">💡 {s.reason}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {generatedPlan.substitutes?.length > 0 && (
-                    <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
-                      <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-accent-dark">Opciones de Sustitución</h3>
-                      <div className="space-y-4">
-                        {generatedPlan.substitutes.map((sub: any, i: number) => (
-                          <div key={i}>
-                            <h4 className="text-[11px] font-bold text-gray-800 uppercase mb-1.5">{sub.category}</h4>
-                            <div className="flex flex-wrap gap-1.5">
-                              {sub.options.map((opt: string, j: number) => (
-                                <span key={j} className="text-[10px] px-2 py-1 bg-surface border border-border-color rounded-md text-gray-700 shadow-sm">{opt}</span>
-                              ))}
+              {((editedPlan||generatedPlan).supplements?.length > 0 || (editedPlan||generatedPlan).substitutes?.length > 0) && (() => {
+                const secS = 'supplements';
+                const secSub = 'substitutes';
+                const isES = !!editingSections[secS];
+                const isESub = !!editingSections[secSub];
+                const dp = editedPlan || generatedPlan;
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
+                    {dp.supplements?.length > 0 && (
+                      <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isES ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-[15px] uppercase tracking-widest text-center text-primary">Suplementación Sugerida</h3>
+                          <button onClick={() => toggleSection(secS)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isES ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                            {isES ? <><SaveIcon /> Guardar</> : <><Pencil /> Editar</>}
+                          </button>
+                        </div>
+                        <div className="space-y-3">
+                          {dp.supplements.map((s: any, i: number) => (
+                            <div key={i} className={`p-3 rounded-xl ${isES ? 'border border-amber-200 bg-amber-50' : 'bg-[#e8fae8] border border-[#bbf7d0]'}`}>
+                              {isES ? (
+                                <div className="space-y-1.5">
+                                  <input className="w-full font-bold text-sm text-[#0A4D3C] border-b border-amber-300 bg-transparent focus:outline-none" value={s.name} placeholder="Nombre" onChange={e => mut(p => { p.supplements[i].name = e.target.value; })} />
+                                  <input className="w-full text-xs text-[#0A4D3C]/70 font-mono border-b border-amber-200 bg-transparent focus:outline-none" value={s.dosage||''} placeholder="Dosis" onChange={e => mut(p => { p.supplements[i].dosage = e.target.value; })} />
+                                  <div className="flex gap-1"><span className="text-[11px] text-gray-500">💡</span><input className="flex-1 text-[11px] border border-amber-200 bg-white rounded px-1.5 py-1 focus:outline-none" value={s.reason||''} placeholder="Motivo" onChange={e => mut(p => { p.supplements[i].reason = e.target.value; })} /><button onClick={() => mut(p => { p.supplements.splice(i,1); })} className="text-red-400 hover:text-red-600 text-base px-1">×</button></div>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="font-bold text-sm text-[#0A4D3C]">{s.name}</div>
+                                  {s.dosage && <div className="text-xs text-[#0A4D3C]/70 mb-1 font-mono">{s.dosage}</div>}
+                                  <div className="text-[11px] text-gray-700 mt-1">💡 {s.reason}</div>
+                                </>
+                              )}
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                          {isES && <button onClick={() => mut(p => { p.supplements.push({ name: '', dosage: '', reason: '' }); })} className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full">+ Agregar suplemento</button>}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                    {dp.substitutes?.length > 0 && (
+                      <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isESub ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-bold text-[15px] uppercase tracking-widest text-center text-accent-dark">Opciones de Sustitución</h3>
+                          <button onClick={() => toggleSection(secSub)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isESub ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                            {isESub ? <><SaveIcon /> Guardar</> : <><Pencil /> Editar</>}
+                          </button>
+                        </div>
+                        <div className="space-y-4">
+                          {dp.substitutes.map((sub: any, si: number) => (
+                            <div key={si}>
+                              {isESub
+                                ? <input className="w-full text-[11px] font-bold text-gray-800 uppercase border-b border-amber-300 bg-transparent focus:outline-none mb-1.5" value={sub.category} onChange={e => mut(p => { p.substitutes[si].category = e.target.value; })} />
+                                : <h4 className="text-[11px] font-bold text-gray-800 uppercase mb-1.5">{sub.category}</h4>
+                              }
+                              <div className="flex flex-wrap gap-1.5">
+                                {sub.options.map((opt: string, oi: number) => (
+                                  isESub
+                                    ? <div key={oi} className="flex gap-0.5"><input className="text-[10px] px-2 py-1 border border-amber-200 bg-amber-50 rounded-md focus:outline-none w-28" value={opt} onChange={e => mut(p => { p.substitutes[si].options[oi] = e.target.value; })} /><button onClick={() => mut(p => { p.substitutes[si].options.splice(oi,1); })} className="text-red-400 text-sm leading-none px-0.5">×</button></div>
+                                    : <span key={oi} className="text-[10px] px-2 py-1 bg-surface border border-border-color rounded-md text-gray-700 shadow-sm">{opt}</span>
+                                ))}
+                                {isESub && <button onClick={() => mut(p => { p.substitutes[si].options.push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 px-2 py-1 rounded-md">+ Opción</button>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* 10. RECOMENDACIONES Y RECETAS */}
-              {generatedPlan.recommendationsAndRecipes?.length > 0 && (
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm pb-6 break-inside-avoid">
-                  <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Recomendaciones & Recetas Clave</h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {generatedPlan.recommendationsAndRecipes.map((rec: any, i: number) => (
-                      <div key={i} className="bg-bg border border-border-color rounded-xl p-4">
-                        <div className="font-bold text-sm text-text-main mb-2">✦ {rec.title}</div>
-                        <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{rec.content}</div>
-                      </div>
-                    ))}
+              {(editedPlan||generatedPlan).recommendationsAndRecipes?.length > 0 && (() => {
+                const sec = 'recommendations';
+                const isE = !!editingSections[sec];
+                const dp  = editedPlan || generatedPlan;
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm pb-6 break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-bold text-[15px] uppercase tracking-widest text-center text-primary">Recomendaciones &amp; Recetas Clave</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {dp.recommendationsAndRecipes.map((rec: any, i: number) => (
+                        <div key={i} className={`rounded-xl p-4 ${isE ? 'border border-amber-200 bg-amber-50' : 'bg-bg border border-border-color'}`}>
+                          {isE ? (
+                            <div className="space-y-2">
+                              <div className="flex gap-1"><input className="flex-1 font-bold text-sm text-text-main border-b border-amber-300 bg-transparent focus:outline-none" value={rec.title} placeholder="Título" onChange={e => mut(p => { p.recommendationsAndRecipes[i].title = e.target.value; })} /><button onClick={() => mut(p => { p.recommendationsAndRecipes.splice(i,1); })} className="text-red-400 hover:text-red-600 text-base px-1">×</button></div>
+                              <textarea className="w-full text-sm border border-amber-200 bg-white rounded p-2 focus:outline-none resize-none" rows={4} value={rec.content} onChange={e => mut(p => { p.recommendationsAndRecipes[i].content = e.target.value; })} />
+                            </div>
+                          ) : (
+                            <>
+                              <div className="font-bold text-sm text-text-main mb-2">✦ {rec.title}</div>
+                              <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{rec.content}</div>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {isE && <button onClick={() => mut(p => { p.recommendationsAndRecipes.push({ title: '', content: '' }); })} className="text-sm text-amber-600 border-2 border-dashed border-amber-300 bg-amber-50 hover:bg-amber-100 rounded-xl p-4 text-center transition-colors">+ Agregar recomendación</button>}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
+
 
             </div>
           </div>
