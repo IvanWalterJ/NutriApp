@@ -12,60 +12,82 @@ const Info = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const ArrowRight = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
 // -- CALCULATIONS --
-const ACTIVITY_FACTORS: Record<string, { factor: number; label: string }> = {
-  'Sedentario':    { factor: 1.2,   label: 'TMB × 1.2' },
-  'Ligera':        { factor: 1.375, label: 'TMB × 1.375' },
-  'Moderada':      { factor: 1.55,  label: 'TMB × 1.55' },
-  'Intensa':       { factor: 1.725, label: 'TMB × 1.725' },
-  'Muy Intensa':   { factor: 1.9,   label: 'TMB × 1.9' },
+// FA values from Excel: muy leve 1.3, leve H:1.6/M:1.5, mod H:1.7/M:1.6, intensa H:2.1/M:1.9
+const ACTIVITY_FACTORS_M: Record<string, { factor: number; label: string }> = {
+  'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
+  'Ligera':        { factor: 1.6,   label: 'GMR × 1.6 (leve H)' },
+  'Moderada':      { factor: 1.7,   label: 'GMR × 1.7 (mod H)' },
+  'Intensa':       { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
+  'Muy Intensa':   { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
+};
+const ACTIVITY_FACTORS_F: Record<string, { factor: number; label: string }> = {
+  'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
+  'Ligera':        { factor: 1.5,   label: 'GMR × 1.5 (leve M)' },
+  'Moderada':      { factor: 1.6,   label: 'GMR × 1.6 (mod M)' },
+  'Intensa':       { factor: 1.9,   label: 'GMR × 1.9 (intensa M)' },
+  'Muy Intensa':   { factor: 1.9,   label: 'GMR × 1.9 (intensa M)' },
 };
 
 function calculateMetrics(weight: number, height: number, age: number, sex: string, activityLevel: string) {
-  // Hamwi Formula → Peso Ideal
-  let idealWeight = sex === 'Masculino'
+  // Peso Ideal — fórmula Hamwi
+  const idealWeight = sex === 'Masculino'
     ? 48.0 + 1.06 * (height - 152.4)
     : 45.5 + 0.86 * (height - 152.4);
 
   const bmi = weight / Math.pow(height / 100, 2);
-  let adjustedIdealWeight = idealWeight;
-  let calculationMethod = '';
-  let calories = 0;
   let bmiCategory = '';
 
-  const { factor, label } = ACTIVITY_FACTORS[activityLevel] ?? { factor: 1.2, label: 'TMB × 1.2' };
+  // ── GMR (Gasto Metabólico en Reposo) — Harris-Benedict exacto del Excel ──
+  // Hombre: =66 + 13.7*peso + 5*talla - 6.8*edad
+  // Mujer:  =655 + 9.7*peso + 1.8*talla - 4.7*edad
+  const gmr = sex === 'Masculino'
+    ? 66 + 13.7 * weight + 5 * height - 6.8 * age
+    : 655 + 9.7 * weight + 1.8 * height - 4.7 * age;
 
-  // Harris-Benedict TMB
-  const tmb = sex === 'Masculino'
-    ? 66.5 + 13.75 * weight + 5.003 * height - 6.75 * age
-    : 655.1 + 9.563 * weight + 1.850 * height - 4.676 * age;
+  // ── FA (Factor de Actividad) — diferenciado por sexo según tabla Excel ──
+  const faTable = sex === 'Masculino' ? ACTIVITY_FACTORS_M : ACTIVITY_FACTORS_F;
+  const { factor, label } = faTable[activityLevel] ?? faTable['Sedentario'];
+
+  // ── GMT (Gasto Metabólico Total) = GMR × FA ──
+  const gmt = gmr * factor;
+
+  // ── PIC (Peso Ideal Corregido) — solo para sobrepeso/obesidad ──
+  // PIC = Peso Ideal + 0.25 × (Peso Real − Peso Ideal)
+  const pic = idealWeight + 0.25 * (weight - idealWeight);
+
+  // ── Calorías objetivo (VCT) ──
+  let calories = 0;
+  let calculationMethod = '';
 
   if (bmi >= 25) {
-    // Sobrepeso/Obesidad → Peso Ideal Corregido (PIC) × 22 (Knox)
+    // Sobrepeso / Obesidad: se usa GMT calculado con PIC
+    // GMR_pic = GMR con el PIC como peso de referencia, luego × FA
     bmiCategory = 'Sobrepeso / Obesidad';
-    adjustedIdealWeight = idealWeight + 0.25 * (weight - idealWeight);
-    calculationMethod = 'Knox: PIC × 22 kcal (descenso)';
-    calories = adjustedIdealWeight * 22;
+    const gmrPic = sex === 'Masculino'
+      ? 66 + 13.7 * pic + 5 * height - 6.8 * age
+      : 655 + 9.7 * pic + 1.8 * height - 4.7 * age;
+    calories = gmrPic * factor;
+    calculationMethod = `GMT con PIC: GMR(PIC) × ${factor} — ${label}`;
   } else if (bmi < 18.5) {
-    // Bajo peso → Harris-Benedict con densidad calórica aumentada
+    // Bajo peso → GMT normal + 10%
     bmiCategory = 'Bajo Peso';
-    calculationMethod = `Harris-Benedict × ${label} + 10% (bajo peso)`;
-    calories = tmb * factor * 1.1;
+    calories = gmt * 1.1;
+    calculationMethod = `GMT × 1.1 (bajo peso) — ${label}`;
   } else {
-    // Normopeso / Deportista → Harris-Benedict + Factor Actividad
+    // Normopeso
     bmiCategory = 'Normopeso';
-    calculationMethod = `Harris-Benedict × ${label}`;
-    calories = tmb * factor;
+    calories = gmt;
+    calculationMethod = `GMT = GMR × ${factor} — ${label}`;
   }
 
-  // Proteínas en g/kg según actividad (cálculo primario)
+  // ── Proteínas ──
   const isAthlete = activityLevel === 'Intensa' || activityLevel === 'Muy Intensa';
   const proteinGPerKg = isAthlete ? 1.8 : 1.3;
-  const refWeight = bmi >= 25 ? adjustedIdealWeight : weight;
+  // Para sobrepeso usamos PIC como referencia de peso proteico
+  const refWeight = bmi >= 25 ? pic : weight;
   const proteinGrams = Math.round(proteinGPerKg * refWeight);
 
-  // Distribución de macros por tipo de paciente
-  // Deportista (Rosana): 55/17/22 → normalizado a 100% → 61/17/22
-  // Resto: derivado de g/kg proteína + 25% grasas + resto carbos
+  // ── Distribución de macros ──
   let macros: { carbs: number; protein: number; fats: number };
   if (isAthlete) {
     macros = { carbs: 61, protein: 17, fats: 22 };
@@ -78,13 +100,15 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   }
 
   return {
-    idealWeight: parseFloat(idealWeight.toFixed(1)),
-    adjustedIdealWeight: parseFloat(adjustedIdealWeight.toFixed(1)),
-    bmi: parseFloat(bmi.toFixed(1)),
+    idealWeight:         parseFloat(idealWeight.toFixed(1)),
+    pic:                 parseFloat(pic.toFixed(1)),
+    gmr:                 parseFloat(gmr.toFixed(0)),
+    gmt:                 parseFloat(gmt.toFixed(0)),
+    bmi:                 parseFloat(bmi.toFixed(1)),
     bmiCategory,
     proteinGPerKg,
     proteinGrams,
-    calories: Math.round(calories),
+    calories:            Math.round(calories),
     calculationMethod,
     macros
   };
@@ -439,13 +463,39 @@ export default function MealPlanGenerator() {
                         <span className={`font-bold text-xs px-2 py-1 rounded-full ${metrics.bmiCategory === 'Normopeso' ? 'bg-green-100 text-green-700' : metrics.bmiCategory === 'Bajo Peso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{metrics.bmiCategory}</span>
                       </div>
 
+                      {/* Peso Ideal y PIC */}
+                      <div className="bg-white p-3 rounded-lg border border-border-color">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-text-muted text-xs">Peso Ideal (Hamwi)</span>
+                          <span className="font-bold text-sm">{metrics.idealWeight} kg</span>
+                        </div>
+                        {metrics.bmiCategory !== 'Normopeso' && metrics.bmiCategory !== 'Bajo Peso' && (
+                          <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
+                            <span className="text-xs font-semibold text-orange-600">PIC (Peso Ideal Corregido)</span>
+                            <span className="font-bold text-sm text-orange-600">{metrics.pic} kg</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* GMR y GMT */}
+                      <div className="bg-white p-3 rounded-lg border border-border-color">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-text-muted text-xs">GMR (Reposo / Harris-Benedict)</span>
+                          <span className="font-bold text-sm">{metrics.gmr} kcal</span>
+                        </div>
+                        <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
+                          <span className="text-text-muted text-xs">GMT (Total × FA actividad)</span>
+                          <span className="font-bold text-sm">{metrics.gmt} kcal</span>
+                        </div>
+                      </div>
+
                       <div className="bg-white p-3 rounded-lg border border-border-color">
                         <span className="text-text-muted block text-xs mb-1">Fórmula utilizada</span>
                         <span className="font-bold text-accent-dark text-xs">{metrics.calculationMethod}</span>
                       </div>
 
                       <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
-                        <span className="text-text-muted">Valor Calórico Objetivo</span>
+                        <span className="text-text-muted">Valor Calórico Objetivo (VCT)</span>
                         <span className="font-bold text-lg text-primary">{metrics.calories} kcal/día</span>
                       </div>
 
