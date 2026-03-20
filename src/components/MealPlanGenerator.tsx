@@ -12,15 +12,24 @@ const Info = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const ArrowRight = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
 // -- CALCULATIONS --
-// FA values from Excel: muy leve 1.3, leve H:1.6/M:1.5, mod H:1.7/M:1.6, intensa H:2.1/M:1.9
-const ACTIVITY_FACTORS_M: Record<string, { factor: number; label: string }> = {
+// ── Factores de Actividad (Harris-Benedict estándar) usados para normopeso/bajo peso ──
+const ACTIVITY_FACTORS_HB: Record<string, { factor: number; label: string }> = {
+  'Sedentario':    { factor: 1.2,   label: 'TMB × 1.2' },
+  'Ligera':        { factor: 1.375, label: 'TMB × 1.375' },
+  'Moderada':      { factor: 1.55,  label: 'TMB × 1.55' },
+  'Intensa':       { factor: 1.725, label: 'TMB × 1.725' },
+  'Muy Intensa':   { factor: 1.9,   label: 'TMB × 1.9' },
+};
+
+// ── Factores de Actividad del Excel (por sexo) — sólo para mostrar el GMT ──
+const ACTIVITY_FACTORS_GMT_M: Record<string, { factor: number; label: string }> = {
   'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
   'Ligera':        { factor: 1.6,   label: 'GMR × 1.6 (leve H)' },
   'Moderada':      { factor: 1.7,   label: 'GMR × 1.7 (mod H)' },
   'Intensa':       { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
   'Muy Intensa':   { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
 };
-const ACTIVITY_FACTORS_F: Record<string, { factor: number; label: string }> = {
+const ACTIVITY_FACTORS_GMT_F: Record<string, { factor: number; label: string }> = {
   'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
   'Ligera':        { factor: 1.5,   label: 'GMR × 1.5 (leve M)' },
   'Moderada':      { factor: 1.6,   label: 'GMR × 1.6 (mod M)' },
@@ -29,55 +38,53 @@ const ACTIVITY_FACTORS_F: Record<string, { factor: number; label: string }> = {
 };
 
 function calculateMetrics(weight: number, height: number, age: number, sex: string, activityLevel: string) {
-  // Peso Ideal — fórmula Hamwi
+  // ── Peso Ideal — fórmula del Excel ──
+  // Hombre: =47.7 + (altura - 150) × 2.72 / 2.5
+  // Mujer:  =45.5 + (altura - 150) × 2.27 / 2.5
   const idealWeight = sex === 'Masculino'
-    ? 48.0 + 1.06 * (height - 152.4)
-    : 45.5 + 0.86 * (height - 152.4);
+    ? 47.7 + (height - 150) * 2.72 / 2.5
+    : 45.5 + (height - 150) * 2.27 / 2.5;
 
   const bmi = weight / Math.pow(height / 100, 2);
   let bmiCategory = '';
 
-  // ── GMR (Gasto Metabólico en Reposo) — Harris-Benedict exacto del Excel ──
+  // ── GMR (Harris-Benedict exacto del Excel) ──
   // Hombre: =66 + 13.7*peso + 5*talla - 6.8*edad
   // Mujer:  =655 + 9.7*peso + 1.8*talla - 4.7*edad
   const gmr = sex === 'Masculino'
     ? 66 + 13.7 * weight + 5 * height - 6.8 * age
     : 655 + 9.7 * weight + 1.8 * height - 4.7 * age;
 
-  // ── FA (Factor de Actividad) — diferenciado por sexo según tabla Excel ──
-  const faTable = sex === 'Masculino' ? ACTIVITY_FACTORS_M : ACTIVITY_FACTORS_F;
-  const { factor, label } = faTable[activityLevel] ?? faTable['Sedentario'];
+  // GMT (para mostrar informativo, con FA del Excel por sexo)
+  const gmtTable = sex === 'Masculino' ? ACTIVITY_FACTORS_GMT_M : ACTIVITY_FACTORS_GMT_F;
+  const gmtFa = gmtTable[activityLevel] ?? gmtTable['Sedentario'];
+  const gmt = gmr * gmtFa.factor;
 
-  // ── GMT (Gasto Metabólico Total) = GMR × FA ──
-  const gmt = gmr * factor;
-
-  // ── PIC (Peso Ideal Corregido) — solo para sobrepeso/obesidad ──
+  // ── PIC (Peso Ideal Corregido) ──
   // PIC = Peso Ideal + 0.25 × (Peso Real − Peso Ideal)
   const pic = idealWeight + 0.25 * (weight - idealWeight);
 
   // ── Calorías objetivo (VCT) ──
+  // Factores HB estándar para normopeso
+  const hbFa = ACTIVITY_FACTORS_HB[activityLevel] ?? ACTIVITY_FACTORS_HB['Sedentario'];
   let calories = 0;
   let calculationMethod = '';
 
   if (bmi >= 25) {
-    // Sobrepeso / Obesidad: se usa GMT calculado con PIC
-    // GMR_pic = GMR con el PIC como peso de referencia, luego × FA
+    // Sobrepeso / Obesidad → Knox: PIC × 22
     bmiCategory = 'Sobrepeso / Obesidad';
-    const gmrPic = sex === 'Masculino'
-      ? 66 + 13.7 * pic + 5 * height - 6.8 * age
-      : 655 + 9.7 * pic + 1.8 * height - 4.7 * age;
-    calories = gmrPic * factor;
-    calculationMethod = `GMT con PIC: GMR(PIC) × ${factor} — ${label}`;
+    calories = pic * 22;
+    calculationMethod = `Knox: PIC (${pic.toFixed(1)} kg) × 22 kcal`;
   } else if (bmi < 18.5) {
-    // Bajo peso → GMT normal + 10%
+    // Bajo peso → densidad calórica: Harris-Benedict × FA + 10%
     bmiCategory = 'Bajo Peso';
-    calories = gmt * 1.1;
-    calculationMethod = `GMT × 1.1 (bajo peso) — ${label}`;
+    calories = gmr * hbFa.factor * 1.1;
+    calculationMethod = `Harris-Benedict × ${hbFa.label} + 10% (bajo peso)`;
   } else {
-    // Normopeso
+    // Normopeso / Deportista → Harris-Benedict × FA
     bmiCategory = 'Normopeso';
-    calories = gmt;
-    calculationMethod = `GMT = GMR × ${factor} — ${label}`;
+    calories = gmr * hbFa.factor;
+    calculationMethod = `Harris-Benedict × ${hbFa.label}`;
   }
 
   // ── Proteínas ──
@@ -100,11 +107,11 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   }
 
   return {
-    idealWeight:         parseFloat(idealWeight.toFixed(1)),
-    pic:                 parseFloat(pic.toFixed(1)),
-    gmr:                 parseFloat(gmr.toFixed(0)),
-    gmt:                 parseFloat(gmt.toFixed(0)),
-    bmi:                 parseFloat(bmi.toFixed(1)),
+    idealWeight:         parseFloat(idealWeight.toFixed(3)),
+    pic:                 parseFloat(pic.toFixed(3)),
+    gmr:                 parseFloat(gmr.toFixed(1)),
+    gmt:                 parseFloat(gmt.toFixed(2)),
+    bmi:                 parseFloat(bmi.toFixed(2)),
     bmiCategory,
     proteinGPerKg,
     proteinGrams,
