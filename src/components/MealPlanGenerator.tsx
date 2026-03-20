@@ -12,53 +12,91 @@ const Info = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 const ArrowRight = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>;
 
 // -- CALCULATIONS --
+const ACTIVITY_FACTORS: Record<string, { factor: number; label: string }> = {
+  'Sedentario':    { factor: 1.2,   label: 'TMB × 1.2' },
+  'Ligera':        { factor: 1.375, label: 'TMB × 1.375' },
+  'Moderada':      { factor: 1.55,  label: 'TMB × 1.55' },
+  'Intensa':       { factor: 1.725, label: 'TMB × 1.725' },
+  'Muy Intensa':   { factor: 1.9,   label: 'TMB × 1.9' },
+};
+
 function calculateMetrics(weight: number, height: number, age: number, sex: string, activityLevel: string) {
-  // Hamwi Formula
-  let idealWeight = 0;
-  if (sex === 'Masculino') {
-    idealWeight = 48.0 + 1.06 * (height - 152.4);
-  } else {
-    idealWeight = 45.5 + 0.86 * (height - 152.4);
-  }
-  
+  // Hamwi Formula → Peso Ideal
+  let idealWeight = sex === 'Masculino'
+    ? 48.0 + 1.06 * (height - 152.4)
+    : 45.5 + 0.86 * (height - 152.4);
+
   const bmi = weight / Math.pow(height / 100, 2);
   let adjustedIdealWeight = idealWeight;
   let calculationMethod = '';
   let calories = 0;
-  
-  if (bmi > 25) {
+  let bmiCategory = '';
+
+  const { factor, label } = ACTIVITY_FACTORS[activityLevel] ?? { factor: 1.2, label: 'TMB × 1.2' };
+
+  // Harris-Benedict TMB
+  const tmb = sex === 'Masculino'
+    ? 66.5 + 13.75 * weight + 5.003 * height - 6.75 * age
+    : 655.1 + 9.563 * weight + 1.850 * height - 4.676 * age;
+
+  if (bmi >= 25) {
+    // Sobrepeso/Obesidad → Peso Ideal Corregido (PIC) × 22 (Knox)
+    bmiCategory = 'Sobrepeso / Obesidad';
     adjustedIdealWeight = idealWeight + 0.25 * (weight - idealWeight);
-    calculationMethod = 'Fórmula de Nox (Descenso)';
-    calories = adjustedIdealWeight * 22; 
+    calculationMethod = 'Knox: PIC × 22 kcal (descenso)';
+    calories = adjustedIdealWeight * 22;
+  } else if (bmi < 18.5) {
+    // Bajo peso → Harris-Benedict con densidad calórica aumentada
+    bmiCategory = 'Bajo Peso';
+    calculationMethod = `Harris-Benedict × ${label} + 10% (bajo peso)`;
+    calories = tmb * factor * 1.1;
   } else {
-    calculationMethod = 'Harris-Benedict (Mantenimiento)';
-    // Harris Benedict
-    if (sex === 'Masculino') {
-      calories = 66.5 + (13.75 * weight) + (5.003 * height) - (6.75 * age);
-    } else {
-      calories = 655.1 + (9.563 * weight) + (1.850 * height) - (4.676 * age);
-    }
-    // Activity Factor
-    if (activityLevel === 'Deportista') calories *= 1.55;
-    else if (activityLevel === 'Activo') calories *= 1.375;
-    else calories *= 1.2;
+    // Normopeso / Deportista → Harris-Benedict + Factor Actividad
+    bmiCategory = 'Normopeso';
+    calculationMethod = `Harris-Benedict × ${label}`;
+    calories = tmb * factor;
   }
 
-  // Macros
-  let macros = { carbs: 55, protein: 15, fats: 30 };
-  if (activityLevel === 'Deportista') {
-    macros = { carbs: 55, protein: 23, fats: 22 }; // Rosana: 55C/17P/22F → normalizado a 100% con proteína en 23%
+  // Proteínas en g/kg según actividad (cálculo primario)
+  const isAthlete = activityLevel === 'Intensa' || activityLevel === 'Muy Intensa';
+  const proteinGPerKg = isAthlete ? 1.8 : 1.3;
+  const refWeight = bmi >= 25 ? adjustedIdealWeight : weight;
+  const proteinGrams = Math.round(proteinGPerKg * refWeight);
+
+  // Distribución de macros por tipo de paciente
+  // Deportista (Rosana): 55/17/22 → normalizado a 100% → 61/17/22
+  // Resto: derivado de g/kg proteína + 25% grasas + resto carbos
+  let macros: { carbs: number; protein: number; fats: number };
+  if (isAthlete) {
+    macros = { carbs: 61, protein: 17, fats: 22 };
+  } else {
+    const proteinCalories = proteinGrams * 4;
+    const proteinPct = Math.round((proteinCalories / Math.round(calories)) * 100);
+    const fatsPct = 25;
+    const carbsPct = Math.max(100 - proteinPct - fatsPct, 40);
+    macros = { carbs: carbsPct, protein: proteinPct, fats: fatsPct };
   }
 
   return {
     idealWeight: parseFloat(idealWeight.toFixed(1)),
     adjustedIdealWeight: parseFloat(adjustedIdealWeight.toFixed(1)),
     bmi: parseFloat(bmi.toFixed(1)),
+    bmiCategory,
+    proteinGPerKg,
+    proteinGrams,
     calories: Math.round(calories),
     calculationMethod,
     macros
   };
 }
+
+const INTOLERANCES_LIST = [
+  'Lactosa',
+  'Gluten (Celíaco / Sin TACC)',
+  'Colon Irritable',
+  'Enfermedad Diverticular',
+  'SiBO',
+];
 
 
 export default function MealPlanGenerator() {
@@ -72,10 +110,20 @@ export default function MealPlanGenerator() {
   
   const [preferences, setPreferences] = useState({
     dietType: 'Normal',
+    intolerances: [] as string[],
     activityLevel: 'Sedentario',
     objectives: '',
     foodRestrictions: ''
   });
+
+  function toggleIntolerance(intolerance: string) {
+    setPreferences(prev => ({
+      ...prev,
+      intolerances: prev.intolerances.includes(intolerance)
+        ? prev.intolerances.filter(i => i !== intolerance)
+        : [...prev.intolerances, intolerance]
+    }));
+  }
   
   const [loading, setLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
@@ -303,27 +351,45 @@ export default function MealPlanGenerator() {
                 {patientData && (
                   <>
                     <div>
-                      <label className={labelCls}>2. PREFERENCIA DIETARIA</label>
+                      <label className={labelCls}>2. TIPO DE ALIMENTACIÓN</label>
                       <select className={inputCls} value={preferences.dietType} onChange={e => setPreferences({...preferences, dietType: e.target.value})}>
                         <option value="Normal">Normal (Omnívora)</option>
-                        <option value="Vegetariano">Vegetariana</option>
-                        <option value="Vegano">Vegana</option>
-                        <option value="Celiaco (Sin Tacc)">Celíaco (Sin TACC)</option>
-                        <option value="Sin lactosa">Sin Lactosa</option>
+                        <option value="Vegetariana">Vegetariana</option>
+                        <option value="Vegana">Vegana</option>
+                        <option value="Pesco-vegetariana">Pesco-vegetariana</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className={labelCls}>3. NIVEL DE ACTIVIDAD</label>
+                      <label className={labelCls}>3. INTOLERANCIAS / PATOLOGÍAS</label>
+                      <div className="grid grid-cols-1 gap-2 mt-1">
+                        {INTOLERANCES_LIST.map(intol => (
+                          <label key={intol} className="flex items-center gap-3 p-2.5 rounded-lg border-2 border-border-color bg-bg cursor-pointer hover:border-primary/40 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={preferences.intolerances.includes(intol)}
+                              onChange={() => toggleIntolerance(intol)}
+                              className="w-4 h-4 rounded accent-primary cursor-pointer"
+                            />
+                            <span className="text-sm font-medium text-text-main">{intol}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>4. NIVEL DE ACTIVIDAD FÍSICA</label>
                       <select className={inputCls} value={preferences.activityLevel} onChange={e => setPreferences({...preferences, activityLevel: e.target.value})}>
-                        <option value="Sedentario">Sedentario</option>
-                        <option value="Activo">Activo (1-3 días x sem)</option>
-                        <option value="Deportista">Deportista (+4 días x sem)</option>
+                        <option value="Sedentario">Sedentario — poco o ningún ejercicio</option>
+                        <option value="Ligera">Ligera — 1 a 3 días por semana</option>
+                        <option value="Moderada">Moderada — 3 a 5 días por semana</option>
+                        <option value="Intensa">Intensa — 6 a 7 días por semana</option>
+                        <option value="Muy Intensa">Muy Intensa — entrenamiento doble o trabajo físico</option>
                       </select>
                     </div>
 
                     <div>
-                      <label className={labelCls}>4. ALIMENTOS QUE NO PUEDE CONSUMIR (Opcional)</label>
+                      <label className={labelCls}>5. ALIMENTOS QUE NO PUEDE CONSUMIR (Opcional)</label>
                       <textarea
                         className={inputCls}
                         placeholder="Ej: mariscos, nueces, lácteos, huevo..."
@@ -334,7 +400,7 @@ export default function MealPlanGenerator() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>5. OBJETIVOS ESPECÍFICOS (Opcional)</label>
+                      <label className={labelCls}>6. OBJETIVOS ESPECÍFICOS (Opcional)</label>
                       <textarea
                         className={inputCls}
                         placeholder="Ej: Bajar índice glucémico, reducir inflamación intestinal..."
@@ -362,29 +428,34 @@ export default function MealPlanGenerator() {
                       <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                     </div>
                   ) : metrics ? (
-                    <div className="space-y-4 text-sm">
-                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between">
+                    <div className="space-y-3 text-sm">
+                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
                         <span className="text-text-muted">Biometría</span>
-                        <span className="font-bold">{patientData.weight}kg | {patientData.height}cm | IMC {metrics.bmi}</span>
+                        <span className="font-bold">{patientData.weight}kg · {patientData.height}cm · IMC {metrics.bmi}</span>
                       </div>
-                      
-                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between">
-                        <span className="text-text-muted">Formula utilizada</span>
-                        <span className="font-bold text-accent-dark">{metrics.calculationMethod}</span>
+
+                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
+                        <span className="text-text-muted">Categoría IMC</span>
+                        <span className={`font-bold text-xs px-2 py-1 rounded-full ${metrics.bmiCategory === 'Normopeso' ? 'bg-green-100 text-green-700' : metrics.bmiCategory === 'Bajo Peso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{metrics.bmiCategory}</span>
                       </div>
 
                       <div className="bg-white p-3 rounded-lg border border-border-color">
-                        <div className="flex justify-between mb-2">
-                          <span className="text-text-muted">Valor Calórico Objetivo</span>
-                          <span className="font-bold text-lg text-primary">{metrics.calories} kcal/día</span>
-                        </div>
-                        <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
-                          <div className="bg-primary h-2 rounded-full" style={{ width: '100%' }}></div>
-                        </div>
+                        <span className="text-text-muted block text-xs mb-1">Fórmula utilizada</span>
+                        <span className="font-bold text-accent-dark text-xs">{metrics.calculationMethod}</span>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
+                        <span className="text-text-muted">Valor Calórico Objetivo</span>
+                        <span className="font-bold text-lg text-primary">{metrics.calories} kcal/día</span>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
+                        <span className="text-text-muted">Proteínas ({metrics.proteinGPerKg} g/kg)</span>
+                        <span className="font-bold text-[#2563eb]">{metrics.proteinGrams} g/día</span>
                       </div>
 
                       <div className="bg-white p-3 rounded-lg border border-border-color">
-                        <span className="text-text-muted block mb-2">Distribución de Macros Estimada</span>
+                        <span className="text-text-muted block mb-2">Distribución de Macros</span>
                         <div className="flex gap-1 h-3 rounded-full overflow-hidden mb-2">
                           <div style={{width:`${metrics.macros.carbs}%`}} className="bg-[#facc15]" title="Carbohidratos"></div>
                           <div style={{width:`${metrics.macros.protein}%`}} className="bg-[#fb923c]" title="Proteínas"></div>
@@ -396,6 +467,17 @@ export default function MealPlanGenerator() {
                           <span className="text-[#e11d48] border-b-2 border-[#f43f5e] pb-0.5">GRASAS {metrics.macros.fats}%</span>
                         </div>
                       </div>
+
+                      {preferences.intolerances.length > 0 && (
+                        <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
+                          <span className="text-amber-700 text-xs font-bold block mb-1.5">Intolerancias activas:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {preferences.intolerances.map(i => (
+                              <span key={i} className="text-[10px] bg-amber-100 border border-amber-300 text-amber-800 px-2 py-0.5 rounded-full font-medium">{i}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ) : null}
                 </div>
@@ -450,43 +532,143 @@ export default function MealPlanGenerator() {
             </div>
           </div>
 
-          <div ref={pdfRef} className="bg-bg">
+          <div ref={pdfRef} className="bg-bg print:pt-10">
             <div className="p-6 md:p-8 space-y-6">
 
-              {/* Tu Perfil de Hábitos */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg text-center mb-6 uppercase tracking-widest text-[#2c3e50]">Tu Perfil de Hábitos</h3>
-                
-                <div className="space-y-5">
+              {/* 1. OBJETIVO DEL PLAN */}
+              {generatedPlan.planObjective && (
+                <div className="bg-[#f0fdf4] border-2 border-[#86efac] rounded-2xl p-5 flex items-center gap-4 shadow-sm">
+                  <div className="text-3xl shrink-0">🎯</div>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-widest text-[#166534] mb-1">Objetivo del Plan</div>
+                    <p className="text-[#14532d] font-semibold text-base">{generatedPlan.planObjective}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* 2. LISTA DE COMPRAS */}
+              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
+                <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Lista de Compras</h3>
+                <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {[
-                    { label: 'Hidratación', cur: generatedPlan.habitProfile.hydration.current, max: generatedPlan.habitProfile.hydration.max, color: 'bg-[#3b82f6]' },
-                    { label: 'Alimentación & Fibra', cur: generatedPlan.habitProfile.foodAndFiber.current, max: generatedPlan.habitProfile.foodAndFiber.max, color: 'bg-[#22c55e]' },
-                    { label: 'Actividad Física', cur: generatedPlan.habitProfile.physicalActivity.current, max: generatedPlan.habitProfile.physicalActivity.max, color: 'bg-[#f59e0b]' }
-                  ].map((h, i) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-sm font-semibold text-text-muted mb-1.5">
-                        <span>{h.label}</span>
-                        <span>{h.cur} / {h.max} pts ({Math.round(h.cur/h.max*100)}%)</span>
+                    { key: 'carbsAndLegumes',      label: 'Carbohidratos', color: 'text-[#d97706]', border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', icon: '🍞' },
+                    { key: 'proteins',             label: 'Proteínas',     color: 'text-[#2563eb]', border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', icon: '🥩' },
+                    { key: 'vegetablesAndFruits',  label: 'Verduras y Frutas', color: 'text-[#059669]', border: 'border-[#a7f3d0]', bg: 'bg-[#ecfdf5]', icon: '🥦' },
+                    { key: 'fatsAndDairy',         label: 'Grasas Saludables', color: 'text-[#7c3aed]', border: 'border-[#ddd6fe]', bg: 'bg-[#f5f3ff]', icon: '🥑' },
+                    { key: 'canned',               label: 'Enlátados',     color: 'text-[#0891b2]', border: 'border-[#a5f3fc]', bg: 'bg-[#ecfeff]', icon: '🥫' },
+                    { key: 'frozen',               label: 'Congelados',    color: 'text-[#6366f1]', border: 'border-[#c7d2fe]', bg: 'bg-[#eef2ff]', icon: '❄️' },
+                  ].map(({ key, label, color, border, bg, icon }) => {
+                    const items: string[] = generatedPlan.shoppingList?.[key] || [];
+                    if (!items.length) return null;
+                    return (
+                      <div key={key} className={`${bg} border ${border} rounded-xl p-3`}>
+                        <h4 className={`text-[11px] font-bold ${color} uppercase mb-2 flex items-center gap-1`}>{icon} {label}</h4>
+                        <ul className="text-[10px] text-gray-700 space-y-1">
+                          {items.map((t: string) => <li key={t} className="flex items-start gap-1"><span className="shrink-0">✓</span>{t}</li>)}
+                        </ul>
                       </div>
-                      <div className="h-4 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${h.color}`} style={{ width: `${Math.round(h.cur/h.max*100)}%` }}></div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 3. GRUPOS DE ALIMENTOS CON PORCIONES */}
+              {generatedPlan.foodGroupsDetail && (
+                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
+                  <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Grupos de Alimentos</h3>
+                  <p className="text-center text-xs text-text-muted mb-5">Porciones recomendadas para tu requerimiento diario</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[
+                      { key: 'carbs',    label: 'Carbohidratos',     icon: '🍞', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', color: 'text-[#92400e]' },
+                      { key: 'proteins', label: 'Proteínas',          icon: '🥩', bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', color: 'text-[#1e40af]' },
+                      { key: 'fats',     label: 'Grasas Saludables',  icon: '🥑', bg: 'bg-[#f5f3ff]', border: 'border-[#ddd6fe]', color: 'text-[#4c1d95]' },
+                    ].map(({ key, label, icon, bg, border, color }) => {
+                      const items: string[] = generatedPlan.foodGroupsDetail?.[key] || [];
+                      if (!items.length) return null;
+                      return (
+                        <div key={key} className={`${bg} border ${border} rounded-xl p-4`}>
+                          <h4 className={`text-sm font-bold ${color} mb-3 flex items-center gap-2`}>{icon} {label}</h4>
+                          <ul className="space-y-2">
+                            {items.map((item: string, i: number) => (
+                              <li key={i} className="text-[12px] text-gray-700 flex items-start gap-2">
+                                <span className="text-gray-400 shrink-0 mt-0.5">•</span>
+                                <span>{item}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* 4. PLAN DIARIO */}
+              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
+                <h3 className="font-bold text-lg text-center mb-6 uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
+                <div className="space-y-4">
+                  {generatedPlan.dailyPlan.map((meal: any, i: number) => (
+                    <div key={i} className="flex gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
+                      <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
+                        <div className="font-black text-gray-800 text-lg">{meal.time}</div>
+                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                        <ul className="space-y-1 mb-3">
+                          {meal.items.map((item: string, j: number) => (
+                            <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
+                              <span className="text-primary mt-1">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        {meal.tip && (
+                          <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
+                            💡 {meal.tip}
+                          </div>
+                        )}
                       </div>
                     </div>
                   ))}
                 </div>
-
-                {generatedPlan.habitProfile.insufficientHydrationAlert && (
-                  <div className="mt-6 bg-[#fef3c7] border border-[#fde68a] text-[#92400e] p-4 rounded-xl text-sm font-medium flex gap-3 items-start">
-                    <span className="text-xl">⚠️</span>
-                    <p><strong>Hidratación insuficiente:</strong> Tu consumo de agua está por debajo de lo recomendado. Intentá llevar siempre una botella de 500ml y completar al menos {generatedPlan.hydrationPlan.equivalentGlasses / 2} recargas al día.</p>
-                  </div>
-                )}
               </div>
 
-              {/* Distribución de Macros */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8">
-                <div className="shrink-0 relative flex flex-col items-center">
-                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Distribución de Macros</div>
+              {/* 5. IDEAS DE MENÚ */}
+              {generatedPlan.menuIdeas && (
+                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
+                  <h3 className="font-bold text-lg text-center mb-2 uppercase tracking-widest text-[#2c3e50]">Ideas de Menú</h3>
+                  <p className="text-center text-xs text-text-muted mb-5">Opciones para armar tus platos del día a día</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="text-xs font-bold text-[#d97706] uppercase tracking-widest mb-3 flex items-center gap-2">🍞 Con Carbohidratos</h4>
+                      <ul className="space-y-2">
+                        {(generatedPlan.menuIdeas.carbsIdeas || []).map((idea: string, i: number) => (
+                          <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2 p-2 bg-[#fffbeb] rounded-lg border border-[#fef3c7]">
+                            <span className="text-[#d97706] shrink-0">›</span>{idea}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-[#2563eb] uppercase tracking-widest mb-3 flex items-center gap-2">🥩 Con Proteínas</h4>
+                      <ul className="space-y-2">
+                        {(generatedPlan.menuIdeas.proteinIdeas || []).map((idea: string, i: number) => (
+                          <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2 p-2 bg-[#eff6ff] rounded-lg border border-[#dbeafe]">
+                            <span className="text-[#2563eb] shrink-0">›</span>{idea}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 6. PLATO SALUDABLE / MACROS */}
+              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8 break-inside-avoid">
+                <div className="shrink-0 flex flex-col items-center">
+                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Plato Saludable</div>
                   <PieChart
                     pP={generatedPlan.healthyPlate.proteinsPct}
                     pC={generatedPlan.healthyPlate.carbsPct}
@@ -495,7 +677,7 @@ export default function MealPlanGenerator() {
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
-                  <p className="text-sm text-text-muted leading-relaxed mb-6">
+                  <p className="text-sm text-text-muted leading-relaxed mb-4">
                     Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({generatedPlan.healthyPlate.carbsPct}%)</strong>,
                     con aporte proteico de <strong className="text-[#2563eb]">{generatedPlan.healthyPlate.proteinsPct}%</strong> y
                     grasas saludables del <strong className="text-[#9333ea]">{generatedPlan.healthyPlate.fatsPct}%</strong>.
@@ -514,16 +696,14 @@ export default function MealPlanGenerator() {
                 </div>
               </div>
 
-              {/* Verduras Recomendadas */}
+              {/* 7. VERDURAS RECOMENDADAS */}
               {generatedPlan.recommendedGroups && (
                 <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
                   <h3 className="font-bold text-lg text-center mb-5 uppercase tracking-widest text-[#2c3e50]">Verduras Recomendadas</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {generatedPlan.recommendedGroups.vegetablesA?.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-bold text-[#059669] uppercase tracking-widest mb-3 flex items-center gap-2">
-                          🥗 Grupo A — Sin almidón
-                        </h4>
+                        <h4 className="text-xs font-bold text-[#059669] uppercase tracking-widest mb-3">🥗 Grupo A — Sin almidón</h4>
                         <div className="flex flex-wrap gap-2">
                           {generatedPlan.recommendedGroups.vegetablesA.map((v: string, i: number) => (
                             <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#ecfdf5] border border-[#a7f3d0] text-[#065f46] rounded-full font-medium">
@@ -535,9 +715,7 @@ export default function MealPlanGenerator() {
                     )}
                     {generatedPlan.recommendedGroups.vegetablesB?.length > 0 && (
                       <div>
-                        <h4 className="text-xs font-bold text-[#047857] uppercase tracking-widest mb-3 flex items-center gap-2">
-                          🥕 Grupo B — Con almidón
-                        </h4>
+                        <h4 className="text-xs font-bold text-[#047857] uppercase tracking-widest mb-3">🥕 Grupo B — Con almidón</h4>
                         <div className="flex flex-wrap gap-2">
                           {generatedPlan.recommendedGroups.vegetablesB.map((v: string, i: number) => (
                             <span key={i} className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] rounded-full font-medium">
@@ -551,101 +729,33 @@ export default function MealPlanGenerator() {
                 </div>
               )}
 
-              {/* Plan Diario */}
+              {/* 8. HIDRATACIÓN */}
               <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-lg text-center mb-6 uppercase tracking-widest text-[#2c3e50]">Plan Alimentario Diario Completo</h3>
-                
-                <div className="space-y-6">
-                  {generatedPlan.dailyPlan.map((meal: any, i: number) => (
-                    <div key={i} className="flex gap-4 p-4 rounded-xl border border-gray-100 bg-gray-50/50">
-                      <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
-                        <div className="font-black text-gray-800 text-lg">{meal.time}</div>
-                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
-                        <ul className="space-y-1 mb-3">
-                          {meal.items.map((item: string, j: number) => (
-                            <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
-                              <span className="text-primary mt-1 shadow-none bg-transparent h-auto">{"•"}</span> 
-                              <span>{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                        {meal.tip && (
-                          <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
-                            💡 {meal.tip}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center">Plan de Hidratación</h3>
+                <div className="bg-[#eff6ff] rounded-xl p-4 text-center border border-[#bfdbfe] mb-4">
+                  <div className="text-primary text-xs font-bold uppercase tracking-wider mb-1">Meta Diaria</div>
+                  <div className="text-2xl font-black text-[#1e3a8a]">{generatedPlan.hydrationPlan.targetLiters} litros de agua</div>
+                  <div className="text-xs text-[#3b82f6] mt-1 font-medium">Equivale a {generatedPlan.hydrationPlan.equivalentGlasses} vasos de 250ml</div>
+                  <div className="flex justify-center gap-1 mt-3">
+                    {Array.from({length: Math.min(generatedPlan.hydrationPlan.equivalentGlasses, 12)}).map((_,i) => (
+                      <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
+                    ))}
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-[11px]">
+                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
+                    <span className="text-lg">🌅</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.wakeupTip}</span>
+                  </div>
+                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
+                    <span className="text-lg">💧</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.workDayTip}</span>
+                  </div>
+                  <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
+                    <span className="text-lg">🌙</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.nightTip}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Hidratación y Compras */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Hidratacion */}
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                  <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center">Plan de Hidratación</h3>
-                  <div className="bg-[#eff6ff] rounded-xl p-4 text-center border border-[#bfdbfe] mb-4">
-                    <div className="text-primary text-xs font-bold uppercase tracking-wider mb-1">Meta Diaria</div>
-                    <div className="text-2xl font-black text-[#1e3a8a]">{generatedPlan.hydrationPlan.targetLiters} litros de agua</div>
-                    <div className="text-xs text-[#3b82f6] mt-1 font-medium">Equivale a {generatedPlan.hydrationPlan.equivalentGlasses} vasos de 250ml</div>
-                    <div className="flex justify-center gap-1 mt-3">
-                      {Array.from({length: Math.min(generatedPlan.hydrationPlan.equivalentGlasses, 12)}).map((_,i) => (
-                        <svg key={i} width="16" height="16" viewBox="0 0 24 24" fill="#60a5fa" stroke="#3b82f6" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 space-y-2 text-[11px]">
-                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                      <span className="text-lg">🌅</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.wakeupTip}</span>
-                    </div>
-                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                      <span className="text-lg">💻</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.workDayTip}</span>
-                    </div>
-                    <div className="flex items-center gap-3 bg-gray-50 border border-gray-100 p-2 rounded-lg">
-                      <span className="text-lg">🌙</span><span className="text-gray-600 font-medium">{generatedPlan.hydrationPlan.nightTip}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Compras */}
-                <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm">
-                  <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center">Lista de Compras Base</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <h4 className="text-[11px] font-bold text-[#059669] mb-2 uppercase border-b pb-1">Vegetales y Frutas</h4>
-                      <ul className="text-[10px] text-gray-600 space-y-1">
-                        {generatedPlan.shoppingList.vegetablesAndFruits.slice(0, 5).map((t: string) => <li key={t}>✓ {t}</li>)}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-[11px] font-bold text-[#2563eb] mb-2 uppercase border-b pb-1">Proteínas</h4>
-                      <ul className="text-[10px] text-gray-600 space-y-1">
-                        {generatedPlan.shoppingList.proteins.slice(0, 5).map((t: string) => <li key={t}>✓ {t}</li>)}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-[11px] font-bold text-[#d97706] mb-2 uppercase border-b pb-1">Carbos/Legumbres</h4>
-                      <ul className="text-[10px] text-gray-600 space-y-1">
-                        {generatedPlan.shoppingList.carbsAndLegumes.slice(0, 5).map((t: string) => <li key={t}>✓ {t}</li>)}
-                      </ul>
-                    </div>
-                    <div>
-                      <h4 className="text-[11px] font-bold text-[#9333ea] mb-2 uppercase border-b pb-1">Grasas Saludables</h4>
-                      <ul className="text-[10px] text-gray-600 space-y-1">
-                        {generatedPlan.shoppingList.fatsAndDairy.slice(0, 5).map((t: string) => <li key={t}>✓ {t}</li>)}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              {/* Suplementos y Sustitutos */}
+              {/* 9. SUPLEMENTOS Y SUSTITUTOS */}
               {(generatedPlan.supplements?.length > 0 || generatedPlan.substitutes?.length > 0) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-2">
                   {generatedPlan.supplements?.length > 0 && (
@@ -662,7 +772,6 @@ export default function MealPlanGenerator() {
                       </div>
                     </div>
                   )}
-
                   {generatedPlan.substitutes?.length > 0 && (
                     <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm break-inside-avoid">
                       <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-accent-dark">Opciones de Sustitución</h3>
@@ -672,9 +781,7 @@ export default function MealPlanGenerator() {
                             <h4 className="text-[11px] font-bold text-gray-800 uppercase mb-1.5">{sub.category}</h4>
                             <div className="flex flex-wrap gap-1.5">
                               {sub.options.map((opt: string, j: number) => (
-                                <span key={j} className="text-[10px] px-2 py-1 bg-surface border border-border-color rounded-md text-gray-700 shadow-sm">
-                                  {opt}
-                                </span>
+                                <span key={j} className="text-[10px] px-2 py-1 bg-surface border border-border-color rounded-md text-gray-700 shadow-sm">{opt}</span>
                               ))}
                             </div>
                           </div>
@@ -685,7 +792,7 @@ export default function MealPlanGenerator() {
                 </div>
               )}
 
-              {/* Recomendaciones y Recetas */}
+              {/* 10. RECOMENDACIONES Y RECETAS */}
               {generatedPlan.recommendationsAndRecipes?.length > 0 && (
                 <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm pb-6 break-inside-avoid">
                   <h3 className="font-bold text-[15px] mb-4 uppercase tracking-widest text-center text-primary">Recomendaciones & Recetas Clave</h3>
