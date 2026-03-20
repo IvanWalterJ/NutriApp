@@ -156,10 +156,10 @@ export default function MealPlanGenerator() {
   const [loading, setLoading] = useState(false);
   const [generatedPlan, setGeneratedPlan] = useState<any>(null);
   const [metrics, setMetrics] = useState<any>(null);
-  const [editMode, setEditMode] = useState(false);
-  // editedPlan mirrors generatedPlan but with user overrides
+  // editedPlan is always the working copy; sections independently toggle editing
   const [editedPlan, setEditedPlan] = useState<any>(null);
-  
+  const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
+
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -268,13 +268,19 @@ export default function MealPlanGenerator() {
       }
 
       const planJson = await response.json();
-      // Override hydration with deterministic calculation (35ml/kg) to avoid variability from AI
+      // Override hydration (deterministic 35ml/kg)
       const targetLiters = parseFloat((patientData.weight * 35 / 1000).toFixed(1));
       planJson.hydrationPlan.targetLiters = targetLiters;
       planJson.hydrationPlan.equivalentGlasses = Math.round(targetLiters * 1000 / 250);
+      // Override macros so the plan always matches the pre-generation summary
+      planJson.healthyPlate = {
+        proteinsPct: metrics.macros.protein,
+        carbsPct:    metrics.macros.carbs,
+        fatsPct:     metrics.macros.fats,
+      };
       setGeneratedPlan(planJson);
-      setEditedPlan(JSON.parse(JSON.stringify(planJson))); // deep copy for editing
-      setEditMode(false);
+      setEditedPlan(JSON.parse(JSON.stringify(planJson)));
+      setEditingSections({});
       showToast('¡Plan generado con éxito!', 'success');
       
       setTimeout(() => {
@@ -337,14 +343,21 @@ export default function MealPlanGenerator() {
   }
 
   function saveEdits() {
+    // Commit all edits — close all open sections
     setGeneratedPlan(JSON.parse(JSON.stringify(editedPlan)));
-    setEditMode(false);
+    setEditingSections({});
   }
+
+  function toggleSection(section: string) {
+    setEditingSections(prev => ({ ...prev, [section]: !prev[section] }));
+  }
+
+  const anyEditing = Object.values(editingSections).some(Boolean);
 
   function handleReset() {
     setGeneratedPlan(null);
     setEditedPlan(null);
-    setEditMode(false);
+    setEditingSections({});
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -625,21 +638,6 @@ export default function MealPlanGenerator() {
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 print:hidden">
-              {editMode ? (
-                <button
-                  onClick={saveEdits}
-                  className="bg-green-500 hover:bg-green-400 border border-green-300 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <SaveIcon /> Guardar Cambios
-                </button>
-              ) : (
-                <button
-                  onClick={() => { setEditedPlan(JSON.parse(JSON.stringify(generatedPlan))); setEditMode(true); }}
-                  className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <Pencil /> Editar Plan
-                </button>
-              )}
               <button 
                 onClick={downloadPDF} 
                 className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2 cursor-pointer relative z-10 shadow-sm"
@@ -726,86 +724,98 @@ export default function MealPlanGenerator() {
               )}
 
               {/* 4. PLAN DIARIO */}
-              <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm ${editMode ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
-                  {editMode && (
-                    <span className="text-xs font-bold bg-amber-100 text-amber-700 px-3 py-1 rounded-full border border-amber-300">
-                      ✏️ Modo Edición activo
-                    </span>
-                  )}
-                </div>
-                <div className="space-y-4">
-                  {(editMode ? editedPlan : generatedPlan).dailyPlan.map((meal: any, i: number) => (
-                    <div key={i} className={`flex gap-4 p-4 rounded-xl border bg-gray-50/50 ${editMode ? 'border-amber-200' : 'border-gray-100'}`}>
-                      <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
-                        <div className="font-black text-gray-800 text-lg">{meal.time}</div>
-                        <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
-                      </div>
-                      <div className="flex-1">
-                        {editMode ? (
-                          <input
-                            className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none focus:border-amber-500"
-                            value={meal.title}
-                            onChange={e => updateMealTitle(i, e.target.value)}
-                          />
-                        ) : (
-                          <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
-                        )}
-                        <ul className="space-y-1 mb-3">
-                          {meal.items.map((item: string, j: number) => (
-                            <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
-                              {editMode ? (
-                                <>
-                                  <span className="text-amber-400 mt-2">•</span>
-                                  <input
-                                    className="flex-1 border border-amber-200 bg-amber-50 rounded px-2 py-1 text-[13px] focus:outline-none focus:border-amber-400"
-                                    value={item}
-                                    onChange={e => updateMealItem(i, j, e.target.value)}
-                                  />
-                                  <button
-                                    onClick={() => removeMealItem(i, j)}
-                                    className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1"
-                                    title="Eliminar ítem"
-                                  >×</button>
-                                </>
-                              ) : (
-                                <>
-                                  <span className="text-primary mt-1">•</span>
-                                  <span>{item}</span>
-                                </>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                        {editMode && (
-                          <button
-                            onClick={() => addMealItem(i)}
-                            className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full mb-2 transition-colors"
-                          >
-                            + Agregar ítem
-                          </button>
-                        )}
-                        {editMode ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-[11px] text-[#047857]">💡</span>
-                            <input
-                              className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none focus:border-amber-400"
-                              value={meal.tip || ''}
-                              placeholder="Consejo (opcional)"
-                              onChange={e => updateMealTip(i, e.target.value)}
-                            />
-                          </div>
-                        ) : meal.tip ? (
-                          <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
-                            💡 {meal.tip}
-                          </div>
-                        ) : null}
-                      </div>
+              {(() => {
+                const sec = 'dailyPlan';
+                const isEditing = !!editingSections[sec];
+                const plan = isEditing ? editedPlan : (editedPlan || generatedPlan);
+                return (
+                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm ${isEditing ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Esquema Alimentario Diario</h3>
+                      <button
+                        onClick={() => toggleSection(sec)}
+                        className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${
+                          isEditing
+                            ? 'bg-green-500 text-white border-green-400 hover:bg-green-600'
+                            : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'
+                        }`}
+                      >
+                        {isEditing ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
+                      </button>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="space-y-4">
+                      {plan.dailyPlan.map((meal: any, i: number) => (
+                        <div key={i} className={`flex gap-4 p-4 rounded-xl border bg-gray-50/50 ${isEditing ? 'border-amber-200' : 'border-gray-100'}`}>
+                          <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
+                            <div className="font-black text-gray-800 text-lg">{meal.time}</div>
+                            <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
+                          </div>
+                          <div className="flex-1">
+                            {isEditing ? (
+                              <input
+                                className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none focus:border-amber-500"
+                                value={meal.title}
+                                onChange={e => updateMealTitle(i, e.target.value)}
+                              />
+                            ) : (
+                              <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                            )}
+                            <ul className="space-y-1 mb-3">
+                              {meal.items.map((item: string, j: number) => (
+                                <li key={j} className="text-[13px] text-gray-700 flex items-start gap-2">
+                                  {isEditing ? (
+                                    <>
+                                      <span className="text-amber-400 mt-2">•</span>
+                                      <input
+                                        className="flex-1 border border-amber-200 bg-amber-50 rounded px-2 py-1 text-[13px] focus:outline-none focus:border-amber-400"
+                                        value={item}
+                                        onChange={e => updateMealItem(i, j, e.target.value)}
+                                      />
+                                      <button
+                                        onClick={() => removeMealItem(i, j)}
+                                        className="text-red-400 hover:text-red-600 text-lg leading-none shrink-0 mt-1"
+                                        title="Eliminar ítem"
+                                      >×</button>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="text-primary mt-1">•</span>
+                                      <span>{item}</span>
+                                    </>
+                                  )}
+                                </li>
+                              ))}
+                            </ul>
+                            {isEditing && (
+                              <button
+                                onClick={() => addMealItem(i)}
+                                className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full mb-2 transition-colors"
+                              >
+                                + Agregar ítem
+                              </button>
+                            )}
+                            {isEditing ? (
+                              <div className="flex items-center gap-2">
+                                <span className="text-[11px] text-[#047857]">💡</span>
+                                <input
+                                  className="flex-1 text-[11px] border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none focus:border-amber-400"
+                                  value={meal.tip || ''}
+                                  placeholder="Consejo (opcional)"
+                                  onChange={e => updateMealTip(i, e.target.value)}
+                                />
+                              </div>
+                            ) : meal.tip ? (
+                              <div className="inline-block bg-[#e0fcf2] text-[#047857] px-3 py-1 rounded-md text-[11px] font-medium border border-[#a7f3d0]">
+                                💡 {meal.tip}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 5. IDEAS DE MENÚ */}
               {generatedPlan.menuIdeas && (
@@ -981,6 +991,18 @@ export default function MealPlanGenerator() {
 
             </div>
           </div>
+
+          {/* Floating save button when any section is being edited */}
+          {anyEditing && (
+            <div className="print:hidden fixed bottom-6 right-6 z-50 animate-in fade-in">
+              <button
+                onClick={saveEdits}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-5 py-3 rounded-full shadow-2xl transition-all hover:-translate-y-0.5 text-sm"
+              >
+                <SaveIcon /> Guardar todos los cambios
+              </button>
+            </div>
+          )}
           
         </div>
       )}
