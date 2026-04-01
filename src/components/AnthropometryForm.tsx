@@ -671,7 +671,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     const valoracion = generateValoracion(r, patientInfo.first_name, patientInfo.last_name, ref);
 
     return (
-      <div style={{ position: 'fixed', top: 0, left: 0, zIndex: -9999, pointerEvents: 'none', opacity: 0 }}>
+      <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', zIndex: -9999, pointerEvents: 'none', opacity: 0 }}>
         <div ref={pdfRef} style={{
           width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '20px 24px', background: '#fff',

@@ -302,11 +302,9 @@ export default function MealPlanGenerator() {
     const originalTitle = document.title;
     document.title = `Plan Nutricional - ${patientData.firstName} ${patientData.lastName}`;
 
-    // The new flex/h-screen layout clips content inside overflow-y-auto containers.
-    // Temporarily unlock every ancestor so window.print() captures all pages.
+    // Unlock flex/h-screen containers so all pages are captured
     const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
-    const candidates = document.querySelectorAll<HTMLElement>('body > div, body > div > div, body > div > div > div, main');
-    candidates.forEach(el => {
+    document.querySelectorAll<HTMLElement>('body > div, body > div > div, body > div > div > div, main').forEach(el => {
       const s = el.style;
       unlocked.push({ el, overflow: s.overflow, height: s.height, maxHeight: s.maxHeight, flex: s.flex });
       s.overflow = 'visible';
@@ -315,20 +313,32 @@ export default function MealPlanGenerator() {
       s.flex = 'none';
     });
 
+    // Constrain the plan view to A4 width (794px) so nothing overflows the right margin
+    const planEl = document.getElementById('generated-plan-view');
+    const prevMaxW = planEl ? planEl.style.maxWidth : '';
+    const prevW    = planEl ? planEl.style.width    : '';
+    if (planEl) {
+      planEl.style.maxWidth = '794px';
+      planEl.style.width    = '794px';
+    }
+
     window.print();
 
     const restore = () => {
       document.title = originalTitle;
       unlocked.forEach(({ el, overflow, height, maxHeight, flex }) => {
         el.style.overflow = overflow;
-        el.style.height = height;
+        el.style.height   = height;
         el.style.maxHeight = maxHeight;
-        el.style.flex = flex;
+        el.style.flex     = flex;
       });
+      if (planEl) {
+        planEl.style.maxWidth = prevMaxW;
+        planEl.style.width    = prevW;
+      }
       window.removeEventListener('afterprint', restore);
     };
     window.addEventListener('afterprint', restore);
-    // Fallback for browsers that don't fire afterprint
     setTimeout(restore, 3000);
   }
 

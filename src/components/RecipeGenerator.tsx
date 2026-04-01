@@ -157,10 +157,9 @@ export default function RecipeGenerator() {
     const label = patientData ? `${patientData.firstName} ${patientData.lastName} - ` : '';
     document.title = `${label}Recetas ${mealType} - NuPlan`;
 
-    // Unlock flex/h-screen containers so window.print() captures all pages.
+    // Unlock flex/h-screen containers so all pages are captured
     const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
-    const candidates = document.querySelectorAll<HTMLElement>('body > div, body > div > div, body > div > div > div, main');
-    candidates.forEach(el => {
+    document.querySelectorAll<HTMLElement>('body > div, body > div > div, body > div > div > div, main').forEach(el => {
       const s = el.style;
       unlocked.push({ el, overflow: s.overflow, height: s.height, maxHeight: s.maxHeight, flex: s.flex });
       s.overflow = 'visible';
@@ -168,6 +167,15 @@ export default function RecipeGenerator() {
       s.maxHeight = 'none';
       s.flex = 'none';
     });
+
+    // Constrain the recipe view to A4 width (794px) so nothing overflows the right margin
+    const recipesEl = document.getElementById('recipes-result');
+    const prevMaxW = recipesEl ? recipesEl.style.maxWidth : '';
+    const prevW    = recipesEl ? recipesEl.style.width    : '';
+    if (recipesEl) {
+      recipesEl.style.maxWidth = '794px';
+      recipesEl.style.width    = '794px';
+    }
 
     window.print();
 
@@ -179,6 +187,10 @@ export default function RecipeGenerator() {
         el.style.maxHeight = maxHeight;
         el.style.flex = flex;
       });
+      if (recipesEl) {
+        recipesEl.style.maxWidth = prevMaxW;
+        recipesEl.style.width    = prevW;
+      }
       window.removeEventListener('afterprint', restore);
     };
     window.addEventListener('afterprint', restore);
