@@ -289,7 +289,7 @@ export default function MealPlanGenerator() {
       
     } catch (err: any) {
       console.error(err);
-      showToast('Ocurrió un error al generar el plan con IA.', 'error');
+      showToast('Ocurrió un error al generar el plan.', 'error');
     } finally {
       setLoading(false);
     }
@@ -434,7 +434,7 @@ export default function MealPlanGenerator() {
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
                 <Sparkles />
               </div>
-              <h1 className="text-3xl font-black text-primary uppercase tracking-tight">Generador de Planes con IA</h1>
+              <h1 className="text-3xl font-black text-primary uppercase tracking-tight">Generador de Planes</h1>
               <p className="text-text-muted mt-2">Configura los parámetros del paciente y genera un plan alimentario personalizado en segundos.</p>
             </div>
 
@@ -620,7 +620,7 @@ export default function MealPlanGenerator() {
                 {loading ? (
                   <>
                     <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                    Procesando con IA...
+                    Procesando...
                   </>
                 ) : (
                   <>

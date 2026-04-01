@@ -48,7 +48,7 @@ const tabs = [
   { id: 'nueva-consulta', label: 'Nueva Consulta', Icon: ClipboardIcon },
   { id: 'parametros', label: 'Parámetros OMS', Icon: TrendingUpIcon },
   { id: 'generador', label: 'Generador Planes', Icon: SparklesIcon },
-  { id: 'recetario', label: 'Recetario IA', Icon: ChefHatIcon },
+  { id: 'recetario', label: 'Recetario', Icon: ChefHatIcon },
 ];
 
 export default function Tabs({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) {

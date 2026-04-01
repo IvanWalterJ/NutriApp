@@ -199,7 +199,7 @@ export default function RecipeGenerator() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
               <ChefHat />
             </div>
-            <h1 className="text-3xl font-black text-primary uppercase tracking-tight">Recetario con IA</h1>
+            <h1 className="text-3xl font-black text-primary uppercase tracking-tight">Recetario</h1>
             <p className="text-text-muted mt-2">Generá recetas personalizadas para tu paciente, adaptadas a sus restricciones y objetivos, en el mismo formato profesional del plan.</p>
           </div>
 
@@ -341,7 +341,7 @@ export default function RecipeGenerator() {
       {/* Header */}
       <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
-          <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO · IA</div>
+          <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO</div>
           <h2 className="text-3xl font-black mt-1">{mealType}</h2>
           <div className="text-sm mt-1 text-white/90">
             {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{selectedCompany.toUpperCase()}
@@ -633,7 +633,7 @@ export default function RecipeGenerator() {
 
         {/* Footer branding */}
         <div className="mt-8 pt-4 border-t border-border-color text-center text-xs text-text-muted print:mt-4">
-          Recetario generado con IA · NuPlan · {selectedCompany.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          NuPlan · {selectedCompany.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
         </div>
       </div>
     </div>
