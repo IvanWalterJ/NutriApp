@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import CustomSelect from './ui/CustomSelect';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
@@ -1100,17 +1101,13 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={LABEL_CLS}>Nombre y Apellido <span className="text-danger">*</span></label>
-              <select
-                className={INPUT_CLS}
+              <CustomSelect
                 value={formData.patient_id}
-                onChange={e => handlePatientChange(e.target.value)}
+                onChange={handlePatientChange}
                 disabled={fetchingPatients}
-              >
-                <option value="">{fetchingPatients ? 'Cargando...' : '— Seleccionar —'}</option>
-                {patients.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}{p.sex ? ` (${p.sex==='Masculino'?'M':'F'})` : ''}</option>
-                ))}
-              </select>
+                placeholder={fetchingPatients ? 'Cargando...' : '— Seleccionar —'}
+                options={patients.map((p: any) => ({ value: p.id, label: `${p.last_name}, ${p.first_name}${p.sex ? ` (${p.sex==='Masculino'?'M':'F'})` : ''}` }))}
+              />
             </div>
             <div>
               <label className={LABEL_CLS}>Número de Observación</label>
@@ -1170,45 +1167,41 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
                 Sexo <span className="text-danger">*</span>
                 {patientHasSex && <span className="ml-1.5 text-[0.6rem] text-primary font-normal normal-case tracking-normal">(del paciente)</span>}
               </label>
-              <select
-                className={patientHasSex ? INPUT_FILLED_CLS : INPUT_CLS}
+              <CustomSelect
                 value={formData.sex}
-                onChange={e => setFormData(prev => ({ ...prev, sex: e.target.value }))}
-              >
-                <option value="">— Seleccionar —</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Femenino">Femenino</option>
-              </select>
+                onChange={v => setFormData(prev => ({ ...prev, sex: v }))}
+                placeholder="— Seleccionar —"
+                options={[{value:'Masculino',label:'Masculino'},{value:'Femenino',label:'Femenino'}]}
+                className={patientHasSex ? 'ring-2 ring-primary/20' : ''}
+              />
             </div>
             <div>
               <label className={LABEL_CLS}>
                 Actividad / Referencia <span className="text-danger">*</span>
                 <span className="ml-1 text-[0.6rem] font-normal normal-case tracking-normal">(grupo de comparación)</span>
               </label>
-              <select
-                className={INPUT_CLS}
+              <CustomSelect
                 value={formData.activity_group}
-                onChange={e => setFormData(prev => ({ ...prev, activity_group: e.target.value }))}
-              >
-                <option value="">— Seleccionar —</option>
-                {ACTIVITY_GROUPS.map(g => <option key={g} value={g}>{g}</option>)}
-              </select>
+                onChange={v => setFormData(prev => ({ ...prev, activity_group: v }))}
+                placeholder="— Seleccionar —"
+                options={ACTIVITY_GROUPS.map(g => ({ value: g, label: g }))}
+              />
             </div>
             <div>
               <label className={LABEL_CLS}>
                 Raza / Etnia
                 <span className="ml-1 text-[0.6rem] font-normal normal-case tracking-normal">(referencia)</span>
               </label>
-              <select
-                className={INPUT_CLS}
+              <CustomSelect
                 value={formData.race_ethnicity}
-                onChange={e => setFormData(prev => ({ ...prev, race_ethnicity: e.target.value }))}
-              >
-                <option value="Blanca o Hispánica">Blanca o Hispánica (0)</option>
-                <option value="Afroamericana">Afroamericana (+1)</option>
-                <option value="Asiática">Asiática (−1)</option>
-                <option value="Otra">Otra</option>
-              </select>
+                onChange={v => setFormData(prev => ({ ...prev, race_ethnicity: v }))}
+                options={[
+                  {value:'Blanca o Hispánica', label:'Blanca o Hispánica (0)'},
+                  {value:'Afroamericana', label:'Afroamericana (+1)'},
+                  {value:'Asiática', label:'Asiática (−1)'},
+                  {value:'Otra', label:'Otra'},
+                ]}
+              />
             </div>
           </div>
         </div>

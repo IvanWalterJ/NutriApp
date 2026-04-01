@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Building2, Monitor } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
+import CustomSelect from './ui/CustomSelect';
 import SuccessModal from './SuccessModal';
 
 export default function ConsultationForm({ onComplete }: { onComplete?: () => void }) {
@@ -159,10 +159,13 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6 border-b-2 border-border-color pb-6">
           <div className="flex flex-col gap-2">
             <label className={labelClass}>Paciente</label>
-            <select className={inputClass} value={formData.patient_id} onChange={e => setFormData({ ...formData, patient_id: e.target.value })} disabled={fetchingPatients}>
-              <option value="">{fetchingPatients ? 'Cargando...' : 'Seleccionar paciente...'}</option>
-              {patients.map(p => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}</option>)}
-            </select>
+            <CustomSelect
+              value={formData.patient_id}
+              onChange={v => setFormData({ ...formData, patient_id: v })}
+              disabled={fetchingPatients}
+              placeholder={fetchingPatients ? 'Cargando...' : 'Seleccionar paciente...'}
+              options={patients.map(p => ({ value: p.id, label: `${p.last_name}, ${p.first_name}` }))}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <label className={labelClass}>Fecha</label>
@@ -170,23 +173,26 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
           </div>
           <div className="flex flex-col gap-2">
             <label className={labelClass}>Modalidad</label>
-            <div className="relative group/mod">
-              <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none">
-                {formData.modality === 'Presencial' ? <Building2 size={18} strokeWidth={2.5} /> : <Monitor size={18} strokeWidth={2.5} />}
-              </div>
-              <select className={`w-full pl-10 pr-4 py-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all cursor-pointer font-bold text-primary`} value={formData.modality} onChange={e => setFormData({ ...formData, modality: e.target.value })}>
-                <option value="Presencial">Presencial</option>
-                <option value="Online">Online</option>
-              </select>
-            </div>
+            <CustomSelect
+              value={formData.modality}
+              onChange={v => setFormData({ ...formData, modality: v })}
+              options={[
+                { value: 'Presencial', label: 'Presencial', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+                { value: 'Online', label: 'Online', icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg> },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <label className={labelClass}>Duración</label>
-            <select className={inputClass + ' cursor-pointer'} value={formData.duration_minutes} onChange={e => setFormData({ ...formData, duration_minutes: parseInt(e.target.value) })}>
-              <option value="30">30 minutos</option>
-              <option value="45">45 minutos</option>
-              <option value="60">60 minutos</option>
-            </select>
+            <CustomSelect
+              value={String(formData.duration_minutes)}
+              onChange={v => setFormData({ ...formData, duration_minutes: parseInt(v) })}
+              options={[
+                { value: '30', label: '30 minutos' },
+                { value: '45', label: '45 minutos' },
+                { value: '60', label: '60 minutos' },
+              ]}
+            />
           </div>
         </div>
 
@@ -232,68 +238,31 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Adherencia al Plan</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.adherence} onChange={e => setFormData({ ...formData, adherence: parseInt(e.target.value) })}>
-                <option value="1">1 - Muy Baja</option>
-                <option value="2">2 - Baja</option>
-                <option value="3">3 - Media</option>
-                <option value="4">4 - Alta</option>
-                <option value="5">5 - Muy Alta</option>
-              </select>
+              <CustomSelect value={String(formData.adherence)} onChange={v => setFormData({ ...formData, adherence: parseInt(v) })} options={[{value:'1',label:'1 - Muy Baja'},{value:'2',label:'2 - Baja'},{value:'3',label:'3 - Media'},{value:'4',label:'4 - Alta'},{value:'5',label:'5 - Muy Alta'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Nivel de Energía</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.energy_level} onChange={e => setFormData({ ...formData, energy_level: parseInt(e.target.value) })}>
-                <option value="1">1 - Muy Bajo</option>
-                <option value="2">2 - Bajo</option>
-                <option value="3">3 - Normal</option>
-                <option value="4">4 - Alto</option>
-                <option value="5">5 - Muy Alto</option>
-              </select>
+              <CustomSelect value={String(formData.energy_level)} onChange={v => setFormData({ ...formData, energy_level: parseInt(v) })} options={[{value:'1',label:'1 - Muy Bajo'},{value:'2',label:'2 - Bajo'},{value:'3',label:'3 - Normal'},{value:'4',label:'4 - Alto'},{value:'5',label:'5 - Muy Alto'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Calidad de Sueño</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.sleep_quality} onChange={e => setFormData({ ...formData, sleep_quality: parseInt(e.target.value) })}>
-                <option value="1">1 - Muy Mala</option>
-                <option value="2">2 - Mala</option>
-                <option value="3">3 - Regular</option>
-                <option value="4">4 - Buena</option>
-                <option value="5">5 - Excelente</option>
-              </select>
+              <CustomSelect value={String(formData.sleep_quality)} onChange={v => setFormData({ ...formData, sleep_quality: parseInt(v) })} options={[{value:'1',label:'1 - Muy Mala'},{value:'2',label:'2 - Mala'},{value:'3',label:'3 - Regular'},{value:'4',label:'4 - Buena'},{value:'5',label:'5 - Excelente'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Hidratación Adecuada</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.hydration ? 'Sí' : 'No'} onChange={e => setFormData({ ...formData, hydration: e.target.value === 'Sí' })}>
-                <option value="No">No</option>
-                <option value="Sí">Sí</option>
-              </select>
+              <CustomSelect value={formData.hydration ? 'Sí' : 'No'} onChange={v => setFormData({ ...formData, hydration: v === 'Sí' })} options={[{value:'No',label:'No'},{value:'Sí',label:'Sí'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Actividad Física Semanal</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.physical_activity} onChange={e => setFormData({ ...formData, physical_activity: e.target.value })}>
-                <option value="0 días">0 días</option>
-                <option value="1-2 días">1-2 días</option>
-                <option value="3-4 días">3-4 días</option>
-                <option value="5+ días">5+ días</option>
-              </select>
+              <CustomSelect value={formData.physical_activity} onChange={v => setFormData({ ...formData, physical_activity: v })} options={[{value:'0 días',label:'0 días'},{value:'1-2 días',label:'1-2 días'},{value:'3-4 días',label:'3-4 días'},{value:'5+ días',label:'5+ días'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Consumo Frutas y Verduras</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.consumo_frutas_verduras} onChange={e => setFormData({ ...formData, consumo_frutas_verduras: parseInt(e.target.value) })}>
-                <option value="1">1 - Muy Bajo</option>
-                <option value="2">2 - Bajo</option>
-                <option value="3">3 - Regular</option>
-                <option value="4">4 - Bueno</option>
-                <option value="5">5 - Excelente</option>
-              </select>
+              <CustomSelect value={String(formData.consumo_frutas_verduras)} onChange={v => setFormData({ ...formData, consumo_frutas_verduras: parseInt(v) })} options={[{value:'1',label:'1 - Muy Bajo'},{value:'2',label:'2 - Bajo'},{value:'3',label:'3 - Regular'},{value:'4',label:'4 - Bueno'},{value:'5',label:'5 - Excelente'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Estado General</label>
-              <select className={inputClass + ' cursor-pointer'} value={formData.overall_status} onChange={e => setFormData({ ...formData, overall_status: e.target.value })}>
-                <option value="En Progreso">En Progreso</option>
-                <option value="Objetivo Alcanzado">Objetivo Alcanzado</option>
-                <option value="En Riesgo">En Riesgo</option>
-                <option value="Requiere Derivación">Requiere Derivación</option>
-              </select>
+              <CustomSelect value={formData.overall_status} onChange={v => setFormData({ ...formData, overall_status: v })} options={[{value:'En Progreso',label:'En Progreso'},{value:'Objetivo Alcanzado',label:'Objetivo Alcanzado'},{value:'En Riesgo',label:'En Riesgo'},{value:'Requiere Derivación',label:'Requiere Derivación'}]} />
             </div>
           </div>
         </div>

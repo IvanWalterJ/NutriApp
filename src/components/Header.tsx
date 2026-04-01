@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import { useCompany, Company } from '../context/CompanyContext';
-import { Building2, ChevronDown, LogOut } from 'lucide-react';
+import { Building2, LogOut } from 'lucide-react';
+import CustomSelect from './ui/CustomSelect';
 
 interface HeaderProps {
   profile: any;
@@ -21,25 +22,21 @@ export default function Header({ profile }: HeaderProps) {
           NU<span className="text-accent-dark">PLAN</span>
         </div>
         <div className="flex items-center gap-8">
-          <div className="hidden sm:flex relative items-center group">
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-primary pointer-events-none transition-transform group-hover:scale-110">
-              <Building2 size={16} strokeWidth={2.5} />
-            </div>
-            <select
+          <div className="hidden sm:block">
+            <CustomSelect
               value={selectedCompany}
-              onChange={(e) => setSelectedCompany(e.target.value as Company)}
-              className="appearance-none bg-gradient-to-br from-primary/5 to-primary/10 text-primary border border-primary/20 pl-9 pr-10 py-2 rounded-full font-bold text-sm hover:bg-primary/20 transition-all cursor-pointer shadow-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              <option value="Galeno">Galeno</option>
-              <option value="Swiss Medical">Swiss Medical</option>
-              <option value="Ferias">Ferias</option>
-              <option value="Consultorio Privado">Consultorio Privado</option>
-              <option value="Mercado Libre">Mercado Libre</option>
-              <option value="Mercado Libre Virtual">Mercado Libre Virtual</option>
-            </select>
-            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-primary">
-              <ChevronDown size={14} strokeWidth={3} />
-            </div>
+              onChange={(v) => setSelectedCompany(v as Company)}
+              options={[
+                { value: 'Galeno', label: 'Galeno' },
+                { value: 'Swiss Medical', label: 'Swiss Medical' },
+                { value: 'Ferias', label: 'Ferias' },
+                { value: 'Consultorio Privado', label: 'Consultorio Privado' },
+                { value: 'Mercado Libre', label: 'Mercado Libre' },
+                { value: 'Mercado Libre Virtual', label: 'Mercado Libre Virtual' },
+              ]}
+              className="w-52"
+              dropdownClassName="right-0 left-auto"
+            />
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2 md:gap-3 group cursor-pointer hover-lift">

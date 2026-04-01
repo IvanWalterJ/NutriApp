@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
+import CustomSelect from './ui/CustomSelect';
 
 // -- ICONS --
 const CheckCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -443,22 +444,28 @@ export default function MealPlanGenerator() {
               <div className="space-y-6">
                 <div>
                   <label className={labelCls}>1. PACIENTE</label>
-                  <select className={inputCls} value={selectedPatientId} onChange={e => setSelectedPatientId(e.target.value)}>
-                    <option value="">Selecciona un paciente...</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={selectedPatientId}
+                    onChange={setSelectedPatientId}
+                    placeholder="Selecciona un paciente..."
+                    options={patients.map(p => ({ value: p.id, label: `${p.last_name}, ${p.first_name}` }))}
+                  />
                 </div>
 
                 {patientData && (
                   <>
                     <div>
                       <label className={labelCls}>2. TIPO DE ALIMENTACIÓN</label>
-                      <select className={inputCls} value={preferences.dietType} onChange={e => setPreferences({...preferences, dietType: e.target.value})}>
-                        <option value="Normal">Normal (Omnívora)</option>
-                        <option value="Vegetariana">Vegetariana</option>
-                        <option value="Vegana">Vegana</option>
-                        <option value="Pesco-vegetariana">Pesco-vegetariana</option>
-                      </select>
+                      <CustomSelect
+                        value={preferences.dietType}
+                        onChange={v => setPreferences({...preferences, dietType: v})}
+                        options={[
+                          {value:'Normal', label:'Normal (Omnívora)'},
+                          {value:'Vegetariana', label:'Vegetariana'},
+                          {value:'Vegana', label:'Vegana'},
+                          {value:'Pesco-vegetariana', label:'Pesco-vegetariana'},
+                        ]}
+                      />
                     </div>
 
                     <div>
@@ -480,13 +487,17 @@ export default function MealPlanGenerator() {
 
                     <div>
                       <label className={labelCls}>4. NIVEL DE ACTIVIDAD FÍSICA</label>
-                      <select className={inputCls} value={preferences.activityLevel} onChange={e => setPreferences({...preferences, activityLevel: e.target.value})}>
-                        <option value="Sedentario">Sedentario — poco o ningún ejercicio</option>
-                        <option value="Ligera">Ligera — 1 a 3 días por semana</option>
-                        <option value="Moderada">Moderada — 3 a 5 días por semana</option>
-                        <option value="Intensa">Intensa — 6 a 7 días por semana</option>
-                        <option value="Muy Intensa">Muy Intensa — entrenamiento doble o trabajo físico</option>
-                      </select>
+                      <CustomSelect
+                        value={preferences.activityLevel}
+                        onChange={v => setPreferences({...preferences, activityLevel: v})}
+                        options={[
+                          {value:'Sedentario', label:'Sedentario — poco o ningún ejercicio'},
+                          {value:'Ligera', label:'Ligera — 1 a 3 días por semana'},
+                          {value:'Moderada', label:'Moderada — 3 a 5 días por semana'},
+                          {value:'Intensa', label:'Intensa — 6 a 7 días por semana'},
+                          {value:'Muy Intensa', label:'Muy Intensa — entrenamiento doble o trabajo físico'},
+                        ]}
+                      />
                     </div>
 
                     <div>

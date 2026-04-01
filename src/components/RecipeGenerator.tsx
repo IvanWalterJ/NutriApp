@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CustomSelect from './ui/CustomSelect';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
@@ -214,10 +215,12 @@ export default function RecipeGenerator() {
                     Cargando datos...
                   </div>
                 ) : (
-                  <select className={inputCls} value={selectedPatientId} onChange={e => setSelectedPatientId(e.target.value)}>
-                    <option value="">Sin paciente específico</option>
-                    {patients.map(p => <option key={p.id} value={p.id}>{p.last_name}, {p.first_name}</option>)}
-                  </select>
+                  <CustomSelect
+                    value={selectedPatientId}
+                    onChange={setSelectedPatientId}
+                    placeholder="Sin paciente específico"
+                    options={[{value:'', label:'Sin paciente específico'}, ...patients.map(p => ({ value: p.id, label: `${p.last_name}, ${p.first_name}` }))]}
+                  />
                 )}
                 {patientData && (
                   <div className="mt-2 p-2.5 bg-primary/5 border border-primary/20 rounded-lg text-xs text-primary font-semibold">
@@ -257,12 +260,16 @@ export default function RecipeGenerator() {
 
               <div>
                 <label className={labelCls}>4. TIPO DE ALIMENTACIÓN</label>
-                <select className={inputCls} value={dietType} onChange={e => setDietType(e.target.value)}>
-                  <option value="Normal">Normal (Omnívora)</option>
-                  <option value="Vegetariana">Vegetariana</option>
-                  <option value="Vegana">Vegana</option>
-                  <option value="Pesco-vegetariana">Pesco-vegetariana</option>
-                </select>
+                <CustomSelect
+                  value={dietType}
+                  onChange={setDietType}
+                  options={[
+                    {value:'Normal', label:'Normal (Omnívora)'},
+                    {value:'Vegetariana', label:'Vegetariana'},
+                    {value:'Vegana', label:'Vegana'},
+                    {value:'Pesco-vegetariana', label:'Pesco-vegetariana'},
+                  ]}
+                />
               </div>
 
               <div>
