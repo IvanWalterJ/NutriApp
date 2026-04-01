@@ -14,6 +14,7 @@ import ConsultationForm from './components/ConsultationForm';
 import AnthropometryForm from './components/AnthropometryForm';
 import Parameters from './components/Parameters';
 import MealPlanGenerator from './components/MealPlanGenerator';
+import RecipeGenerator from './components/RecipeGenerator';
 import Footer from './components/Footer';
 import Auth from './components/Auth';
 import { CompanyProvider } from './context/CompanyContext';
@@ -129,6 +130,10 @@ export default function App() {
 
         {activeTab === 'generador' && (
           <MealPlanGenerator />
+        )}
+
+        {activeTab === 'recetario' && (
+          <RecipeGenerator />
         )}
       </main>
 

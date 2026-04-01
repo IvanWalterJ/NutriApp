@@ -34,6 +34,12 @@ const SparklesIcon = () => (
     <path d="M9.9 5.5l.8 2.2a2.3 2.3 0 0 0 1.6 1.6l2.2.8-2.2.8a2.3 2.3 0 0 0-1.6 1.6l-.8 2.2-.8-2.2a2.3 2.3 0 0 0-1.6-1.6l-2.2-.8 2.2-.8a2.3 2.3 0 0 0 1.6-1.6l.8-2.2zM20 12l-.5 1.4a1.8 1.8 0 0 0-1.2 1.2l-1.4.5 1.4.5a1.8 1.8 0 0 0 1.2 1.2l.5 1.4.5-1.4a1.8 1.8 0 0 0 1.2-1.2l1.4-.5-1.4-.5a1.8 1.8 0 0 0-1.2-1.2L20 12zM5.5 2L5 3.4a1.8 1.8 0 0 0-1.2 1.2L2.4 5.1l1.4.5A1.8 1.8 0 0 0 5 6.8L5.5 8.2l.5-1.4A1.8 1.8 0 0 0 7.2 5.6l1.4-.5-1.4-.5a1.8 1.8 0 0 0-1.2-1.2L5.5 2z" />
   </svg>
 );
+const ChefHatIcon = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/>
+    <line x1="6" y1="17" x2="18" y2="17"/>
+  </svg>
+);
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard General', Icon: DashboardIcon },
@@ -42,6 +48,7 @@ const tabs = [
   { id: 'nueva-consulta', label: 'Nueva Consulta', Icon: ClipboardIcon },
   { id: 'parametros', label: 'Parámetros OMS', Icon: TrendingUpIcon },
   { id: 'generador', label: 'Generador Planes', Icon: SparklesIcon },
+  { id: 'recetario', label: 'Recetario IA', Icon: ChefHatIcon },
 ];
 
 export default function Tabs({ activeTab, setActiveTab }: { activeTab: string, setActiveTab: (tab: string) => void }) {
