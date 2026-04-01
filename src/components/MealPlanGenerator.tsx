@@ -129,13 +129,14 @@ const INTOLERANCES_LIST = [
 
 
 export default function MealPlanGenerator() {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getCompanyType } = useCompany();
   const { showToast } = useToast();
-  
+
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [patientData, setPatientData] = useState<any>(null);
   const [loadingPatient, setLoadingPatient] = useState(false);
+  const [reportCompanyName, setReportCompanyName] = useState(selectedCompany);
   
   const [preferences, setPreferences] = useState({
     dietType: 'Normal',
@@ -165,6 +166,7 @@ export default function MealPlanGenerator() {
 
   useEffect(() => {
     fetchPatients();
+    setReportCompanyName(selectedCompany);
   }, [selectedCompany]);
 
   async function fetchPatients() {
@@ -452,6 +454,24 @@ export default function MealPlanGenerator() {
                   />
                 </div>
 
+                <div>
+                  <label className={labelCls}>
+                    Empresa para el informe
+                    {getCompanyType(selectedCompany) === 'feria' && (
+                      <span className="ml-2 text-[10px] font-normal normal-case text-primary/70 tracking-normal">
+                        (feria — podés editarlo)
+                      </span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    value={reportCompanyName}
+                    onChange={e => setReportCompanyName(e.target.value)}
+                    className={inputCls}
+                    placeholder="Nombre de empresa para el informe..."
+                  />
+                </div>
+
                 {patientData && (
                   <>
                     <div>
@@ -653,7 +673,7 @@ export default function MealPlanGenerator() {
                 {patientData.firstName} {patientData.lastName}
               </h2>
               <div className="text-sm mt-1 text-white/90">
-                Índice de Bienestar Nutricional NuPlan · {selectedCompany.toUpperCase()}
+                Índice de Bienestar Nutricional NuPlan · {reportCompanyName.toUpperCase()}
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 print:hidden">

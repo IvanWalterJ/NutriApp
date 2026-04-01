@@ -72,6 +72,47 @@ ALTER TABLE sessions ADD COLUMN IF NOT EXISTS len_foot numeric;
 
 -- Ojalá estas migraciones pasen de una sin problema! 🚀
 
+-- MIGRACIÓN: Tabla de empresas (fijas y ferias)
+-- Ejecutar en Supabase SQL Editor
+CREATE TABLE IF NOT EXISTS public.companies (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL UNIQUE,
+  type text NOT NULL DEFAULT 'fija' CHECK (type IN ('fija', 'feria')),
+  created_at timestamp with time zone DEFAULT now(),
+  created_by uuid REFERENCES auth.users(id)
+);
+
+-- Habilitar RLS
+ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
+
+-- Política: cualquier usuario autenticado puede leer
+CREATE POLICY "Authenticated users can read companies"
+  ON public.companies FOR SELECT
+  TO authenticated
+  USING (true);
+
+-- Política: cualquier usuario autenticado puede insertar
+CREATE POLICY "Authenticated users can insert companies"
+  ON public.companies FOR INSERT
+  TO authenticated
+  WITH CHECK (true);
+
+-- Política: cualquier usuario autenticado puede eliminar (solo ferias)
+CREATE POLICY "Authenticated users can delete companies"
+  ON public.companies FOR DELETE
+  TO authenticated
+  USING (true);
+
+-- Seed: cargar las empresas existentes (fijas)
+INSERT INTO public.companies (name, type) VALUES
+  ('Galeno', 'fija'),
+  ('Swiss Medical', 'fija'),
+  ('Pistrelli', 'fija'),
+  ('Consultorio Privado', 'fija'),
+  ('Mercado Libre', 'fija'),
+  ('Mercado Libre Virtual', 'fija')
+ON CONFLICT (name) DO NOTHING;
+
 -- MIGRACIÓN: Sexo del paciente (necesario para cálculos antropométricos)
 ALTER TABLE patients ADD COLUMN IF NOT EXISTS sex text; -- 'Masculino' | 'Femenino'
 

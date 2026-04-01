@@ -41,13 +41,14 @@ const DIFFICULTY_COLOR: Record<string, string> = {
 };
 
 export default function RecipeGenerator() {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getCompanyType } = useCompany();
   const { showToast } = useToast();
 
   const [patients, setPatients] = useState<any[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [patientData, setPatientData] = useState<any>(null);
   const [loadingPatient, setLoadingPatient] = useState(false);
+  const [reportCompanyName, setReportCompanyName] = useState(selectedCompany);
 
   const [mealType, setMealType] = useState('Almuerzos rápidos');
   const [objective, setObjective] = useState('');
@@ -64,6 +65,7 @@ export default function RecipeGenerator() {
 
   useEffect(() => {
     fetchPatients();
+    setReportCompanyName(selectedCompany);
   }, [selectedCompany]);
 
   async function fetchPatients() {
@@ -208,6 +210,24 @@ export default function RecipeGenerator() {
             {/* Left column */}
             <div className="space-y-6">
               <div>
+                <label className={labelCls}>
+                  Empresa para el informe
+                  {getCompanyType(selectedCompany) === 'feria' && (
+                    <span className="ml-2 text-[10px] font-normal normal-case text-primary/70 tracking-normal">
+                      (feria — podés editarlo)
+                    </span>
+                  )}
+                </label>
+                <input
+                  type="text"
+                  value={reportCompanyName}
+                  onChange={e => setReportCompanyName(e.target.value)}
+                  className={inputCls}
+                  placeholder="Nombre de empresa para el informe..."
+                />
+              </div>
+
+              <div>
                 <label className={labelCls}>1. PACIENTE (Opcional)</label>
                 {loadingPatient ? (
                   <div className="flex items-center gap-2 text-sm text-text-muted p-3">
@@ -351,7 +371,7 @@ export default function RecipeGenerator() {
           <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO</div>
           <h2 className="text-3xl font-black mt-1">{mealType}</h2>
           <div className="text-sm mt-1 text-white/90">
-            {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{selectedCompany.toUpperCase()}
+            {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{reportCompanyName.toUpperCase()}
           </div>
           {(editedResult || result).context && (
             <div className="mt-2 text-sm text-white/80 italic max-w-lg">{(editedResult || result).context}</div>
@@ -640,7 +660,7 @@ export default function RecipeGenerator() {
 
         {/* Footer branding */}
         <div className="mt-8 pt-4 border-t border-border-color text-center text-xs text-text-muted print:mt-4">
-          NuPlan · {selectedCompany.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          NuPlan · {reportCompanyName.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
         </div>
       </div>
     </div>
