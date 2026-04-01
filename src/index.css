@@ -200,6 +200,29 @@ select {
     display: none !important;
   }
 
+  /* Reset the app shell flex/height constraints so ALL content prints (not just what's visible in the scroll container) */
+  html, body {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body:not(.anthro-printing) > div {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  body:not(.anthro-printing) aside {
+    display: none !important;
+  }
+
+  body:not(.anthro-printing) main {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+  }
+
   body {
     background: white !important;
     padding: 0 !important;
