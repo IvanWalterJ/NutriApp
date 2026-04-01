@@ -6,7 +6,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
-import Tabs from './components/Tabs';
+import Sidebar from './components/Sidebar';
 import Metrics from './components/Metrics';
 import Charts from './components/Charts';
 import EmployeesTable from './components/EmployeesTable';
@@ -24,6 +24,8 @@ export default function App() {
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -98,48 +100,65 @@ export default function App() {
 
   return (
     <CompanyProvider>
-    <div className="min-h-screen bg-bg text-text-main font-sans overflow-x-hidden">
-      <Header profile={profile} />
+      <div className="flex h-screen bg-bg text-text-main font-sans overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar
+          activeTab={activeTab}
+          setActiveTab={setActiveTab}
+          profile={profile}
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+          mobileOpen={sidebarMobileOpen}
+          setMobileOpen={setSidebarMobileOpen}
+        />
 
-      <main className="max-w-[1600px] mx-auto p-4 md:p-8">
-        <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
+        {/* Main area */}
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <Header
+            profile={profile}
+            activeTab={activeTab}
+            onMenuClick={() => setSidebarMobileOpen(true)}
+          />
 
-        {activeTab === 'dashboard' && (
-          <>
-            <Metrics />
-            <Charts />
-            <EmployeesTable />
-          </>
-        )}
+          <main className="flex-1 overflow-y-auto p-4 md:p-8">
+            <div className="max-w-[1600px] mx-auto">
+              {activeTab === 'dashboard' && (
+                <>
+                  <Metrics />
+                  <Charts />
+                  <EmployeesTable />
+                </>
+              )}
 
-        {activeTab === 'empleados' && (
-          <EmployeesTable />
-        )}
+              {activeTab === 'empleados' && (
+                <EmployeesTable />
+              )}
 
-        {activeTab === 'antropometria' && (
-          <AnthropometryForm onComplete={() => setActiveTab('dashboard')} />
-        )}
+              {activeTab === 'antropometria' && (
+                <AnthropometryForm onComplete={() => setActiveTab('dashboard')} />
+              )}
 
-        {activeTab === 'nueva-consulta' && (
-          <ConsultationForm onComplete={() => setActiveTab('dashboard')} />
-        )}
+              {activeTab === 'nueva-consulta' && (
+                <ConsultationForm onComplete={() => setActiveTab('dashboard')} />
+              )}
 
-        {activeTab === 'parametros' && (
-          <Parameters />
-        )}
+              {activeTab === 'parametros' && (
+                <Parameters />
+              )}
 
-        {activeTab === 'generador' && (
-          <MealPlanGenerator />
-        )}
+              {activeTab === 'generador' && (
+                <MealPlanGenerator />
+              )}
 
-        {activeTab === 'recetario' && (
-          <RecipeGenerator />
-        )}
-      </main>
+              {activeTab === 'recetario' && (
+                <RecipeGenerator />
+              )}
+            </div>
+          </main>
 
-      <Footer />
-    </div>
+          <Footer />
+        </div>
+      </div>
     </CompanyProvider>
   );
 }
-
