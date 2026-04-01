@@ -728,7 +728,7 @@ export default function MealPlanGenerator() {
           </div>
 
           <div ref={pdfRef} className="bg-bg print:pt-10">
-            <div className="p-6 md:p-8 space-y-6">
+            <div className="p-6 md:p-8 print:p-0 space-y-6">
 
               {/* ── HELPER: inline edit/save button ── */}
               {/* Used in each section header */}
@@ -779,7 +779,7 @@ export default function MealPlanGenerator() {
                       </button>
                     </div>
                     {!isE && <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>}
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 print:grid-cols-2 gap-4 mt-4">
                       {cats.map(({ key, label, color, border, bg, icon }) => {
                         const items: string[] = dp.shoppingList?.[key] || [];
                         if (!isE && !items.length) return null;
@@ -828,7 +828,7 @@ export default function MealPlanGenerator() {
                       </button>
                     </div>
                     {!isE && <p className="text-center text-xs text-text-muted mb-5">Porciones recomendadas para tu requerimiento diario</p>}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-2 gap-4 mt-4">
                       {groups.map(({ key, label, icon, bg, border, color }) => {
                         const items: string[] = dp.foodGroupsDetail?.[key] || [];
                         return (

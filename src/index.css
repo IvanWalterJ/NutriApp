@@ -238,18 +238,29 @@ select {
     margin: 0 !important;
   }
 
-  /* Force the plan container to fit A4 width, with padding to replace @page margins */
-  #generated-plan-view {
-    max-width: 100% !important;
-    width: 100% !important;
-    margin: 0 !important;
-    padding: 8mm 10mm !important;
+  /* Force plan/recipe containers to fit A4 (210mm). Do NOT use width:100% here —
+     that resolves against ancestors that may be wider than the page, causing clipping. */
+  #generated-plan-view,
+  #recipes-result {
+    width: 210mm !important;
+    max-width: 210mm !important;
+    margin: 0 auto !important;
+    padding: 6mm 8mm !important;
+    box-sizing: border-box !important;
+    overflow: visible !important;
   }
 
-  /* Prevent horizontal overflow that causes cutoff */
+  /* Prevent ANY element from overflowing horizontally */
   * {
+    max-width: 100% !important;
     overflow-x: visible !important;
     box-sizing: border-box !important;
+  }
+
+  /* Prevent long text from breaking layout */
+  p, li, td, th, span, div {
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
   }
 
   /* Avoid page breaks inside meal cards and info blocks */
