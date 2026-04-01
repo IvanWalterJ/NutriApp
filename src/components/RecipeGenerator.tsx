@@ -156,8 +156,33 @@ export default function RecipeGenerator() {
     const originalTitle = document.title;
     const label = patientData ? `${patientData.firstName} ${patientData.lastName} - ` : '';
     document.title = `${label}Recetas ${mealType} - NuPlan`;
+
+    // Unlock flex/h-screen containers so window.print() captures all pages.
+    const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
+    const candidates = document.querySelectorAll<HTMLElement>('body > div, body > div > div, body > div > div > div, main');
+    candidates.forEach(el => {
+      const s = el.style;
+      unlocked.push({ el, overflow: s.overflow, height: s.height, maxHeight: s.maxHeight, flex: s.flex });
+      s.overflow = 'visible';
+      s.height = 'auto';
+      s.maxHeight = 'none';
+      s.flex = 'none';
+    });
+
     window.print();
-    setTimeout(() => { document.title = originalTitle; }, 2000);
+
+    const restore = () => {
+      document.title = originalTitle;
+      unlocked.forEach(({ el, overflow, height, maxHeight, flex }) => {
+        el.style.overflow = overflow;
+        el.style.height = height;
+        el.style.maxHeight = maxHeight;
+        el.style.flex = flex;
+      });
+      window.removeEventListener('afterprint', restore);
+    };
+    window.addEventListener('afterprint', restore);
+    setTimeout(restore, 3000);
   }
 
   function handleReset() {
