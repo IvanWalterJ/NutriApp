@@ -106,7 +106,6 @@ export default function App() {
         <Sidebar
           activeTab={activeTab}
           setActiveTab={setActiveTab}
-          profile={profile}
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
           mobileOpen={sidebarMobileOpen}
