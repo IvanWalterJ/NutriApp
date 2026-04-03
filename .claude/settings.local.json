@@ -16,7 +16,9 @@
       "Bash(npm list)",
       "Bash(powershell.exe -NoProfile:*)",
       "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "mcp__claude_ai_Vercel__deploy_to_vercel",
+      "Bash(vercel deploy --prod)"
     ]
   }
 }

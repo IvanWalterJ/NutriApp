@@ -5,6 +5,7 @@ export interface CompanyEntry {
   id: string;
   name: string;
   type: 'fija' | 'feria';
+  created_at: string;
 }
 
 interface CompanyContextType {
@@ -35,7 +36,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('companies')
-        .select('id, name, type')
+        .select('id, name, type, created_at')
         .order('type', { ascending: true })
         .order('name', { ascending: true });
       if (error) throw error;
@@ -53,7 +54,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('companies')
       .insert({ name: trimmed, type })
-      .select('id, name, type')
+      .select('id, name, type, created_at')
       .single();
     if (error) throw error;
     setCompanies(prev => [...prev, data as CompanyEntry]);
