@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import CustomSelect from './ui/CustomSelect';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
@@ -266,6 +267,8 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
   const [formData, setFormData]           = useState<Record<string, string>>({ ...EMPTY_FORM });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [latestConsultation, setLatestConsultation] = useState<any | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const prevTitle = useRef('');
   const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchPatients(); }, [selectedCompany]);
@@ -399,18 +402,25 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
     }
   }
 
-  async function downloadPDF() {
-    if (!pdfRef.current) return;
-    const html2pdf = (await import('html2pdf.js')).default;
-
-    await html2pdf().set({
-      margin: [8, 10, 8, 10],
-      filename: `Antropometria_${patientInfo?.last_name}_${results?.session_date}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 1024 },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(pdfRef.current).save();
+  function downloadPDF() {
+    if (!results || !patientInfo) return;
+    prevTitle.current = document.title;
+    document.title = `Antropometria_${patientInfo.last_name}_${results.session_date}`;
+    setIsPrinting(true);
   }
+
+  useEffect(() => {
+    if (!isPrinting) return;
+    document.body.classList.add('anthro-printing');
+    window.print();
+    const cleanup = () => {
+      document.title = prevTitle.current;
+      document.body.classList.remove('anthro-printing');
+      setIsPrinting(false);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+  }, [isPrinting]);
 
   // ── sub-components defined INSIDE (no inputs, so remount is harmless) ──────
 
@@ -670,12 +680,15 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
 
     const valoracion = generateValoracion(r, patientInfo.first_name, patientInfo.last_name, ref);
 
-    return (
-      <div style={{ position: 'fixed', top: 0, left: '-9999px', width: '794px', zIndex: -9999, pointerEvents: 'none', opacity: 0 }}>
-        <div ref={pdfRef} style={{
-          width: '794px', fontFamily: 'Arial, sans-serif', color: '#111',
-          padding: '20px 24px', background: '#fff',
-        }}>
+    if (!isPrinting) return null;
+
+    return createPortal(
+      <div id="anthro-print-portal" ref={pdfRef} style={{
+        position: 'absolute', top: '-99999px', left: 0,
+        visibility: 'hidden', pointerEvents: 'none',
+        width: '190mm', fontFamily: 'Arial, sans-serif', color: '#111',
+        padding: '8mm 10mm', background: '#fff',
+      }}>
 
         {/* ── Header ── */}
         <div style={{ background: 'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)', color: '#fff', padding: '18px 24px', borderRadius: '10px', marginBottom: '4px' }}>
@@ -1076,8 +1089,8 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
             </div>
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
-        </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
