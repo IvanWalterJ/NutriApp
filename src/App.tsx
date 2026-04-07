@@ -16,6 +16,7 @@ import Parameters from './components/Parameters';
 import MealPlanGenerator from './components/MealPlanGenerator';
 import RecipeGenerator from './components/RecipeGenerator';
 import EmpresasView from './components/EmpresasView';
+import OmsPopulationMetrics from './components/OmsPopulationMetrics';
 import Auth from './components/Auth';
 import { CompanyProvider } from './context/CompanyContext';
 
@@ -125,6 +126,7 @@ export default function App() {
                 <>
                   <Metrics />
                   <Charts />
+                  <OmsPopulationMetrics />
                   <EmployeesTable />
                 </>
               )}

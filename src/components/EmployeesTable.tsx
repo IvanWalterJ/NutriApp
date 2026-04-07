@@ -26,7 +26,14 @@ export default function EmployeesTable() {
     email: '',
     birth_date: '',
     phone: '',
-    sex: 'Femenino'
+    sex: 'Femenino',
+    // OMS initial assessment
+    adherence: '3',
+    hydration: 'true',
+    physical_activity: '1-2 días',
+    consumo_frutas_verduras: '3',
+    energy_level: '3',
+    sleep_quality: '3',
   });
   const [isEditingPatient, setIsEditingPatient] = useState(false);
   const [editPatientData, setEditPatientData] = useState<any>({});
@@ -103,7 +110,7 @@ export default function EmployeesTable() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error } = await supabase
+      const { data: patientResult, error } = await supabase
         .from('patients')
         .insert([{
           first_name: newEmployee.first_name,
@@ -118,9 +125,29 @@ export default function EmployeesTable() {
           status: 'En Progreso',
           company: selectedCompany,
           created_by: user?.id
-        }]);
+        }])
+        .select('id')
+        .single();
 
       if (error) throw error;
+
+      // Create initial session with OMS assessment data
+      const { error: sessionError } = await supabase.from('sessions').insert([{
+        patient_id: patientResult.id,
+        nutritionist_id: user?.id,
+        session_date: new Date().toISOString().split('T')[0],
+        company: selectedCompany,
+        session_type: 'Consulta',
+        weight: parseFloat(newEmployee.initial_weight),
+        height: parseFloat(newEmployee.height),
+        adherence: parseInt(newEmployee.adherence),
+        hydration: newEmployee.hydration === 'true',
+        physical_activity: newEmployee.physical_activity,
+        consumo_frutas_verduras: parseInt(newEmployee.consumo_frutas_verduras),
+        energy_level: parseInt(newEmployee.energy_level),
+        sleep_quality: parseInt(newEmployee.sleep_quality),
+      }]);
+      if (sessionError) throw sessionError;
 
       setShowAddModal(false);
       setNewEmployee({
@@ -132,7 +159,13 @@ export default function EmployeesTable() {
         email: '',
         birth_date: '',
         phone: '',
-        sex: 'Femenino'
+        sex: 'Femenino',
+        adherence: '3',
+        hydration: 'true',
+        physical_activity: '1-2 días',
+        consumo_frutas_verduras: '3',
+        energy_level: '3',
+        sleep_quality: '3',
       });
       fetchEmployees();
       setShowSuccessModal(true);
@@ -466,6 +499,93 @@ export default function EmployeesTable() {
                       value={newEmployee.height}
                       onChange={e => setNewEmployee({ ...newEmployee, height: e.target.value })}
                     />
+                  </div>
+                </div>
+
+                {/* Evaluación Inicial OMS */}
+                <div className="mt-4 pt-4 border-t-2 border-border-color">
+                  <h4 className="text-sm font-bold text-primary mb-3 uppercase tracking-wider">Evaluación Inicial OMS</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Adherencia al Plan</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.adherence}
+                        onChange={e => setNewEmployee({ ...newEmployee, adherence: e.target.value })}
+                      >
+                        <option value="1">1 - Muy baja</option>
+                        <option value="2">2 - Baja</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="4">4 - Buena</option>
+                        <option value="5">5 - Excelente</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Hidratación Adecuada</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.hydration}
+                        onChange={e => setNewEmployee({ ...newEmployee, hydration: e.target.value })}
+                      >
+                        <option value="true">Sí</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Actividad Física Semanal</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.physical_activity}
+                        onChange={e => setNewEmployee({ ...newEmployee, physical_activity: e.target.value })}
+                      >
+                        <option value="0 días">0 días</option>
+                        <option value="1-2 días">1-2 días</option>
+                        <option value="3-4 días">3-4 días</option>
+                        <option value="5+ días">5+ días</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Consumo Frutas y Verduras</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.consumo_frutas_verduras}
+                        onChange={e => setNewEmployee({ ...newEmployee, consumo_frutas_verduras: e.target.value })}
+                      >
+                        <option value="1">1 - Muy bajo</option>
+                        <option value="2">2 - Bajo</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="4">4 - Bueno</option>
+                        <option value="5">5 - Excelente</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Nivel de Energía</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.energy_level}
+                        onChange={e => setNewEmployee({ ...newEmployee, energy_level: e.target.value })}
+                      >
+                        <option value="1">1 - Muy bajo</option>
+                        <option value="2">2 - Bajo</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="4">4 - Bueno</option>
+                        <option value="5">5 - Excelente</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Calidad de Sueño</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                        value={newEmployee.sleep_quality}
+                        onChange={e => setNewEmployee({ ...newEmployee, sleep_quality: e.target.value })}
+                      >
+                        <option value="1">1 - Muy mala</option>
+                        <option value="2">2 - Mala</option>
+                        <option value="3">3 - Regular</option>
+                        <option value="4">4 - Buena</option>
+                        <option value="5">5 - Excelente</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
               </div>

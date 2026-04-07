@@ -173,7 +173,7 @@ export default function MealPlanGenerator() {
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('id, first_name, last_name, birth_date, sex')
+        .select('id, first_name, last_name, birth_date, sex, initial_weight, height')
         .eq('company', selectedCompany)
         .order('last_name', { ascending: true });
       if (error) throw error;
@@ -185,24 +185,26 @@ export default function MealPlanGenerator() {
 
   // When patient changes, fetch latest data to calculate metrics
   useEffect(() => {
+    let cancelled = false;
+
     if (!selectedPatientId) {
       setPatientData(null);
       setMetrics(null);
-      return;
+      return () => { cancelled = true; };
     }
     const loadPatientDetails = async () => {
       setLoadingPatient(true);
       try {
         const p = patients.find(x => x.id === selectedPatientId);
-        if (!p) return;
-        
+        if (!p || cancelled) return;
+
         let age = 30;
         if (p.birth_date) {
             const today = new Date(), dob = new Date(p.birth_date);
             age = today.getFullYear() - dob.getFullYear();
         }
 
-        // Get latest weight and height from sessions (either Anteopometría or Consulta)
+        // Get latest weight and height from sessions (either Antropometría or Consulta)
         const { data: sessionData } = await supabase
           .from('sessions')
           .select('weight, height')
@@ -212,9 +214,11 @@ export default function MealPlanGenerator() {
           .order('session_date', { ascending: false })
           .limit(1);
 
-        const weight = sessionData?.[0]?.weight || 70; // fallback default
-        const height = sessionData?.[0]?.height || 165;
-        
+        if (cancelled) return;
+
+        const weight = sessionData?.[0]?.weight || p.initial_weight || 70;
+        const height = sessionData?.[0]?.height || p.height || 165;
+
         const dataForGen = {
           firstName: p.first_name,
           lastName: p.last_name,
@@ -223,25 +227,26 @@ export default function MealPlanGenerator() {
           weight,
           height
         };
-        
+
         setPatientData(dataForGen);
         updateMetrics(dataForGen, preferences.activityLevel);
 
       } catch (e) {
-        console.error(e);
+        if (!cancelled) console.error(e);
       } finally {
-        setLoadingPatient(false);
+        if (!cancelled) setLoadingPatient(false);
       }
     };
     loadPatientDetails();
-  }, [selectedPatientId]);
+    return () => { cancelled = true; };
+  }, [selectedPatientId, patients]);
 
   // Update metrics when activity level changes
   useEffect(() => {
     if (patientData) {
       updateMetrics(patientData, preferences.activityLevel);
     }
-  }, [preferences.activityLevel]);
+  }, [preferences.activityLevel, patientData]);
 
   function updateMetrics(data: any, activity: string) {
     const calc = calculateMetrics(data.weight, data.height, data.age, data.sex, activity);
