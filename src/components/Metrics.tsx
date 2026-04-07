@@ -69,8 +69,9 @@ export default function Metrics() {
 
       if (sError) throw sError;
 
-      const avgAdh = sessions.length > 0
-        ? sessions.reduce((acc, s) => acc + s.adherence, 0) / sessions.length
+      const sessionsWithAdherence = sessions.filter(s => s.adherence != null && s.adherence > 0);
+      const avgAdh = sessionsWithAdherence.length > 0
+        ? sessionsWithAdherence.reduce((acc, s) => acc + s.adherence, 0) / sessionsWithAdherence.length
         : 0;
 
       const latestWeights: Record<string, number> = {};
