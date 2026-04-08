@@ -1,12 +1,40 @@
 import { GoogleGenAI } from '@google/genai';
 
+const GEMINI_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY_2,
+  process.env.GEMINI_API_KEY_3,
+].filter(Boolean) as string[];
+
+const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+
+async function generateWithFallbacks(params: object): Promise<any> {
+  const errors: string[] = [];
+  for (const key of GEMINI_KEYS) {
+    for (const model of MODELS) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: key });
+        const result = await ai.models.generateContent({ model, ...params });
+        if (result.text) {
+          console.log(`[Recetario] OK con key ...${key.slice(-4)} y modelo ${model}`);
+          return result;
+        }
+      } catch (e: any) {
+        const msg = `key ...${key.slice(-4)} + ${model}: ${e?.message?.substring(0, 80)}`;
+        console.warn(`[Recetario] Falló ${msg}`);
+        errors.push(msg);
+      }
+    }
+  }
+  throw new Error(`Todos los modelos y claves fallaron:\n${errors.join('\n')}`);
+}
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
     const { patientInfo, mealType, objective, dietType, intolerances, foodRestrictions, count } = req.body;
 
     const intolerancesList: string[] = intolerances || [];
@@ -71,24 +99,10 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
   ]
 }`;
 
-    const generateWithFallback = async () => {
-      try {
-        return await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: { responseMimeType: 'application/json', temperature: 0.8 },
-        });
-      } catch (fallbackError: any) {
-        console.warn(`[Recetario] gemini-2.5-flash falló (${fallbackError?.message}), usando gemini-2.0-flash como fallback`);
-        return await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: prompt,
-          config: { responseMimeType: 'application/json', temperature: 0.8 },
-        });
-      }
-    };
-
-    const response = await generateWithFallback();
+    const response = await generateWithFallbacks({
+      contents: prompt,
+      config: { responseMimeType: 'application/json', temperature: 0.8 },
+    });
 
     if (!response.text) throw new Error('No text from Gemini');
     res.status(200).json(JSON.parse(response.text));
