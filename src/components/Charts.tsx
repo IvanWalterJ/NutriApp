@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { supabase } from '../lib/supabase';
 
-export default function Charts() {
+interface ChartsProps {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
   const [sessionStats, setSessionStats] = useState<any[]>([]);
   const [statusStats, setStatusStats] = useState({
     objetivo: 0,
@@ -14,14 +19,16 @@ export default function Charts() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [dateFrom, dateTo]);
 
   async function fetchData() {
     try {
-      // 1. Fetch sessions for the bar chart (last 12 months)
-      const { data: sessions, error: sError } = await supabase
-        .from('sessions')
-        .select('session_date');
+      // 1. Fetch sessions for the bar chart
+      let sessionQuery = supabase.from('sessions').select('session_date');
+      if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
+      if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
+
+      const { data: sessions, error: sError } = await sessionQuery;
 
       if (sError) throw sError;
 

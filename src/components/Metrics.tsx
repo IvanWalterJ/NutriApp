@@ -32,7 +32,12 @@ const AlertTriangleIcon = () => (
   </svg>
 );
 
-export default function Metrics() {
+interface MetricsProps {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
   const { selectedCompany } = useCompany();
   const [stats, setStats] = useState({
     active: 0,
@@ -45,7 +50,7 @@ export default function Metrics() {
 
   useEffect(() => {
     fetchStats();
-  }, [selectedCompany]);
+  }, [selectedCompany, dateFrom, dateTo]);
 
   async function fetchStats() {
     try {
@@ -62,10 +67,15 @@ export default function Metrics() {
       const newP = patients.filter(p => p.created_at >= firstDayOfMonth).length;
       const riskP = patients.filter(p => p.status === 'En Riesgo').length;
 
-      const { data: sessions, error: sError } = await supabase
+      let sessionQuery = supabase
         .from('sessions')
         .select('patient_id, weight, adherence')
         .eq('company', selectedCompany);
+
+      if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
+      if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
+
+      const { data: sessions, error: sError } = await sessionQuery;
 
       if (sError) throw sError;
 

@@ -71,7 +71,7 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
     energy_level: 4,
     sleep_quality: 4,
     hydration: true,
-    physical_activity: '3-4 días',
+    physical_activity: '+150 min',
     overall_status: 'En Progreso',
     achievements: '',
     difficulties: ''
@@ -467,10 +467,8 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
                 value={formData.physical_activity}
                 onChange={e => setFormData({ ...formData, physical_activity: e.target.value })}
               >
-                <option value="0 días">0 días</option>
-                <option value="1-2 días">1-2 días</option>
-                <option value="3-4 días">3-4 días</option>
-                <option value="5+ días">5+ días</option>
+                <option value="≤150 min">≤150 min/semana</option>
+                <option value="+150 min">+150 min/semana</option>
               </select>
             </div>
 

@@ -160,6 +160,29 @@ select {
 }
 
 
+/* Dashboard print mode — triggered by body.dashboard-printing */
+@media print {
+  body.dashboard-printing aside,
+  body.dashboard-printing header,
+  body.dashboard-printing .print\:hidden {
+    display: none !important;
+  }
+
+  body.dashboard-printing main {
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+    flex: none !important;
+    padding: 8mm 10mm !important;
+  }
+
+  body.dashboard-printing {
+    background: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
 /* Anthropometry print mode — triggered by body.anthro-printing */
 @media print {
   /* Hide all direct body children except the portal */

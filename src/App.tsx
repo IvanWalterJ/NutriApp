@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -17,6 +17,8 @@ import MealPlanGenerator from './components/MealPlanGenerator';
 import RecipeGenerator from './components/RecipeGenerator';
 import EmpresasView from './components/EmpresasView';
 import OmsPopulationMetrics from './components/OmsPopulationMetrics';
+import ExcelExportButton from './components/ExcelExportButton';
+import DashboardPdfButton from './components/DashboardPdfButton';
 import Auth from './components/Auth';
 import { CompanyProvider } from './context/CompanyContext';
 
@@ -27,6 +29,10 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  const [dashboardDateFrom, setDashboardDateFrom] = useState<string | undefined>(undefined);
+  const [dashboardDateTo, setDashboardDateTo]     = useState<string | undefined>(undefined);
+  const [isPrintingDashboard, setIsPrintingDashboard] = useState(false);
+  const prevTitleRef = useRef('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -46,6 +52,34 @@ export default function App() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!isPrintingDashboard) return;
+    const timer = setTimeout(() => {
+      window.print();
+      const cleanup = () => {
+        document.title = prevTitleRef.current;
+        document.body.classList.remove('dashboard-printing');
+        setIsPrintingDashboard(false);
+        setDashboardDateFrom(undefined);
+        setDashboardDateTo(undefined);
+        window.removeEventListener('afterprint', cleanup);
+      };
+      window.addEventListener('afterprint', cleanup);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [isPrintingDashboard]);
+
+  function handleDashboardPrint(dateFrom: string, dateTo: string) {
+    prevTitleRef.current = document.title;
+    const from = new Date(dateFrom).toLocaleDateString('es-AR');
+    const to   = new Date(dateTo).toLocaleDateString('es-AR');
+    document.title = `Informe Dashboard ${from} – ${to}`;
+    document.body.classList.add('dashboard-printing');
+    setDashboardDateFrom(dateFrom);
+    setDashboardDateTo(dateTo);
+    setIsPrintingDashboard(true);
+  }
 
   async function fetchProfile(userId: string) {
     try {
@@ -124,9 +158,20 @@ export default function App() {
             <div className="max-w-[1600px] mx-auto">
               {activeTab === 'dashboard' && (
                 <>
-                  <Metrics />
-                  <Charts />
-                  <OmsPopulationMetrics />
+                  <div className="flex justify-end mb-4 gap-2 print:hidden">
+                    <ExcelExportButton />
+                    <DashboardPdfButton onPrint={handleDashboardPrint} isPrinting={isPrintingDashboard} />
+                  </div>
+                  {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (
+                    <div className="hidden print:block mb-6 p-4 border-2 border-primary/30 rounded-xl bg-primary/5">
+                      <p className="text-sm font-bold text-primary">
+                        Período del informe: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                      </p>
+                    </div>
+                  )}
+                  <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
+                  <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
+                  <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   <EmployeesTable />
                 </>
               )}

@@ -30,7 +30,7 @@ export default function EmployeesTable() {
     // OMS initial assessment
     adherence: '3',
     hydration: 'true',
-    physical_activity: '1-2 días',
+    physical_activity: '≤150 min',
     consumo_frutas_verduras: '3',
     energy_level: '3',
     sleep_quality: '3',
@@ -162,7 +162,7 @@ export default function EmployeesTable() {
         sex: 'Femenino',
         adherence: '3',
         hydration: 'true',
-        physical_activity: '1-2 días',
+        physical_activity: '≤150 min',
         consumo_frutas_verduras: '3',
         energy_level: '3',
         sleep_quality: '3',
@@ -394,7 +394,8 @@ export default function EmployeesTable() {
               <button onClick={() => setShowAddModal(false)} className="text-text-muted hover:text-text-main"><X size={24} /></button>
             </div>
             <form onSubmit={handleAddEmployee}>
-              <div className="space-y-4 mb-6 max-h-[60vh] overflow-y-auto no-scrollbar pr-2">
+              <div className="relative">
+                <div className="space-y-4 mb-2 max-h-[62vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-text-muted mb-1">Nombre</label>
@@ -538,10 +539,8 @@ export default function EmployeesTable() {
                         value={newEmployee.physical_activity}
                         onChange={e => setNewEmployee({ ...newEmployee, physical_activity: e.target.value })}
                       >
-                        <option value="0 días">0 días</option>
-                        <option value="1-2 días">1-2 días</option>
-                        <option value="3-4 días">3-4 días</option>
-                        <option value="5+ días">5+ días</option>
+                        <option value="≤150 min">≤150 min/semana</option>
+                        <option value="+150 min">+150 min/semana</option>
                       </select>
                     </div>
                     <div>
@@ -588,8 +587,11 @@ export default function EmployeesTable() {
                     </div>
                   </div>
                 </div>
+                </div>
+                {/* Indicador de scroll */}
+                <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent rounded-b-lg" />
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-border-color">
+              <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-border-color">
                 <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2 border-2 border-border-color rounded-lg font-semibold hover:bg-bg transition-colors">Cancelar</button>
                 <button type="submit" className="px-5 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-light transition-colors">Guardar</button>
               </div>

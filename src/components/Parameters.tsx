@@ -100,7 +100,7 @@ export default function Parameters() {
 
       // ── Actividad física (% sesiones con ≥3 días/semana) ──
       const sessionsWithActivity = sortedSessions.filter((s: any) =>
-        s.physical_activity === '3-4 días' || s.physical_activity === '5+ días'
+        s.physical_activity === '+150 min' || s.physical_activity === '3-4 días' || s.physical_activity === '5+ días'
       ).length;
       const activityPct = sortedSessions.length > 0
         ? Math.round((sessionsWithActivity / sortedSessions.length) * 100) : 0;

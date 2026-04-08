@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 
-export default function OmsPopulationMetrics() {
+interface OmsPopulationMetricsProps {
+  dateFrom?: string;
+  dateTo?: string;
+}
+
+export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulationMetricsProps = {}) {
   const { selectedCompany } = useCompany();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
@@ -19,105 +24,109 @@ export default function OmsPopulationMetrics() {
 
   useEffect(() => {
     fetchOmsMetrics();
-  }, [selectedCompany]);
+  }, [selectedCompany, dateFrom, dateTo]);
 
   async function fetchOmsMetrics() {
     setLoading(true);
     try {
       // Fetch all patients with their sessions
+      let sessionsSelect = 'id, initial_weight, height, sessions(*)';
+      if (dateFrom || dateTo) {
+        const dateFilter = [
+          dateFrom ? `session_date.gte.${dateFrom}` : null,
+          dateTo   ? `session_date.lte.${dateTo}`   : null,
+        ].filter(Boolean).join(',');
+        sessionsSelect = `id, initial_weight, height, sessions!inner(*)`;
+        // Use a separate sessions query filtered by date
+        const { data: patients, error } = await supabase
+          .from('patients')
+          .select('id, initial_weight, height')
+          .eq('company', selectedCompany);
+        if (error) throw error;
+        if (!patients || patients.length === 0) { setLoading(false); return; }
+
+        let sessQ = supabase.from('sessions').select('*').in('patient_id', patients.map(p => p.id));
+        if (dateFrom) sessQ = sessQ.gte('session_date', dateFrom);
+        if (dateTo)   sessQ = sessQ.lte('session_date', dateTo);
+        const { data: allSessions } = await sessQ;
+
+        const sessionsByPatient: Record<string, any[]> = {};
+        (allSessions || []).forEach((s: any) => {
+          if (!sessionsByPatient[s.patient_id]) sessionsByPatient[s.patient_id] = [];
+          sessionsByPatient[s.patient_id].push(s);
+        });
+
+        processMetrics(patients.map(p => ({ ...p, sessions: sessionsByPatient[p.id] || [] })));
+        return;
+      }
+
       const { data: patients, error } = await supabase
         .from('patients')
         .select('id, initial_weight, height, sessions(*)')
         .eq('company', selectedCompany);
 
       if (error) throw error;
-      if (!patients || patients.length === 0) {
-        setLoading(false);
-        return;
-      }
+      if (!patients || patients.length === 0) { setLoading(false); return; }
 
-      // --- IMC Distribution ---
-      let imcNormal = 0, imcSobrepeso = 0, imcBajoPeso = 0, totalWithImc = 0;
-      const latestSessions: any[] = [];
-
-      for (const p of patients) {
-        const sorted = (p.sessions || []).sort(
-          (a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
-        );
-        const latest = sorted[0];
-        if (latest) latestSessions.push(latest);
-
-        const weight = latest?.weight || p.initial_weight;
-        const height = p.height;
-        if (weight && height) {
-          const bmi = weight / Math.pow(height / 100, 2);
-          totalWithImc++;
-          if (bmi < 18.5) imcBajoPeso++;
-          else if (bmi < 25) imcNormal++;
-          else imcSobrepeso++;
-        }
-      }
-
-      // --- Adherencia Promedio (latest session per patient) ---
-      const adherenceValues = latestSessions
-        .filter((s: any) => s.adherence != null)
-        .map((s: any) => s.adherence);
-      const adherenceAvg = adherenceValues.length > 0
-        ? adherenceValues.reduce((a: number, b: number) => a + b, 0) / adherenceValues.length
-        : 0;
-
-      // --- Hidratación (% sessions with hydration === true across all sessions) ---
-      const allSessions = patients.flatMap(p => p.sessions || []);
-      const sessionsWithHydrationData = allSessions.filter((s: any) => s.hydration !== null && s.hydration !== undefined);
-      const hydratedSessions = sessionsWithHydrationData.filter((s: any) => s.hydration === true);
-      const hydrationPct = sessionsWithHydrationData.length > 0
-        ? Math.round((hydratedSessions.length / sessionsWithHydrationData.length) * 100)
-        : 0;
-
-      // --- Índice de Participación (% patients with session in last 30 days) ---
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      const activePatients = new Set(
-        allSessions
-          .filter((s: any) => new Date(s.session_date) >= thirtyDaysAgo)
-          .map((s: any) => s.patient_id)
-      );
-      const participationPct = patients.length > 0
-        ? Math.round((activePatients.size / patients.length) * 100)
-        : 0;
-
-      // --- Consumo Frutas y Verduras (% latest sessions with score >= 4) ---
-      const fruitsValues = latestSessions.filter((s: any) => s.consumo_frutas_verduras != null);
-      const fruitsGood = fruitsValues.filter((s: any) => s.consumo_frutas_verduras >= 4);
-      const fruitsPct = fruitsValues.length > 0
-        ? Math.round((fruitsGood.length / fruitsValues.length) * 100)
-        : 0;
-
-      // --- Actividad Física (% latest sessions with >= 3 days/week) ---
-      const activityValues = latestSessions.filter((s: any) => s.physical_activity != null);
-      const activityGood = activityValues.filter((s: any) =>
-        s.physical_activity === '3-4 días' || s.physical_activity === '5+ días'
-      );
-      const activityPct = activityValues.length > 0
-        ? Math.round((activityGood.length / activityValues.length) * 100)
-        : 0;
-
-      setMetrics({
-        imcNormal,
-        imcSobrepeso,
-        imcBajoPeso,
-        totalWithImc,
-        adherenceAvg,
-        hydrationPct,
-        participationPct,
-        fruitsPct,
-        activityPct,
-      });
+      processMetrics(patients);
     } catch (err) {
       console.error('Error fetching OMS population metrics:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  function processMetrics(patients: any[]) {
+    // --- IMC Distribution ---
+    let imcNormal = 0, imcSobrepeso = 0, imcBajoPeso = 0, totalWithImc = 0;
+    const latestSessions: any[] = [];
+
+    for (const p of patients) {
+      const sorted = (p.sessions || []).sort(
+        (a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
+      );
+      const latest = sorted[0];
+      if (latest) latestSessions.push(latest);
+
+      const weight = latest?.weight || p.initial_weight;
+      const height = p.height;
+      if (weight && height) {
+        const bmi = weight / Math.pow(height / 100, 2);
+        totalWithImc++;
+        if (bmi < 18.5) imcBajoPeso++;
+        else if (bmi < 25) imcNormal++;
+        else imcSobrepeso++;
+      }
+    }
+
+    const adherenceValues = latestSessions.filter((s: any) => s.adherence != null).map((s: any) => s.adherence);
+    const adherenceAvg = adherenceValues.length > 0
+      ? adherenceValues.reduce((a: number, b: number) => a + b, 0) / adherenceValues.length : 0;
+
+    const allSess = patients.flatMap(p => p.sessions || []);
+    const sessWithHydration = allSess.filter((s: any) => s.hydration !== null && s.hydration !== undefined);
+    const hydrationPct = sessWithHydration.length > 0
+      ? Math.round((sessWithHydration.filter((s: any) => s.hydration === true).length / sessWithHydration.length) * 100) : 0;
+
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const activePatients = new Set(
+      allSess.filter((s: any) => new Date(s.session_date) >= thirtyDaysAgo).map((s: any) => s.patient_id)
+    );
+    const participationPct = patients.length > 0 ? Math.round((activePatients.size / patients.length) * 100) : 0;
+
+    const fruitsValues = latestSessions.filter((s: any) => s.consumo_frutas_verduras != null);
+    const fruitsPct = fruitsValues.length > 0
+      ? Math.round((fruitsValues.filter((s: any) => s.consumo_frutas_verduras >= 4).length / fruitsValues.length) * 100) : 0;
+
+    const activityValues = latestSessions.filter((s: any) => s.physical_activity != null);
+    const activityGood = activityValues.filter((s: any) =>
+      s.physical_activity === '+150 min' || s.physical_activity === '3-4 días' || s.physical_activity === '5+ días'
+    );
+    const activityPct = activityValues.length > 0
+      ? Math.round((activityGood.length / activityValues.length) * 100) : 0;
+
+    setMetrics({ imcNormal, imcSobrepeso, imcBajoPeso, totalWithImc, adherenceAvg, hydrationPct, participationPct, fruitsPct, activityPct });
   }
 
   const imcNormalPct = metrics.totalWithImc > 0 ? Math.round((metrics.imcNormal / metrics.totalWithImc) * 100) : 0;

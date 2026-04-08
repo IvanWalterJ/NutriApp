@@ -25,7 +25,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
     laboratorio_alterado: '',
     consumo_frutas_verduras: 3,
     hydration: true,
-    physical_activity: '3-4 días',
+    physical_activity: '+150 min',
     adherence: 5,
     energy_level: 4,
     sleep_quality: 4,
@@ -117,7 +117,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
         laboratorio_alterado: '',
         consumo_frutas_verduras: 3,
         hydration: true,
-        physical_activity: '3-4 días',
+        physical_activity: '+150 min',
         adherence: 5,
         energy_level: 4,
         sleep_quality: 4,
@@ -254,7 +254,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Actividad Física Semanal</label>
-              <CustomSelect value={formData.physical_activity} onChange={v => setFormData({ ...formData, physical_activity: v })} options={[{value:'0 días',label:'0 días'},{value:'1-2 días',label:'1-2 días'},{value:'3-4 días',label:'3-4 días'},{value:'5+ días',label:'5+ días'}]} />
+              <CustomSelect value={formData.physical_activity} onChange={v => setFormData({ ...formData, physical_activity: v })} options={[{value:'≤150 min',label:'≤150 min/semana'},{value:'+150 min',label:'+150 min/semana'}]} />
             </div>
             <div className="flex flex-col gap-2">
               <label className={labelClass}>Consumo Frutas y Verduras</label>
