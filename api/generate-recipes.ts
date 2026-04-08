@@ -71,14 +71,23 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
   ]
 }`;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: 'application/json',
-        temperature: 0.8,
+    const generateWithFallback = async () => {
+      try {
+        return await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+          config: { responseMimeType: 'application/json', temperature: 0.8 },
+        });
+      } catch {
+        return await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: prompt,
+          config: { responseMimeType: 'application/json', temperature: 0.8 },
+        });
       }
-    });
+    };
+
+    const response = await generateWithFallback();
 
     if (!response.text) throw new Error('No text from Gemini');
     res.status(200).json(JSON.parse(response.text));
