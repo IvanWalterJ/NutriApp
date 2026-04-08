@@ -149,7 +149,8 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
           contents: prompt,
           config: { responseMimeType: "application/json", temperature: 0.7 },
         });
-      } catch {
+      } catch (fallbackError: any) {
+        console.warn(`[Planes] gemini-2.5-flash falló (${fallbackError?.message}), usando gemini-2.0-flash como fallback`);
         return await ai.models.generateContent({
           model: 'gemini-2.0-flash',
           contents: prompt,

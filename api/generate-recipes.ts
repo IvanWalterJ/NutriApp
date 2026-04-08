@@ -78,7 +78,8 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
           contents: prompt,
           config: { responseMimeType: 'application/json', temperature: 0.8 },
         });
-      } catch {
+      } catch (fallbackError: any) {
+        console.warn(`[Recetario] gemini-2.5-flash falló (${fallbackError?.message}), usando gemini-2.0-flash como fallback`);
         return await ai.models.generateContent({
           model: 'gemini-2.0-flash',
           contents: prompt,
