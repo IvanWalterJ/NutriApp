@@ -212,6 +212,7 @@ export default function MealPlanGenerator() {
           .not('weight', 'is', null)
           .not('height', 'is', null)
           .order('session_date', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(1);
 
         if (cancelled) return;

@@ -84,9 +84,19 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
         ? sessionsWithAdherence.reduce((acc, s) => acc + s.adherence, 0) / sessionsWithAdherence.length
         : 0;
 
+      // Build latestWeights by only overwriting when the session is more recent,
+      // so the final value is always the most recent session's weight regardless
+      // of the order rows are returned from the database.
+      const latestWeightDates: Record<string, string> = {};
       const latestWeights: Record<string, number> = {};
       sessions.forEach(s => {
-        latestWeights[s.patient_id] = s.weight;
+        if (
+          s.weight != null &&
+          (!latestWeightDates[s.patient_id] || s.session_date >= latestWeightDates[s.patient_id])
+        ) {
+          latestWeights[s.patient_id] = s.weight;
+          latestWeightDates[s.patient_id] = s.session_date;
+        }
       });
 
       let totalLoss = 0;

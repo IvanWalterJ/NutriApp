@@ -60,16 +60,29 @@ export default function EmployeesTable() {
 
       // Process employees data
       const processed = data.map(emp => {
-        const lastSession = emp.sessions?.sort((a: any, b: any) =>
-          new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
-        )[0];
+        // Use reduce to pick the most recent session; on same-date tie prefer the
+        // last element in the array (Supabase returns rows in insertion order).
+        const lastSession = (emp.sessions as any[])?.reduce((best: any, current: any) => {
+          if (!best) return current;
+          const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+          return diff >= 0 ? current : best;
+        }, null) ?? null;
 
-        const weightLossNum = lastSession
-          ? parseFloat((lastSession.weight - emp.initial_weight).toFixed(1))
+        // Separate latest session that actually has a weight value (consultations
+        // without weight shouldn't affect weight-based calculations).
+        const lastSessionWithWeight = (emp.sessions as any[])?.reduce((best: any, current: any) => {
+          if (current.weight == null) return best;
+          if (!best) return current;
+          const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+          return diff >= 0 ? current : best;
+        }, null) ?? null;
+
+        const weightLossNum = lastSessionWithWeight
+          ? parseFloat((lastSessionWithWeight.weight - emp.initial_weight).toFixed(1))
           : 0;
 
-        const lossPercentageNum = lastSession
-          ? parseFloat((((lastSession.weight - emp.initial_weight) / emp.initial_weight) * 100).toFixed(1))
+        const lossPercentageNum = lastSessionWithWeight && emp.initial_weight
+          ? parseFloat((((lastSessionWithWeight.weight - emp.initial_weight) / emp.initial_weight) * 100).toFixed(1))
           : 0;
 
         const weightLoss = weightLossNum.toString();
@@ -82,13 +95,13 @@ export default function EmployeesTable() {
         return {
           ...emp,
           name: `${emp.first_name} ${emp.last_name}`,
-          weight: lastSession ? `${lastSession.weight} kg` : `${emp.initial_weight} kg`,
+          weight: lastSessionWithWeight ? `${lastSessionWithWeight.weight} kg` : `${emp.initial_weight} kg`,
           weightChange: `${weightLossNum > 0 ? '+' : ''}${weightLoss}kg`,
           weightChangeColor: weightLossNum <= 0 ? 'positive' : 'negative',
           loss: `${lossPercentageNum > 0 ? '+' : ''}${lossPercentage}%`,
           adherence: lastSession?.adherence || 0,
-          imc: lastSession && emp.height
-            ? (lastSession.weight / Math.pow(emp.height / 100, 2)).toFixed(1)
+          imc: lastSessionWithWeight && emp.height
+            ? (lastSessionWithWeight.weight / Math.pow(emp.height / 100, 2)).toFixed(1)
             : (emp.initial_weight / Math.pow(emp.height / 100, 2)).toFixed(1),
           lastSessionText: daysSinceLastSession !== null
             ? (daysSinceLastSession === 0 ? 'Hoy' : `Hace ${daysSinceLastSession} días`)

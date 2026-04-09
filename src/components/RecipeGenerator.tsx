@@ -104,6 +104,7 @@ export default function RecipeGenerator() {
           .eq('patient_id', p.id)
           .not('weight', 'is', null)
           .order('session_date', { ascending: false })
+          .order('created_at', { ascending: false })
           .limit(1);
         setPatientData({
           firstName: p.first_name,

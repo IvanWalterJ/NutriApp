@@ -102,7 +102,8 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       const { error: sessionError } = await supabase.from('sessions').insert([sessionData]);
       if (sessionError) throw sessionError;
 
-      await supabase.from('patients').update({ status: formData.overall_status }).eq('id', formData.patient_id);
+      const { error: patientError } = await supabase.from('patients').update({ status: formData.overall_status }).eq('id', formData.patient_id);
+      if (patientError) throw patientError;
 
       setShowSuccessModal(true);
       showToast('Consulta registrada exitosamente', 'success');

@@ -151,3 +151,8 @@ INSERT INTO public.profiles (id, full_name, email, role, company)
 SELECT id, COALESCE(raw_user_meta_data->>'full_name', email), email, 'pending', 'Galeno'
 FROM auth.users
 WHERE id NOT IN (SELECT id FROM public.profiles);
+
+-- MIGRACIÓN: Timestamp de creación en sesiones (necesario para desempatar sesiones del mismo día)
+-- session_date solo guarda la fecha (sin hora), por lo que dos consultas del mismo día
+-- no se pueden ordenar correctamente sin este campo.
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
