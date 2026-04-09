@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
 import { supabase } from '../lib/supabase';
+import { useCompany } from '../context/CompanyContext';
 
 interface ChartsProps {
   dateFrom?: string;
@@ -8,6 +9,7 @@ interface ChartsProps {
 }
 
 export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
+  const { selectedCompany } = useCompany();
   const [sessionStats, setSessionStats] = useState<any[]>([]);
   const [statusStats, setStatusStats] = useState({
     objetivo: 0,
@@ -19,12 +21,12 @@ export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
 
   useEffect(() => {
     fetchData();
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, selectedCompany]);
 
   async function fetchData() {
     try {
-      // 1. Fetch sessions for the bar chart
-      let sessionQuery = supabase.from('sessions').select('session_date');
+      // 1. Fetch sessions for the bar chart (filtered by company)
+      let sessionQuery = supabase.from('sessions').select('session_date').eq('company', selectedCompany);
       if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
       if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
 
@@ -46,10 +48,11 @@ export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
 
       setSessionStats(months.map(m => ({ name: m, value: monthlyCount[m] })));
 
-      // 2. Fetch patients for status distribution
+      // 2. Fetch patients for status distribution (filtered by company)
       const { data: patients, error: pError } = await supabase
         .from('patients')
-        .select('status');
+        .select('status')
+        .eq('company', selectedCompany);
 
       if (pError) throw pError;
 
