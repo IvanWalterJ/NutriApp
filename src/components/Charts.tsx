@@ -6,9 +6,10 @@ import { useCompany } from '../context/CompanyContext';
 interface ChartsProps {
   dateFrom?: string;
   dateTo?: string;
+  isPrinting?: boolean;
 }
 
-export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
+export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {}) {
   const { selectedCompany } = useCompany();
   const [sessionStats, setSessionStats] = useState<any[]>([]);
   const [statusStats, setStatusStats] = useState({
@@ -83,11 +84,10 @@ export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
           <p className="text-sm text-text-muted">Últimos meses • Sesiones completadas</p>
         </div>
         <div className="h-[300px] bg-gradient-to-b from-accent/5 to-transparent rounded-lg p-4">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sessionStats} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} dy={10} />
-              <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="url(#colorUv)" className="hover:opacity-80 transition-opacity" />
+          {isPrinting ? (
+            <BarChart width={560} height={270} data={sessionStats} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12, fontWeight: 600 }} dy={10} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#16a34a" />
               <defs>
                 <linearGradient id="colorUv" x1="0" y1="1" x2="0" y2="0">
                   <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={1} />
@@ -95,7 +95,21 @@ export default function Charts({ dateFrom, dateTo }: ChartsProps = {}) {
                 </linearGradient>
               </defs>
             </BarChart>
-          </ResponsiveContainer>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={sessionStats} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--color-text-muted)', fontSize: 12, fontWeight: 600 }} dy={10} />
+                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="url(#colorUv)" className="hover:opacity-80 transition-opacity" />
+                <defs>
+                  <linearGradient id="colorUv" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={1} />
+                    <stop offset="100%" stopColor="var(--color-accent-dark)" stopOpacity={1} />
+                  </linearGradient>
+                </defs>
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
       </div>
 

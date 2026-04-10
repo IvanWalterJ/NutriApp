@@ -168,6 +168,17 @@ select {
     display: none !important;
   }
 
+  /* Reset height/overflow constraints in the React app shell so all content prints */
+  body.dashboard-printing > div,
+  body.dashboard-printing > div > div,
+  body.dashboard-printing > div > div > div {
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    flex: none !important;
+  }
+
   body.dashboard-printing main {
     overflow: visible !important;
     height: auto !important;

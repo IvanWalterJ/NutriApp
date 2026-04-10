@@ -88,7 +88,7 @@ export default function App() {
         window.removeEventListener('afterprint', cleanup);
       };
       window.addEventListener('afterprint', cleanup);
-    }, 600);
+    }, 1500);
     return () => clearTimeout(timer);
   }, [isPrintingDashboard]);
 
@@ -196,7 +196,7 @@ export default function App() {
                     </div>
                   )}
                   <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
-                  <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
+                  <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   <EmployeesTable />
                 </>
