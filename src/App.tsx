@@ -20,12 +20,14 @@ import OmsPopulationMetrics from './components/OmsPopulationMetrics';
 import ExcelExportButton from './components/ExcelExportButton';
 import DashboardPdfButton from './components/DashboardPdfButton';
 import Auth from './components/Auth';
+import ResetPassword from './components/ResetPassword';
 import { CompanyProvider } from './context/CompanyContext';
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
@@ -41,7 +43,14 @@ export default function App() {
       else setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setSession(session);
+        setIsPasswordRecovery(true);
+        setLoading(false);
+        return;
+      }
+      setIsPasswordRecovery(false);
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else {
@@ -104,6 +113,10 @@ export default function App() {
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
       </div>
     );
+  }
+
+  if (isPasswordRecovery) {
+    return <ResetPassword onDone={() => setIsPasswordRecovery(false)} />;
   }
 
   if (!session) {
