@@ -32,7 +32,6 @@ export default function ResetPassword({ onDone }: ResetPasswordProps) {
             setSuccess(true);
             setTimeout(() => {
                 supabase.auth.signOut();
-                onDone();
             }, 2500);
         } catch (err: unknown) {
             setError(err instanceof Error ? err.message : 'Ocurrió un error');
