@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts';
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 
@@ -85,15 +85,11 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
         </div>
         <div className="h-[300px] bg-gradient-to-b from-accent/5 to-transparent rounded-lg p-4">
           {isPrinting ? (
-            <BarChart width={560} height={270} data={sessionStats} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 12, fontWeight: 600 }} dy={10} />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]} fill="#16a34a" />
-              <defs>
-                <linearGradient id="colorUv" x1="0" y1="1" x2="0" y2="0">
-                  <stop offset="0%" stopColor="var(--color-primary)" stopOpacity={1} />
-                  <stop offset="100%" stopColor="var(--color-accent-dark)" stopOpacity={1} />
-                </linearGradient>
-              </defs>
+            <BarChart width={560} height={270} data={sessionStats} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} barCategoryGap="35%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 600 }} dy={8} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} width={28} />
+              <Bar dataKey="value" radius={[5, 5, 0, 0]} fill="#16a34a" />
             </BarChart>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
