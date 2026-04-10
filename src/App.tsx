@@ -38,25 +38,6 @@ export default function App() {
   const prevTitleRef = useRef('');
 
   useEffect(() => {
-    // Detectar recovery flow desde el hash de la URL de forma sincrónica
-    // antes de cualquier llamada async, para evitar race condition con getSession()
-    const hashParams = new URLSearchParams(window.location.hash.slice(1));
-    const isRecovery = hashParams.get('type') === 'recovery';
-    if (isRecovery) {
-      setIsPasswordRecovery(true);
-    }
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (isRecovery) {
-        setSession(session);
-        setLoading(false);
-        return;
-      }
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setLoading(false);
-    });
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
         setSession(session);
@@ -64,13 +45,16 @@ export default function App() {
         setLoading(false);
         return;
       }
-      setIsPasswordRecovery(false);
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else {
+      // Solo resetear el estado de recovery cuando el usuario cierra sesión
+      if (!session) {
+        setIsPasswordRecovery(false);
+        setSession(null);
         setProfile(null);
         setLoading(false);
+        return;
       }
+      setSession(session);
+      if (session) fetchProfile(session.user.id);
     });
 
     return () => subscription.unsubscribe();
