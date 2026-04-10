@@ -37,7 +37,20 @@ export default function App() {
   const prevTitleRef = useRef('');
 
   useEffect(() => {
+    // Detectar recovery flow desde el hash de la URL de forma sincrónica
+    // antes de cualquier llamada async, para evitar race condition con getSession()
+    const hashParams = new URLSearchParams(window.location.hash.slice(1));
+    const isRecovery = hashParams.get('type') === 'recovery';
+    if (isRecovery) {
+      setIsPasswordRecovery(true);
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      if (isRecovery) {
+        setSession(session);
+        setLoading(false);
+        return;
+      }
       setSession(session);
       if (session) fetchProfile(session.user.id);
       else setLoading(false);
