@@ -191,6 +191,10 @@ select {
     background: white !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    /* Override theme variables so cards/grids have visible contrast in print */
+    --color-surface: #f1f5f9;
+    --color-bg: #e2e8f0;
+    --color-border-color: #94a3b8;
   }
 }
 
