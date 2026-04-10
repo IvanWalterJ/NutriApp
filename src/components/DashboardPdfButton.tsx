@@ -4,7 +4,7 @@ import { FileDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface DashboardPdfButtonProps {
-  onPrint: (dateFrom: string, dateTo: string) => void;
+  onPrint: (dateFrom: string, dateTo: string, company: string) => void;
   isPrinting: boolean;
 }
 
@@ -21,7 +21,7 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
 
   function handleConfirm() {
     setShowModal(false);
-    onPrint(dateFrom, dateTo);
+    onPrint(dateFrom, dateTo, selectedCompany);
   }
 
   return (

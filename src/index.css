@@ -195,6 +195,8 @@ select {
     --color-surface: #f1f5f9;
     --color-bg: #e2e8f0;
     --color-border-color: #94a3b8;
+    /* Make accent-based gradients visible (5% of solid accent → explicit light green) */
+    --color-accent: #16a34a;
   }
 }
 

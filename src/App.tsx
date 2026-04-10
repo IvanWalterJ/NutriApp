@@ -33,6 +33,7 @@ export default function App() {
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   const [dashboardDateFrom, setDashboardDateFrom] = useState<string | undefined>(undefined);
   const [dashboardDateTo, setDashboardDateTo]     = useState<string | undefined>(undefined);
+  const [dashboardCompany, setDashboardCompany]   = useState<string>('');
   const [isPrintingDashboard, setIsPrintingDashboard] = useState(false);
   const prevTitleRef = useRef('');
 
@@ -92,14 +93,15 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [isPrintingDashboard]);
 
-  function handleDashboardPrint(dateFrom: string, dateTo: string) {
+  function handleDashboardPrint(dateFrom: string, dateTo: string, company: string) {
     prevTitleRef.current = document.title;
     const from = new Date(dateFrom).toLocaleDateString('es-AR');
     const to   = new Date(dateTo).toLocaleDateString('es-AR');
-    document.title = `Informe Dashboard ${from} – ${to}`;
+    document.title = `Informe Dashboard ${company} ${from} – ${to}`;
     document.body.classList.add('dashboard-printing');
     setDashboardDateFrom(dateFrom);
     setDashboardDateTo(dateTo);
+    setDashboardCompany(company);
     setIsPrintingDashboard(true);
   }
 
@@ -189,10 +191,12 @@ export default function App() {
                     <DashboardPdfButton onPrint={handleDashboardPrint} isPrinting={isPrintingDashboard} />
                   </div>
                   {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (
-                    <div className="hidden print:block mb-6 p-4 border-2 border-primary/30 rounded-xl bg-primary/5">
-                      <p className="text-sm font-bold text-primary">
-                        Período del informe: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
-                      </p>
+                    <div className="hidden print:block mb-6 bg-primary text-white p-6 rounded-2xl">
+                      <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">INFORME DE DASHBOARD</div>
+                      <h2 className="text-3xl font-black">{dashboardCompany}</h2>
+                      <div className="text-sm mt-1 text-white/80">
+                        NuPlan &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                      </div>
                     </div>
                   )}
                   <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />

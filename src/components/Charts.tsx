@@ -86,10 +86,16 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
         <div className="h-[300px] bg-gradient-to-b from-accent/5 to-transparent rounded-lg p-4">
           {isPrinting ? (
             <BarChart width={560} height={270} data={sessionStats} margin={{ top: 8, right: 16, left: 0, bottom: 0 }} barCategoryGap="35%">
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 11, fontWeight: 600 }} dy={8} />
-              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6b7280', fontSize: 11 }} allowDecimals={false} width={28} />
-              <Bar dataKey="value" radius={[5, 5, 0, 0]} fill="#16a34a" />
+              <defs>
+                <linearGradient id="colorUvPrint" x1="0" y1="1" x2="0" y2="0">
+                  <stop offset="0%" stopColor="#0A4D3C" stopOpacity={1} />
+                  <stop offset="100%" stopColor="#0FC87D" stopOpacity={1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#9ca3af" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#374151', fontSize: 11, fontWeight: 600 }} dy={8} />
+              <YAxis axisLine={false} tickLine={false} tick={{ fill: '#374151', fontSize: 11 }} allowDecimals={false} width={28} />
+              <Bar dataKey="value" radius={[5, 5, 0, 0]} fill="url(#colorUvPrint)" />
             </BarChart>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
