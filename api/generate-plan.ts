@@ -73,11 +73,13 @@ REGLAS OBLIGATORIAS:
 2. ALIMENTOS PROHIBIDOS: "${preferences.foodRestrictions || 'ninguno'}" — no aparezcan en ninguna parte del JSON.
 3. INTOLERANCIAS — Seguir estrictamente estas pautas clínicas:
 ${intoleranceRules || '   (Sin intolerancias declaradas)'}
-4. CARBOHIDRATOS: Usar exclusivamente de absorción lenta / integrales. Ej: arroz integral, papa cocida, batata, avena, pan integral, fideos integrales.
+4. CARBOHIDRATOS: Usar exclusivamente de absorción lenta / integrales. Incluir papa, batata, boniato, choclo y mandioca como carbohidratos. Ej: arroz integral, papa cocida, batata, boniato, avena, pan integral, fideos integrales, choclo, mandioca.
 5. PORCIONES: Las cantidades deben ser coherentes con ${metrics.calories} kcal y la distribución de macros indicada. Dar siempre cantidades en gramos, tazas o medidas caseras argentinas.
 6. NOMBRES ARGENTINOS: Usar exclusivamente la denominación argentina de los alimentos. Ejemplos: "fideos" (no pasta), "galletitas" (no galletas), "remera/muslo de pollo" (no pechuga si no se especifica), "bife" (no bistec), "zapallo" (no calabaza), "choclo" (no maíz), "batata" (no camote), "arvejas" (no guisantes), "porotos" (no frijoles), "mandioca" (no yuca), "ananá" (no piña), "durazno" (no melocotón), "ricota" (no requesón), "queso cremoso/port salut", "pan lactal", "medialunas", "facturas", "mate/té de hierbas".
 7. HEALTHYPLATE: carbsPct=${metrics.macros.carbs}, proteinsPct=${metrics.macros.protein}, fatsPct=${metrics.macros.fats}, vegetablesPct=0. Suma debe ser exactamente 100.
 8. Devolver 2 recomendaciones o recetas prácticas alineadas a los objetivos del paciente.
+9. CLASIFICACIÓN DE GRUPOS: Los LÁCTEOS (yogur, leche, queso) son PROTEÍNAS, NO grasas. Las GRASAS son solo aceites, frutos secos y semillas. Papa, batata, boniato, choclo y mandioca son CARBOHIDRATOS.
+10. ESQUEMA ALIMENTARIO: El dailyPlan debe ser un MODELO GENERAL (no un menú fijo). NO incluir horarios. En cada comida, presentar opciones con "/" u "o" para que el paciente elija. Usar prefijos como "Elegir 1:", "Agregar:", "Opcional:". Los tipos de comida deben ser: Desayuno y Merienda, Colaciones (opcionales), Almuerzo, Cena. En almuerzo y cena, agrupar items por categoría (Proteínas:, Vegetales:, Grasas:, Carbohidratos:, Postre:).
 
 Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y parseable, con la siguiente estructura exacta:
 {
@@ -89,66 +91,51 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
     "fatsPct": ${metrics.macros.fats}
   },
   "shoppingList": {
-    "carbsAndLegumes": ["Arroz integral", "Papa", "Avena", "Porotos", "Fideos integrales"],
-    "proteins": ["Carne vacuna magra", "Pollo sin piel", "Atún al natural", "Huevo"],
-    "vegetablesAndFruits": ["Espinaca", "Zanahoria", "Tomate", "Manzana"],
-    "fatsAndDairy": ["Aceite de oliva", "Palta", "Almendras", "Queso descremado"],
-    "canned": ["Atún al natural", "Tomates en lata", "Arvejas en lata"],
+    "carbsAndLegumes": ["Arroz integral", "Papa", "Batata", "Boniato", "Choclo", "Mandioca", "Avena", "Porotos", "Fideos integrales"],
+    "proteins": ["Carne vacuna magra", "Pollo sin piel", "Huevo", "Pescado fresco"],
+    "dairy": ["Yogur descremado", "Leche descremada", "Queso cremoso descremado", "Queso port salut light", "Ricota descremada"],
+    "vegetablesAndFruits": ["Espinaca", "Zanahoria", "Tomate", "Lechuga", "Manzana", "Banana", "Naranja"],
+    "fats": ["Aceite de oliva", "Palta", "Almendras", "Nueces", "Semillas de girasol", "Semillas de lino"],
+    "canned": ["Atún al natural", "Jurel al natural", "Caballa al natural", "Legumbres en lata", "Vegetales en lata"],
     "frozen": ["Mix de vegetales congelados", "Pollo en porciones"]
   },
   "foodGroupsDetail": {
-    "carbs": ["Arroz integral o parbolizado: 1 pocillo crudo", "Papa o batata: 1 unidad mediana", "Fideos integrales: 80g crudo", "Avena: 1/2 taza"],
-    "proteins": ["Carne vacuna magra (lomo/nalga/peceto): 200g, 2 veces/semana", "Pollo sin piel: 1 pata-muslo o 1 pechuga, 2 veces/semana", "Pescado (atún/caballa/merluza): 200g, 1-2 veces/semana", "Huevo: 3 unidades"],
-    "fats": ["Aceite de oliva: 1 cucharada sopera por comida", "Palta: 1/4 unidad", "Frutos secos: 6 a 8 unidades"]
+    "carbs": ["Arroz integral o parbolizado: 1 pocillo crudo", "Papa, batata o boniato: 1 unidad mediana", "Choclo: 1 unidad", "Mandioca: 1 trozo mediano", "Fideos integrales: 80g crudo", "Avena: 1/2 taza"],
+    "proteins": ["Carne vacuna magra (lomo/nalga/peceto): 200g, 2 veces/semana", "Pollo sin piel: 1 pata-muslo o 1 pechuga, 2 veces/semana", "Pescado (merluza/atún/caballa): 200g, 1-2 veces/semana", "Huevo: hasta 1 por día", "Yogur descremado: 1 pote/día", "Leche descremada: 1 vaso (200ml)/día", "Queso descremado: 1 porción (30g)"],
+    "fats": ["Aceite de oliva: 1 cucharada sopera por comida", "Palta: 1/4 unidad", "Frutos secos: 6 a 8 unidades", "Semillas (girasol, lino, chía): 1 cucharada"],
+    "vegetablesA": ["Acelga", "Achicoria", "Ají", "Apio", "Berenjena", "Berro", "Brócoli", "Cardo", "Coliflor", "Escarola", "Espinaca", "Espárrago", "Endibia", "Hinojo", "Hongos", "Lechuga", "Nabiza", "Pepino", "Rábano", "Rabanito", "Radicha", "Radicheta", "Repollo", "Repollito de Bruselas", "Rúcula", "Tomate", "Zapallitos"],
+    "vegetablesB": ["Alcaucil", "Arvejas frescas", "Cebolla", "Cebolla de verdeo", "Brotes de soja", "Chauchas", "Habas", "Nabo", "Palmitos", "Puerro", "Remolacha", "Zanahoria", "Zapallo"],
+    "fruits": ["Manzana", "Banana", "Naranja", "Mandarina", "Pera", "Durazno", "Ananá", "Frutillas", "Arándanos", "Kiwi", "Uva", "Ciruela"]
   },
   "dailyPlan": [
     {
-      "time": "08:00",
-      "type": "Desayuno",
-      "title": "Desayuno Completo",
-      "items": ["Item 1 con medida", "Item 2 con medida"],
-      "tip": "Tip motivacional o sugerencia"
+      "type": "Desayuno y Merienda",
+      "title": "Desayuno y Merienda",
+      "items": ["Infusión a gusto (té, café o mate)", "1 vaso (200ml) de leche descremada o 1 yogur descremado", "Elegir 1: 1 rebanada de pan integral / 2-3 tostadas integrales / 3-4 cdas de granola / 4 galletitas integrales", "Agregar: 1 cda queso untable descremado o 1 huevo o frutos secos (6-8 unidades)", "Opcional: 1 fruta"],
+      "tip": "Las meriendas siguen el mismo esquema que el desayuno"
     },
     {
-      "time": "10:30",
-      "type": "Media mañana",
-      "title": "Snack",
-      "items": ["Snack 1"],
-      "tip": "Tip"
+      "type": "Colaciones",
+      "title": "Colaciones (opcionales)",
+      "items": ["1 fruta chica", "Ensalada de frutas sin azúcar", "1 yogur descremado", "7-10 almendras o nueces"],
+      "tip": "Elegir 1 opción entre comidas principales si se tiene hambre"
     },
     {
-      "time": "13:00",
       "type": "Almuerzo",
       "title": "Almuerzo",
-      "items": ["Plato compuesto con medidas..."],
-      "tip": "Tip de saciedad"
+      "items": ["Proteínas: 150g carne / pollo / pescado o 2 huevos o legumbres", "Vegetales: 1-2 tazas de vegetales cocidos o crudos + hojas verdes a gusto", "Grasas: 1 cda de aceite de oliva", "Carbohidratos: 1 taza (arroz integral, fideos integrales, papa, quinoa, choclo)", "Postre: 1 fruta"],
+      "tip": "Armar el plato con todos los grupos para una comida completa"
     },
     {
-      "time": "16:30",
-      "type": "Merienda",
-      "title": "Merienda",
-      "items": ["Item 1"],
-      "tip": "Tip"
-    },
-    {
-      "time": "20:00",
       "type": "Cena",
       "title": "Cena",
-      "items": ["Item 1"],
-      "tip": "Tip de digestión"
+      "items": ["Vegetales: 1-2 tazas + hojas verdes a gusto", "Proteínas: 1 porción (similar al almuerzo)", "Carbohidratos: opcional según objetivo calórico", "Grasas: 1 cda de aceite de oliva", "Postre: 1 fruta"],
+      "tip": "Cena más liviana que el almuerzo, priorizar vegetales"
     }
   ],
   "menuIdeas": {
-    "carbsIdeas": ["Wok de arroz integral con vegetales y aceite de oliva", "Fideos con salsa de tomates cherry y aceitunas"],
-    "proteinIdeas": ["Bife a la criolla con puré de zapallo", "Tortilla de espinaca al horno con ensalada"]
-  },
-  "recommendedGroups": {
-    "vegetablesA": ["Acelga", "Espinaca", "Lechuga", "Tomate", "Pepino"],
-    "vegetablesB": ["Zanahoria", "Remolacha", "Zapallo", "Choclo", "Arvejas"],
-    "leanProteins": ["..."],
-    "wholeCarbs": ["..."],
-    "healthyFats": ["..."],
-    "fruits": ["..."]
+    "carbsIdeas": ["Wok de arroz integral con vegetales y aceite de oliva", "Fideos integrales con salsa de tomates cherry y aceitunas", "Tortilla de papa y espinaca al horno"],
+    "proteinIdeas": ["Bife a la criolla con puré de zapallo", "Pollo al horno con ensalada verde y batata", "Merluza al horno con vegetales grillados"]
   },
   "hydrationPlan": {
     "targetLiters": ${parseFloat((patientInfo.weight * 35 / 1000).toFixed(1))},

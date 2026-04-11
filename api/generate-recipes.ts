@@ -35,10 +35,11 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { patientInfo, mealType, objective, dietType, intolerances, foodRestrictions, count } = req.body;
+    const { patientInfo, mealType, mealTypes, objective, dietType, intolerances, foodRestrictions, count } = req.body;
 
     const intolerancesList: string[] = intolerances || [];
-    const recipeCount = count || 4;
+    const recipeCount = count || 3;
+    const resolvedMealTypes: string[] = mealTypes || (mealType ? [mealType] : ['Almuerzos rápidos']);
 
     const intoleranceRules = intolerancesList.map((intol: string) => {
       if (intol.includes('Lactosa')) return 'INTOLERANCIA A LA LACTOSA: Sin lácteos con lactosa. Usar leche deslactosada, bebida de almendras o avena, quesos duros, yogur deslactosado.';
@@ -53,7 +54,10 @@ export default async function handler(req: any, res: any) {
       ? `Paciente: ${patientInfo.firstName} ${patientInfo.lastName}, ${patientInfo.sex}, ${patientInfo.age} años, ${patientInfo.weight}kg.`
       : 'Sin paciente específico.';
 
-    const prompt = `Eres un nutricionista clínico experto argentino. Genera exactamente ${recipeCount} recetas del tipo "${mealType}" en formato JSON.
+    const mealTypesStr = resolvedMealTypes.join(', ');
+
+    const prompt = `Eres un nutricionista clínico experto argentino. Genera exactamente ${recipeCount} recetas distribuidas entre estos tipos: ${mealTypesStr}. En formato JSON.
+${resolvedMealTypes.length > 1 ? `Distribuí las ${recipeCount} recetas de forma equilibrada entre las categorías: ${mealTypesStr}. Cada receta debe indicar a qué categoría pertenece.` : ''}
 
 Contexto:
 - ${patientContext}
@@ -78,7 +82,7 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
   "recipes": [
     {
       "title": "Nombre de la receta",
-      "category": "${mealType}",
+      "category": "La categoría correspondiente (${mealTypesStr})",
       "prepTime": "15 min",
       "servings": "1 porción",
       "difficulty": "Fácil",

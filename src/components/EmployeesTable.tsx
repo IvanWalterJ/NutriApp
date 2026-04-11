@@ -23,6 +23,7 @@ export default function EmployeesTable() {
     area: 'Administración',
     initial_weight: '',
     height: '',
+    girth_waist: '',
     email: '',
     birth_date: '',
     phone: '',
@@ -153,6 +154,7 @@ export default function EmployeesTable() {
         session_type: 'Consulta',
         weight: parseFloat(newEmployee.initial_weight),
         height: parseFloat(newEmployee.height),
+        girth_waist: newEmployee.girth_waist ? parseFloat(newEmployee.girth_waist) : null,
         adherence: parseInt(newEmployee.adherence),
         hydration: newEmployee.hydration === 'true',
         physical_activity: newEmployee.physical_activity,
@@ -169,6 +171,7 @@ export default function EmployeesTable() {
         area: 'Administración',
         initial_weight: '',
         height: '',
+        girth_waist: '',
         email: '',
         birth_date: '',
         phone: '',
@@ -515,6 +518,29 @@ export default function EmployeesTable() {
                     />
                   </div>
                 </div>
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-text-muted mb-1">Circunferencia de Cintura (cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none font-mono"
+                    placeholder="Opcional"
+                    value={newEmployee.girth_waist}
+                    onChange={e => setNewEmployee({ ...newEmployee, girth_waist: e.target.value })}
+                  />
+                  {newEmployee.girth_waist && (() => {
+                    const val = parseFloat(newEmployee.girth_waist);
+                    const threshold = newEmployee.sex === 'Masculino' ? 94 : 80;
+                    const isRisk = val > threshold;
+                    return (
+                      <div className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${isRisk ? 'bg-danger/10 text-danger border-danger/20' : 'bg-accent/10 text-primary border-accent/20'}`}>
+                        {isRisk
+                          ? `⚠ Riesgo cardiovascular elevado (${newEmployee.sex === 'Masculino' ? '> 94' : '> 80'} cm)`
+                          : `✓ Sin riesgo cardiovascular (${newEmployee.sex === 'Masculino' ? '≤ 94' : '≤ 80'} cm)`}
+                      </div>
+                    );
+                  })()}
+                </div>
 
                 {/* Evaluación Inicial OMS */}
                 <div className="mt-4 pt-4 border-t-2 border-border-color">
@@ -716,6 +742,29 @@ export default function EmployeesTable() {
                   <p className="text-lg tracking-tighter">{selectedPatient.adherence > 0 ? '⭐'.repeat(selectedPatient.adherence) : '—'}</p>
                 </div>
               </div>
+
+              {/* Circunferencia de cintura + riesgo CV */}
+              {(() => {
+                const latestWaist = (selectedPatient.sessions as any[])
+                  ?.filter((s: any) => s.girth_waist != null)
+                  .sort((a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0];
+                if (!latestWaist) return null;
+                const val = latestWaist.girth_waist;
+                const threshold = selectedPatient.sex === 'Masculino' ? 94 : 80;
+                const isRisk = val > threshold;
+                return (
+                  <div className={`mb-8 p-4 rounded-xl border-2 flex items-center gap-4 ${isRisk ? 'bg-danger/5 border-danger/20' : 'bg-accent/5 border-accent/20'}`}>
+                    <div className="text-2xl">{isRisk ? '⚠️' : '✅'}</div>
+                    <div>
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-text-muted mb-1">Circunferencia de Cintura</h4>
+                      <p className="text-lg font-mono font-bold">{val} cm</p>
+                    </div>
+                    <div className={`ml-auto text-xs font-bold px-3 py-1.5 rounded-full ${isRisk ? 'bg-danger/10 text-danger' : 'bg-accent/10 text-primary'}`}>
+                      {isRisk ? 'Riesgo cardiovascular elevado' : 'Sin riesgo cardiovascular'}
+                    </div>
+                  </div>
+                );
+              })()}
 
               <div className="mb-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">

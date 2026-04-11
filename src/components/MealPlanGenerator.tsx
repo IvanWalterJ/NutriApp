@@ -763,67 +763,57 @@ export default function MealPlanGenerator() {
                 );
               })()}
 
-              {/* 2. LISTA DE COMPRAS */}
-              {(() => {
-                const sec = 'shoppingList';
-                const isE = !!editingSections[sec];
-                const dp  = editedPlan || generatedPlan;
-                const cats = [
-                  { key: 'carbsAndLegumes',     label: 'Carbohidratos',    color: 'text-[#d97706]', border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', icon: '🍞' },
-                  { key: 'proteins',            label: 'Proteínas',        color: 'text-[#2563eb]', border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', icon: '🥩' },
-                  { key: 'vegetablesAndFruits', label: 'Verduras y Frutas',color: 'text-[#059669]', border: 'border-[#a7f3d0]', bg: 'bg-[#ecfdf5]', icon: '🥦' },
-                  { key: 'fatsAndDairy',        label: 'Grasas Saludables',color: 'text-[#7c3aed]', border: 'border-[#ddd6fe]', bg: 'bg-[#f5f3ff]', icon: '🥑' },
-                  { key: 'canned',              label: 'Enlatados',        color: 'text-[#0891b2]', border: 'border-[#a5f3fc]', bg: 'bg-[#ecfeff]', icon: '🥫' },
-                  { key: 'frozen',              label: 'Congelados',       color: 'text-[#6366f1]', border: 'border-[#c7d2fe]', bg: 'bg-[#eef2ff]', icon: '❄️' },
-                ];
-                return (
-                  <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
-                    <div className="flex items-center justify-between mb-2">
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Lista de Compras</h3>
-                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
-                        {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
-                      </button>
+              {/* 2. REQUERIMIENTO CALÓRICO */}
+              {metrics && (
+                <div className="border-2 rounded-2xl p-5 shadow-sm bg-[#eff6ff] border-[#bfdbfe] break-inside-avoid">
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl shrink-0">🔥</div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-[#1e40af]">Requerimiento Calórico</div>
+                      <p className="text-[#1e3a8a] font-black text-2xl">{metrics.calories} kcal/día</p>
+                      <p className="text-xs text-[#3b82f6] mt-1 font-medium">{metrics.calculationMethod}</p>
                     </div>
-                    {!isE && <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>}
-                    <div className="grid grid-cols-2 md:grid-cols-3 print:grid-cols-2 gap-4 mt-4">
-                      {cats.map(({ key, label, color, border, bg, icon }) => {
-                        const items: string[] = dp.shoppingList?.[key] || [];
-                        if (!isE && !items.length) return null;
-                        return (
-                          <div key={key} className={`${bg} border ${isE ? 'border-amber-200' : border} rounded-xl p-3`}>
-                            <h4 className={`text-[11px] font-bold ${color} uppercase mb-2 flex items-center gap-1`}>{icon} {label}</h4>
-                            {isE ? (
-                              <div className="space-y-1">
-                                {items.map((t, idx) => (
-                                  <div key={idx} className="flex gap-1">
-                                    <input className="flex-1 text-[11px] border border-amber-200 bg-white rounded px-1.5 py-1 focus:outline-none" value={t} onChange={e => mut(p => { p.shoppingList[key][idx] = e.target.value; })} />
-                                    <button onClick={() => mut(p => { p.shoppingList[key].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
-                                  </div>
-                                ))}
-                                <button onClick={() => mut(p => { p.shoppingList[key].push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-full mt-1">+ Agregar</button>
-                              </div>
-                            ) : (
-                              <ul className="text-[10px] text-gray-700 space-y-1">
-                                {items.map((t) => <li key={t} className="flex items-start gap-1"><span className="shrink-0">✓</span>{t}</li>)}
-                              </ul>
-                            )}
-                          </div>
-                        );
-                      })}
+                    <div className="ml-auto text-right">
+                      <div className="text-xs text-text-muted">Proteínas</div>
+                      <p className="font-bold text-[#2563eb]">{metrics.proteinGrams} g/día</p>
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+              )}
 
-              {/* 3. GRUPOS DE ALIMENTOS */}
+              {/* 3. DISTRIBUCIÓN DE MACRONUTRIENTES */}
+              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8 break-inside-avoid">
+                <div className="shrink-0 flex flex-col items-center">
+                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Plato Saludable</div>
+                  <PieChart pP={(editedPlan||generatedPlan).healthyPlate.proteinsPct} pC={(editedPlan||generatedPlan).healthyPlate.carbsPct} pF={(editedPlan||generatedPlan).healthyPlate.fatsPct} />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
+                  <p className="text-sm text-text-muted leading-relaxed mb-4">
+                    Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({(editedPlan||generatedPlan).healthyPlate.carbsPct}%)</strong>,
+                    con aporte proteico de <strong className="text-[#2563eb]">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</strong> y
+                    grasas saludables del <strong className="text-[#9333ea]">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</strong>.
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 text-center text-sm font-bold">
+                    <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-3 text-[#2563eb]">🍗 Proteínas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</span></div>
+                    <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-xl p-3 text-[#d97706]">🍞 Carbos<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.carbsPct}%</span></div>
+                    <div className="bg-[#faf5ff] border border-[#f3e8ff] rounded-xl p-3 text-[#9333ea]">🥑 Grasas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</span></div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 4. GRUPOS DE ALIMENTOS */}
               {(editedPlan || generatedPlan).foodGroupsDetail && (() => {
                 const sec = 'foodGroups';
                 const isE = !!editingSections[sec];
                 const dp  = editedPlan || generatedPlan;
                 const groups = [
-                  { key: 'carbs',    label: 'Carbohidratos',    icon: '🍞', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', color: 'text-[#92400e]' },
-                  { key: 'proteins', label: 'Proteínas',         icon: '🥩', bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', color: 'text-[#1e40af]' },
-                  { key: 'fats',     label: 'Grasas Saludables', icon: '🥑', bg: 'bg-[#f5f3ff]', border: 'border-[#ddd6fe]', color: 'text-[#4c1d95]' },
+                  { key: 'carbs',       label: 'Carbohidratos',        icon: '🍞', bg: 'bg-[#fffbeb]', border: 'border-[#fde68a]', color: 'text-[#92400e]', tags: false },
+                  { key: 'proteins',    label: 'Proteínas',             icon: '🥩', bg: 'bg-[#eff6ff]', border: 'border-[#bfdbfe]', color: 'text-[#1e40af]', tags: false },
+                  { key: 'fats',        label: 'Grasas Saludables',     icon: '🥑', bg: 'bg-[#f5f3ff]', border: 'border-[#ddd6fe]', color: 'text-[#4c1d95]', tags: false },
+                  { key: 'vegetablesA', label: 'Verduras Grupo A',      icon: '🥗', bg: 'bg-[#ecfdf5]', border: 'border-[#a7f3d0]', color: 'text-[#065f46]', tags: true },
+                  { key: 'vegetablesB', label: 'Verduras Grupo B',      icon: '🥕', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]', color: 'text-[#166534]', tags: true },
+                  { key: 'fruits',      label: 'Frutas',                icon: '🍎', bg: 'bg-[#fff7ed]', border: 'border-[#fed7aa]', color: 'text-[#9a3412]', tags: true },
                 ];
                 return (
                   <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
@@ -834,9 +824,10 @@ export default function MealPlanGenerator() {
                       </button>
                     </div>
                     {!isE && <p className="text-center text-xs text-text-muted mb-5">Porciones recomendadas para tu requerimiento diario</p>}
-                    <div className="grid grid-cols-1 md:grid-cols-3 print:grid-cols-2 gap-4 mt-4">
-                      {groups.map(({ key, label, icon, bg, border, color }) => {
+                    <div className="grid grid-cols-1 md:grid-cols-2 print:grid-cols-2 gap-4 mt-4">
+                      {groups.map(({ key, label, icon, bg, border, color, tags }) => {
                         const items: string[] = dp.foodGroupsDetail?.[key] || [];
+                        if (!isE && !items.length) return null;
                         return (
                           <div key={key} className={`${bg} border ${isE ? 'border-amber-200' : border} rounded-xl p-4`}>
                             <h4 className={`text-sm font-bold ${color} mb-3 flex items-center gap-2`}>{icon} {label}</h4>
@@ -849,6 +840,10 @@ export default function MealPlanGenerator() {
                                   </div>
                                 ))}
                                 <button onClick={() => mut(p => { p.foodGroupsDetail[key].push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-full mt-1">+ Agregar</button>
+                              </div>
+                            ) : tags ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {items.map((item, i) => <span key={i} className={`inline-flex items-center gap-1 text-[11px] px-2.5 py-1 ${bg} border ${border} ${color} rounded-full font-medium`}>{getVeggieEmoji(item)} {item}</span>)}
                               </div>
                             ) : (
                               <ul className="space-y-2">
@@ -878,15 +873,11 @@ export default function MealPlanGenerator() {
                     </div>
                     <div className="space-y-4">
                       {plan.dailyPlan.map((meal: any, i: number) => (
-                        <div key={i} className={`flex gap-4 p-4 rounded-xl border bg-gray-50/50 ${isEditing ? 'border-amber-200' : 'border-gray-100'}`}>
-                          <div className="w-16 shrink-0 text-center border-r border-gray-200 pr-4">
-                            <div className="font-black text-gray-800 text-lg">{meal.time}</div>
-                            <div className="text-[10px] text-gray-500 uppercase tracking-wide font-bold">{meal.type}</div>
-                          </div>
-                          <div className="flex-1">
+                        <div key={i} className={`p-4 rounded-xl border bg-gray-50/50 ${isEditing ? 'border-amber-200' : 'border-gray-100'}`}>
+                          <div>
                             {isEditing
                               ? <input className="font-bold text-[#0A4D3C] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none" value={meal.title} onChange={e => updateMealTitle(i, e.target.value)} />
-                              : <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2">{meal.title}</h4>
+                              : <h4 className="font-bold text-[#0A4D3C] text-[15px] mb-2 flex items-center gap-2"><span className="text-xs uppercase tracking-widest text-text-muted font-bold bg-primary/5 px-2 py-0.5 rounded">{meal.type}</span> {meal.title}</h4>
                             }
                             <ul className="space-y-1 mb-3">
                               {meal.items.map((item: string, j: number) => (
@@ -962,64 +953,50 @@ export default function MealPlanGenerator() {
                 );
               })()}
 
-              {/* 6. PLATO SALUDABLE / MACROS — no editable (es display del cálculo) */}
-              <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8 break-inside-avoid">
-                <div className="shrink-0 flex flex-col items-center">
-                  <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Plato Saludable</div>
-                  <PieChart pP={(editedPlan||generatedPlan).healthyPlate.proteinsPct} pC={(editedPlan||generatedPlan).healthyPlate.carbsPct} pF={(editedPlan||generatedPlan).healthyPlate.fatsPct} />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
-                  <p className="text-sm text-text-muted leading-relaxed mb-4">
-                    Tu plan se basa en <strong className="text-[#d97706]">carbohidratos de absorción lenta ({(editedPlan||generatedPlan).healthyPlate.carbsPct}%)</strong>,
-                    con aporte proteico de <strong className="text-[#2563eb]">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</strong> y
-                    grasas saludables del <strong className="text-[#9333ea]">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</strong>.
-                  </p>
-                  <div className="grid grid-cols-3 gap-3 text-center text-sm font-bold">
-                    <div className="bg-[#eff6ff] border border-[#dbeafe] rounded-xl p-3 text-[#2563eb]">🍗 Proteínas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.proteinsPct}%</span></div>
-                    <div className="bg-[#fffbeb] border border-[#fef3c7] rounded-xl p-3 text-[#d97706]">🍞 Carbos<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.carbsPct}%</span></div>
-                    <div className="bg-[#faf5ff] border border-[#f3e8ff] rounded-xl p-3 text-[#9333ea]">🥑 Grasas<br/><span className="text-2xl mt-1 block">{(editedPlan||generatedPlan).healthyPlate.fatsPct}%</span></div>
-                  </div>
-                </div>
-              </div>
-
-              {/* 7. VERDURAS RECOMENDADAS */}
-              {(editedPlan || generatedPlan).recommendedGroups && (() => {
-                const sec = 'vegetables';
+              {/* LISTA DE COMPRAS */}
+              {(() => {
+                const sec = 'shoppingList';
                 const isE = !!editingSections[sec];
                 const dp  = editedPlan || generatedPlan;
+                const cats = [
+                  { key: 'carbsAndLegumes',     label: 'Carbohidratos',    color: 'text-[#d97706]', border: 'border-[#fde68a]', bg: 'bg-[#fffbeb]', icon: '🍞' },
+                  { key: 'proteins',            label: 'Proteínas',        color: 'text-[#2563eb]', border: 'border-[#bfdbfe]', bg: 'bg-[#eff6ff]', icon: '🥩' },
+                  { key: 'dairy',               label: 'Lácteos',          color: 'text-[#0ea5e9]', border: 'border-[#bae6fd]', bg: 'bg-[#f0f9ff]', icon: '🥛' },
+                  { key: 'vegetablesAndFruits', label: 'Verduras y Frutas',color: 'text-[#059669]', border: 'border-[#a7f3d0]', bg: 'bg-[#ecfdf5]', icon: '🥦' },
+                  { key: 'fats',                label: 'Grasas Saludables',color: 'text-[#7c3aed]', border: 'border-[#ddd6fe]', bg: 'bg-[#f5f3ff]', icon: '🥑' },
+                  { key: 'canned',              label: 'Enlatados',        color: 'text-[#0891b2]', border: 'border-[#a5f3fc]', bg: 'bg-[#ecfeff]', icon: '🥫' },
+                  { key: 'frozen',              label: 'Congelados',       color: 'text-[#6366f1]', border: 'border-[#c7d2fe]', bg: 'bg-[#eef2ff]', icon: '❄️' },
+                ];
                 return (
                   <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm break-inside-avoid ${isE ? 'border-amber-400 ring-2 ring-amber-200' : 'border-border-color'}`}>
-                    <div className="flex items-center justify-between mb-5">
-                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Verduras Recomendadas</h3>
-                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-bold text-lg uppercase tracking-widest text-[#2c3e50]">Lista de Compras</h3>
+                      <button onClick={() => toggleSection(sec)} className={`print:hidden flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border transition-colors ${isE ? 'bg-green-500 text-white border-green-400 hover:bg-green-600' : 'bg-gray-100 text-gray-600 border-gray-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300'}`}>
                         {isE ? <><SaveIcon /> Guardar sección</> : <><Pencil /> Editar</>}
                       </button>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      {[
-                        { gk: 'vegetablesA', label: '🥗 Grupo A — Sin almidón', color: 'text-[#059669]', bg: 'bg-[#ecfdf5]', border: 'border-[#a7f3d0]', txt: 'text-[#065f46]' },
-                        { gk: 'vegetablesB', label: '🥕 Grupo B — Con almidón', color: 'text-[#047857]', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]', txt: 'text-[#166534]' },
-                      ].map(({ gk, label, color, bg, border, txt }) => {
-                        const vegs: string[] = dp.recommendedGroups?.[gk] || [];
-                        if (!isE && !vegs.length) return null;
+                    {!isE && <p className="text-center text-xs text-text-muted mb-5">Llevar una alimentación saludable empieza por tener estos alimentos en casa</p>}
+                    <div className="grid grid-cols-2 md:grid-cols-3 print:grid-cols-2 gap-4 mt-4">
+                      {cats.map(({ key, label, color, border, bg, icon }) => {
+                        const items: string[] = dp.shoppingList?.[key] || [];
+                        if (!isE && !items.length) return null;
                         return (
-                          <div key={gk}>
-                            <h4 className={`text-xs font-bold ${color} uppercase tracking-widest mb-3`}>{label}</h4>
+                          <div key={key} className={`${bg} border ${isE ? 'border-amber-200' : border} rounded-xl p-3`}>
+                            <h4 className={`text-[11px] font-bold ${color} uppercase mb-2 flex items-center gap-1`}>{icon} {label}</h4>
                             {isE ? (
-                              <div className="space-y-1.5">
-                                {vegs.map((v, idx) => (
-                                  <div key={idx} className="flex gap-1.5">
-                                    <input className="flex-1 text-sm border border-amber-200 bg-amber-50 rounded px-2 py-1 focus:outline-none" value={v} onChange={e => mut(p => { p.recommendedGroups[gk][idx] = e.target.value; })} />
-                                    <button onClick={() => mut(p => { p.recommendedGroups[gk].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                              <div className="space-y-1">
+                                {items.map((t, idx) => (
+                                  <div key={idx} className="flex gap-1">
+                                    <input className="flex-1 text-[11px] border border-amber-200 bg-white rounded px-1.5 py-1 focus:outline-none" value={t} onChange={e => mut(p => { p.shoppingList[key][idx] = e.target.value; })} />
+                                    <button onClick={() => mut(p => { p.shoppingList[key].splice(idx,1); })} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
                                   </div>
                                 ))}
-                                <button onClick={() => mut(p => { p.recommendedGroups[gk].push(''); })} className="text-xs text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-3 py-1 rounded-full">+ Agregar</button>
+                                <button onClick={() => mut(p => { p.shoppingList[key].push(''); })} className="text-[10px] text-amber-600 border border-amber-300 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded-full mt-1">+ Agregar</button>
                               </div>
                             ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {vegs.map((v, i) => <span key={i} className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 ${bg} border ${border} ${txt} rounded-full font-medium`}>{getVeggieEmoji(v)} {v}</span>)}
-                              </div>
+                              <ul className="text-[10px] text-gray-700 space-y-1">
+                                {items.map((t) => <li key={t} className="flex items-start gap-1"><span className="shrink-0">✓</span>{t}</li>)}
+                              </ul>
                             )}
                           </div>
                         );
@@ -1029,7 +1006,7 @@ export default function MealPlanGenerator() {
                 );
               })()}
 
-              {/* 8. HIDRATACIÓN */}
+              {/* HIDRATACIÓN */}
               {(() => {
                 const sec = 'hydration';
                 const isE = !!editingSections[sec];

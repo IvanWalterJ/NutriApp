@@ -50,12 +50,18 @@ export default function RecipeGenerator() {
   const [loadingPatient, setLoadingPatient] = useState(false);
   const [reportCompanyName, setReportCompanyName] = useState(selectedCompany);
 
-  const [mealType, setMealType] = useState('Almuerzos rápidos');
+  const [mealTypes, setMealTypes] = useState<string[]>(['Almuerzos rápidos']);
   const [objective, setObjective] = useState('');
   const [dietType, setDietType] = useState('Normal');
   const [intolerances, setIntolerances] = useState<string[]>([]);
   const [foodRestrictions, setFoodRestrictions] = useState('');
-  const [count, setCount] = useState(4);
+  const [count, setCount] = useState(3);
+
+  function toggleMealType(value: string) {
+    setMealTypes(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    );
+  }
 
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -134,7 +140,7 @@ export default function RecipeGenerator() {
       const response = await fetch('/api/generate-recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientInfo: patientData, mealType, objective, dietType, intolerances, foodRestrictions, count })
+        body: JSON.stringify({ patientInfo: patientData, mealTypes, objective, dietType, intolerances, foodRestrictions, count })
       });
       if (!response.ok) throw new Error('Error en la generación');
       const data = await response.json();
@@ -156,7 +162,7 @@ export default function RecipeGenerator() {
   function downloadPDF() {
     const originalTitle = document.title;
     const label = patientData ? `${patientData.firstName} ${patientData.lastName} - ` : '';
-    document.title = `${label}Recetas ${mealType} - NuPlan`;
+    document.title = `${label}Recetas ${mealTypes.join(', ')} - NuPlan`;
 
     // Unlock flex/h-screen containers so all pages are captured
     const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
@@ -288,11 +294,11 @@ export default function RecipeGenerator() {
               </div>
 
               <div>
-                <label className={labelCls}>2. TIPO DE RECETAS</label>
+                <label className={labelCls}>2. TIPO DE RECETAS <span className="normal-case text-[10px] font-normal tracking-normal text-text-muted">(podés elegir varios)</span></label>
                 <div className="grid grid-cols-1 gap-2">
                   {MEAL_TYPES.map(mt => (
-                    <label key={mt.value} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${mealType === mt.value ? 'border-primary bg-primary/5 text-primary' : 'border-border-color bg-bg hover:border-primary/40'}`}>
-                      <input type="radio" name="mealType" value={mt.value} checked={mealType === mt.value} onChange={() => setMealType(mt.value)} className="accent-primary" />
+                    <label key={mt.value} className={`flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-all ${mealTypes.includes(mt.value) ? 'border-primary bg-primary/5 text-primary' : 'border-border-color bg-bg hover:border-primary/40'}`}>
+                      <input type="checkbox" checked={mealTypes.includes(mt.value)} onChange={() => toggleMealType(mt.value)} className="w-4 h-4 rounded accent-primary cursor-pointer" />
                       <div>
                         <div className="font-semibold text-sm">{mt.label}</div>
                         <div className="text-xs text-text-muted">{mt.desc}</div>
@@ -361,7 +367,7 @@ export default function RecipeGenerator() {
               <div>
                 <label className={labelCls}>7. CANTIDAD DE RECETAS</label>
                 <div className="flex gap-2">
-                  {[3, 4, 5, 6].map(n => (
+                  {[1, 3, 5, 6].map(n => (
                     <button
                       key={n}
                       onClick={() => setCount(n)}
@@ -378,7 +384,7 @@ export default function RecipeGenerator() {
           <div className="mt-8 border-t-2 border-border-color pt-6 text-center">
             <button
               onClick={generate}
-              disabled={loading}
+              disabled={loading || mealTypes.length === 0}
               className="w-full md:w-auto inline-flex items-center justify-center gap-3 bg-gradient-to-br from-primary to-primary-light text-white px-10 py-4 rounded-xl font-bold text-lg hover:-translate-y-1 hover:shadow-xl transition-all disabled:opacity-50 disabled:hover:translate-y-0 disabled:hover:shadow-none"
             >
               {loading ? (
@@ -388,7 +394,7 @@ export default function RecipeGenerator() {
                 </>
               ) : (
                 <>
-                  Generar {count} Recetas <ArrowRight />
+                  Generar {count} {count === 1 ? 'Receta' : 'Recetas'} <ArrowRight />
                 </>
               )}
             </button>
