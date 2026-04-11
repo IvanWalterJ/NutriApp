@@ -413,7 +413,7 @@ export default function RecipeGenerator() {
       <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO</div>
-          <h2 className="text-3xl font-black mt-1">{mealType}</h2>
+          <h2 className="text-3xl font-black mt-1">{mealTypes.join(' · ')}</h2>
           <div className="text-sm mt-1 text-white/90">
             {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{reportCompanyName.toUpperCase()}
           </div>
