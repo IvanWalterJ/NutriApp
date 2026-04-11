@@ -56,8 +56,8 @@ export default async function handler(req: any, res: any) {
 
     const mealTypesStr = resolvedMealTypes.join(', ');
 
-    const prompt = `Eres un nutricionista clínico experto argentino. Genera exactamente ${recipeCount} recetas distribuidas entre estos tipos: ${mealTypesStr}. En formato JSON.
-${resolvedMealTypes.length > 1 ? `Distribuí las ${recipeCount} recetas de forma equilibrada entre las categorías: ${mealTypesStr}. Cada receta debe indicar a qué categoría pertenece.` : ''}
+    const prompt = `Eres un nutricionista clínico experto argentino. Genera exactamente ${recipeCount} recetas en formato JSON.
+${resolvedMealTypes.length > 1 ? `IMPORTANTE: Generar exactamente 1 receta por cada uno de estos tipos: ${mealTypesStr}. Total: ${resolvedMealTypes.length} recetas. Cada receta debe ser de un tipo distinto.` : `Todas las recetas deben ser del tipo: ${mealTypesStr}.`}
 
 Contexto:
 - ${patientContext}

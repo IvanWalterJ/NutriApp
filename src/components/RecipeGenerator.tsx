@@ -134,20 +134,24 @@ export default function RecipeGenerator() {
     );
   }
 
+  // When multiple types selected, total = number of types (1 per type).
+  // When single type, use the count selector.
+  const effectiveCount = mealTypes.length > 1 ? mealTypes.length : count;
+
   async function generate() {
     setLoading(true);
     try {
       const response = await fetch('/api/generate-recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientInfo: patientData, mealTypes, objective, dietType, intolerances, foodRestrictions, count })
+        body: JSON.stringify({ patientInfo: patientData, mealTypes, objective, dietType, intolerances, foodRestrictions, count: effectiveCount })
       });
       if (!response.ok) throw new Error('Error en la generación');
       const data = await response.json();
       setResult(data);
       setEditedResult(JSON.parse(JSON.stringify(data)));
       setEditingCards({});
-      showToast(`¡${data.recipes?.length || count} recetas generadas!`, 'success');
+      showToast(`¡${data.recipes?.length || effectiveCount} recetas generadas!`, 'success');
       setTimeout(() => {
         window.scrollTo({ top: document.getElementById('recipes-result')?.offsetTop || 0, behavior: 'smooth' });
       }, 100);
@@ -162,7 +166,8 @@ export default function RecipeGenerator() {
   function downloadPDF() {
     const originalTitle = document.title;
     const label = patientData ? `${patientData.firstName} ${patientData.lastName} - ` : '';
-    document.title = `${label}Recetas ${mealTypes.join(', ')} - NuPlan`;
+    const shortObj = objective ? (objective.length > 30 ? objective.substring(0, 30).trim() + '...' : objective) : 'Saludables';
+    document.title = `${label}Recetas ${shortObj} - NuPlan`;
 
     // Unlock flex/h-screen containers so all pages are captured
     const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
@@ -364,20 +369,26 @@ export default function RecipeGenerator() {
                 />
               </div>
 
-              <div>
-                <label className={labelCls}>7. CANTIDAD DE RECETAS</label>
-                <div className="flex gap-2">
-                  {[1, 3, 5, 6].map(n => (
-                    <button
-                      key={n}
-                      onClick={() => setCount(n)}
-                      className={`flex-1 py-2.5 rounded-lg border-2 font-bold text-sm transition-all ${count === n ? 'bg-primary text-white border-primary' : 'bg-bg border-border-color text-text-muted hover:border-primary/40'}`}
-                    >
-                      {n}
-                    </button>
-                  ))}
+              {mealTypes.length <= 1 ? (
+                <div>
+                  <label className={labelCls}>7. CANTIDAD DE RECETAS</label>
+                  <div className="flex gap-2">
+                    {[1, 3, 5, 6].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setCount(n)}
+                        className={`flex-1 py-2.5 rounded-lg border-2 font-bold text-sm transition-all ${count === n ? 'bg-primary text-white border-primary' : 'bg-bg border-border-color text-text-muted hover:border-primary/40'}`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-3 text-sm text-primary font-semibold">
+                  Se generará 1 receta por cada tipo seleccionado ({mealTypes.length} recetas en total)
+                </div>
+              )}
             </div>
           </div>
 
@@ -394,7 +405,7 @@ export default function RecipeGenerator() {
                 </>
               ) : (
                 <>
-                  Generar {count} {count === 1 ? 'Receta' : 'Recetas'} <ArrowRight />
+                  Generar {effectiveCount} {effectiveCount === 1 ? 'Receta' : 'Recetas'} <ArrowRight />
                 </>
               )}
             </button>
@@ -413,7 +424,11 @@ export default function RecipeGenerator() {
       <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
           <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO</div>
-          <h2 className="text-3xl font-black mt-1">{mealTypes.join(' · ')}</h2>
+          <h2 className="text-3xl font-black mt-1">
+            {objective
+              ? `Recetas para ${objective.length > 40 ? objective.substring(0, 40).trim() + '...' : objective.toLowerCase()}`
+              : `Recetas Saludables`}
+          </h2>
           <div className="text-sm mt-1 text-white/90">
             {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{reportCompanyName.toUpperCase()}
           </div>
