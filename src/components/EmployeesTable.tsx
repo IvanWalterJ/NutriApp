@@ -226,20 +226,27 @@ export default function EmployeesTable() {
         .eq('patient_id', confirmDeletePatient.id);
       if (sessionsError) throw sessionsError;
 
-      const { error: patientError } = await supabase
+      // .select() para verificar que realmente se borró (si RLS bloquea,
+      // Supabase no tira error pero afecta 0 filas).
+      const { data: deletedRows, error: patientError } = await supabase
         .from('patients')
         .delete()
-        .eq('id', confirmDeletePatient.id);
+        .eq('id', confirmDeletePatient.id)
+        .select('id');
       if (patientError) throw patientError;
+
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('No se pudo eliminar el paciente. Verificá los permisos (RLS) en Supabase.');
+      }
 
       showToast('Paciente eliminado correctamente', 'success');
       setConfirmDeletePatient(null);
       setSelectedPatient(null);
       setIsEditingPatient(false);
       fetchEmployees();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error deleting patient:', err);
-      showToast('Error al eliminar paciente', 'error');
+      showToast(err?.message || 'Error al eliminar paciente', 'error');
     } finally {
       setDeletingPatient(false);
     }

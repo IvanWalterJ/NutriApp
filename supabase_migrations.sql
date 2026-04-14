@@ -156,3 +156,17 @@ WHERE id NOT IN (SELECT id FROM public.profiles);
 -- session_date solo guarda la fecha (sin hora), por lo que dos consultas del mismo día
 -- no se pueden ordenar correctamente sin este campo.
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS created_at timestamptz DEFAULT now();
+
+-- MIGRACIÓN: Habilitar borrado de pacientes y sesiones (RLS)
+-- Sin estas políticas, DELETE devuelve OK pero afecta 0 filas (RLS silencioso).
+DROP POLICY IF EXISTS "Authenticated users can delete patients" ON public.patients;
+CREATE POLICY "Authenticated users can delete patients"
+  ON public.patients FOR DELETE
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can delete sessions" ON public.sessions;
+CREATE POLICY "Authenticated users can delete sessions"
+  ON public.sessions FOR DELETE
+  TO authenticated
+  USING (true);
