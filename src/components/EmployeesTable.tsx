@@ -4,7 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
 import AnthroReportButton from './AnthroReportButton';
-import { Search, X, Activity, CalendarDays, Edit2, Save } from 'lucide-react';
+import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 export default function EmployeesTable() {
@@ -38,6 +38,9 @@ export default function EmployeesTable() {
   });
   const [isEditingPatient, setIsEditingPatient] = useState(false);
   const [editPatientData, setEditPatientData] = useState<any>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmDeletePatient, setConfirmDeletePatient] = useState<any | null>(null);
+  const [deletingPatient, setDeletingPatient] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -121,14 +124,33 @@ export default function EmployeesTable() {
 
   const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+
+      // Verificación de duplicado (mismo nombre+apellido en la misma empresa)
+      const firstName = newEmployee.first_name.trim();
+      const lastName = newEmployee.last_name.trim();
+      const { data: existing, error: checkError } = await supabase
+        .from('patients')
+        .select('id')
+        .eq('company', selectedCompany)
+        .ilike('first_name', firstName)
+        .ilike('last_name', lastName)
+        .limit(1);
+      if (checkError) throw checkError;
+      if (existing && existing.length > 0) {
+        showToast(`Ya existe un paciente "${firstName} ${lastName}" en esta empresa`, 'error');
+        setSubmitting(false);
+        return;
+      }
 
       const { data: patientResult, error } = await supabase
         .from('patients')
         .insert([{
-          first_name: newEmployee.first_name,
-          last_name: newEmployee.last_name,
+          first_name: firstName,
+          last_name: lastName,
           area: newEmployee.area,
           email: newEmployee.email || null,
           birth_date: newEmployee.birth_date || null,
@@ -189,6 +211,37 @@ export default function EmployeesTable() {
     } catch (err) {
       console.error('Error adding patient:', err);
       showToast('Error al agregar paciente', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDeletePatient = async () => {
+    if (!confirmDeletePatient || deletingPatient) return;
+    setDeletingPatient(true);
+    try {
+      const { error: sessionsError } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('patient_id', confirmDeletePatient.id);
+      if (sessionsError) throw sessionsError;
+
+      const { error: patientError } = await supabase
+        .from('patients')
+        .delete()
+        .eq('id', confirmDeletePatient.id);
+      if (patientError) throw patientError;
+
+      showToast('Paciente eliminado correctamente', 'success');
+      setConfirmDeletePatient(null);
+      setSelectedPatient(null);
+      setIsEditingPatient(false);
+      fetchEmployees();
+    } catch (err) {
+      console.error('Error deleting patient:', err);
+      showToast('Error al eliminar paciente', 'error');
+    } finally {
+      setDeletingPatient(false);
     }
   };
 
@@ -631,8 +684,11 @@ export default function EmployeesTable() {
                 <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent rounded-b-lg" />
               </div>
               <div className="flex justify-end gap-3 pt-4 mt-2 border-t border-border-color">
-                <button type="button" onClick={() => setShowAddModal(false)} className="px-5 py-2 border-2 border-border-color rounded-lg font-semibold hover:bg-bg transition-colors">Cancelar</button>
-                <button type="submit" className="px-5 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-light transition-colors">Guardar</button>
+                <button type="button" disabled={submitting} onClick={() => setShowAddModal(false)} className="px-5 py-2 border-2 border-border-color rounded-lg font-semibold hover:bg-bg transition-colors disabled:opacity-60 disabled:cursor-not-allowed">Cancelar</button>
+                <button type="submit" disabled={submitting} className="px-5 py-2 bg-primary text-white rounded-lg font-semibold hover:bg-primary-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2">
+                  {submitting && <Loader2 size={16} className="animate-spin" />}
+                  {submitting ? 'Guardando...' : 'Guardar'}
+                </button>
               </div>
             </form>
           </div>
@@ -655,22 +711,31 @@ export default function EmployeesTable() {
                   </h3>
                   <div className="flex gap-2">
                     {!isEditingPatient ? (
-                      <button 
-                        onClick={() => {
-                          setEditPatientData({
-                            area: selectedPatient.area,
-                            email: selectedPatient.email || '',
-                            phone: selectedPatient.phone || '',
-                            birth_date: selectedPatient.birth_date || ''
-                          });
-                          setIsEditingPatient(true);
-                        }}
-                        className="p-2 border-2 border-border-color bg-surface hover:border-primary hover:text-primary rounded-xl transition-all shadow-sm active:scale-95 text-text-muted flex items-center gap-1.5"
-                      >
-                        <Edit2 size={16} /><span className="text-sm font-bold hidden sm:inline">Editar Perfil</span>
-                      </button>
+                      <>
+                        <button
+                          onClick={() => {
+                            setEditPatientData({
+                              area: selectedPatient.area,
+                              email: selectedPatient.email || '',
+                              phone: selectedPatient.phone || '',
+                              birth_date: selectedPatient.birth_date || ''
+                            });
+                            setIsEditingPatient(true);
+                          }}
+                          className="p-2 border-2 border-border-color bg-surface hover:border-primary hover:text-primary rounded-xl transition-all shadow-sm active:scale-95 text-text-muted flex items-center gap-1.5"
+                        >
+                          <Edit2 size={16} /><span className="text-sm font-bold hidden sm:inline">Editar Perfil</span>
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeletePatient(selectedPatient)}
+                          className="p-2 border-2 border-border-color bg-surface hover:border-danger hover:text-danger hover:bg-danger/5 rounded-xl transition-all shadow-sm active:scale-95 text-text-muted flex items-center gap-1.5"
+                          title="Eliminar paciente"
+                        >
+                          <Trash2 size={16} /><span className="text-sm font-bold hidden sm:inline">Eliminar</span>
+                        </button>
+                      </>
                     ) : (
-                      <button 
+                      <button
                         onClick={handleUpdatePatient}
                         className="px-4 py-2 bg-primary text-white rounded-xl transition-all shadow-md hover:bg-primary-light hover:scale-105 active:scale-95 flex items-center gap-1.5 font-bold text-sm"
                       >
@@ -893,6 +958,54 @@ export default function EmployeesTable() {
         title="¡Registro Exitoso!"
         message="El nuevo paciente ha sido registrado correctamente en el sistema."
       />
+
+      {/* Modal de confirmación para eliminar paciente */}
+      {confirmDeletePatient && createPortal(
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => !deletingPatient && setConfirmDeletePatient(null)}
+          />
+          <div className="relative z-10 bg-surface rounded-2xl shadow-2xl border-2 border-border-color max-w-sm w-full p-6">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-text-main">Eliminar paciente</h3>
+                <p className="text-sm text-text-muted mt-1">
+                  ¿Segura que querés eliminar a <strong className="text-text-main">"{confirmDeletePatient.name}"</strong>?
+                </p>
+              </div>
+            </div>
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 mb-6 text-sm text-text-main">
+              <p className="font-semibold text-warning mb-1">Importante</p>
+              <p>
+                Se eliminarán también <strong>todas las sesiones y antropometrías</strong> registradas de este paciente.
+              </p>
+              <p className="mt-2 text-text-muted">Esta acción no se puede deshacer.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDeletePatient(null)}
+                disabled={deletingPatient}
+                className="flex-1 py-2.5 rounded-xl border-2 border-border-color text-text-main font-semibold hover:bg-bg transition-colors disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeletePatient}
+                disabled={deletingPatient}
+                className="flex-1 py-2.5 rounded-xl bg-danger text-white font-semibold hover:bg-danger/90 transition-colors flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                {deletingPatient && <Loader2 size={16} className="animate-spin" />}
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }
