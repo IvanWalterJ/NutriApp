@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import Anthropic from '@anthropic-ai/sdk';
 
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
@@ -8,7 +9,30 @@ const GEMINI_KEYS = [
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash'];
 
-async function generateWithFallbacks(params: object): Promise<any> {
+const CLAUDE_MODEL = 'claude-sonnet-4-6';
+const CLAUDE_MAX_TOKENS = 16384;
+
+async function generateWithClaudeFallback(prompt: string): Promise<{ text: string }> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error('ANTHROPIC_API_KEY no configurada');
+
+  const client = new Anthropic({ apiKey });
+  const systemInstruction =
+    'Eres un nutricionista clínico experto argentino. Devolvés SIEMPRE un único objeto JSON puro, válido y parseable, sin texto adicional, sin markdown, sin backticks. La respuesta debe empezar con { y terminar con }.';
+
+  const response = await client.messages.create({
+    model: CLAUDE_MODEL,
+    max_tokens: CLAUDE_MAX_TOKENS,
+    system: systemInstruction,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  console.log(`[Planes] OK con Claude (${CLAUDE_MODEL})`);
+  return { text };
+}
+
+async function generateWithFallbacks(params: { contents: string; config?: object }): Promise<any> {
   const errors: string[] = [];
   for (const key of GEMINI_KEYS) {
     for (const model of MODELS) {
@@ -26,7 +50,16 @@ async function generateWithFallbacks(params: object): Promise<any> {
       }
     }
   }
-  throw new Error(`Todos los modelos y claves fallaron:\n${errors.join('\n')}`);
+
+  console.warn('[Planes] Gemini agotado, cayendo a Claude como respaldo');
+  try {
+    return await generateWithClaudeFallback(params.contents);
+  } catch (e: any) {
+    const msg = `Claude: ${e?.message?.substring(0, 120)}`;
+    console.warn(`[Planes] Falló ${msg}`);
+    errors.push(msg);
+    throw new Error(`Todos los modelos y claves fallaron:\n${errors.join('\n')}`);
+  }
 }
 
 export default async function handler(req: any, res: any) {
@@ -162,8 +195,8 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
       config: { responseMimeType: "application/json", temperature: 0.7 },
     });
 
-    if (!response.text) throw new Error("No text from Gemini");
-    const planText = response.text;
+    if (!response.text) throw new Error("No text from AI providers");
+    const planText = response.text.trim().replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
     res.status(200).json(JSON.parse(planText));
   } catch (error: any) {
     console.error('Error generating plan:', error);
