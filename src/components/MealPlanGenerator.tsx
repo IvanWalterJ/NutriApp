@@ -40,7 +40,15 @@ const ACTIVITY_FACTORS_GMT_F: Record<string, { factor: number; label: string }> 
   'Muy Intensa':   { factor: 1.9,   label: 'GMR × 1.9 (intensa M)' },
 };
 
-function calculateMetrics(weight: number, height: number, age: number, sex: string, activityLevel: string) {
+function calculateMetrics(
+  weight: number,
+  height: number,
+  age: number,
+  sex: string,
+  activityLevel: string,
+  intolerances: string[] = [],
+  pregnancyStage: string = ''
+) {
   // ── Peso Ideal — fórmula del Excel ──
   // Hombre: =47.7 + (altura - 150) × 2.72 / 2.5
   // Mujer:  =45.5 + (altura - 150) × 2.27 / 2.5
@@ -91,16 +99,37 @@ function calculateMetrics(weight: number, height: number, age: number, sex: stri
   }
 
   // ── Proteínas ──
-  const isAthlete = activityLevel === 'Intensa' || activityLevel === 'Muy Intensa';
-  const proteinGPerKg = isAthlete ? 1.8 : 1.3;
+  // Condiciones fisiológicas pueden sobrescribir el cálculo basado en actividad.
+  const hasDeportista  = intolerances.includes('Deportista');
+  const hasMenopausia  = intolerances.includes('Menopausia');
+  const hasEmbarazo    = intolerances.includes('Embarazo y Lactancia');
+  const isHighActivity = activityLevel === 'Intensa' || activityLevel === 'Muy Intensa';
+
+  let proteinGPerKg: number;
+  if (hasMenopausia)       proteinGPerKg = 1.0;
+  else if (hasEmbarazo)    proteinGPerKg = 1.5;
+  else if (hasDeportista)  proteinGPerKg = 1.7;
+  else if (isHighActivity) proteinGPerKg = 1.8;
+  else                     proteinGPerKg = 1.3;
+
   // Para sobrepeso usamos PIC como referencia de peso proteico
   const refWeight = bmi >= 25 ? pic : weight;
   const proteinGrams = Math.round(proteinGPerKg * refWeight);
 
+  // Ajuste calórico por embarazo/lactancia (se suma DESPUÉS del cálculo base)
+  if (hasEmbarazo && pregnancyStage) {
+    const stage = PREGNANCY_STAGES.find(s => s.value === pregnancyStage);
+    if (stage) {
+      calories += stage.kcalExtra;
+      calculationMethod += ` + ${stage.kcalExtra} kcal (${stage.value})`;
+    }
+  }
+
   // ── Distribución de macros (porcentajes fijos según indicación de Rosana) ──
   // Normal:    55% CHO / 15% PRO / 30% GRASAS
   // Deportista: 55% CHO / 17% PRO / 28% GRASAS
-  const macros = isAthlete
+  const useAthleteMacros = hasDeportista || (isHighActivity && !hasMenopausia && !hasEmbarazo);
+  const macros = useAthleteMacros
     ? { carbs: 55, protein: 17, fats: 28 }
     : { carbs: 55, protein: 15, fats: 30 };
 
@@ -125,6 +154,22 @@ const INTOLERANCES_LIST = [
   'Colon Irritable',
   'Enfermedad Diverticular',
   'SiBO',
+  'Colesterol Alto',
+  'Triglicéridos Altos',
+  'Intolerancia a la Fructosa',
+];
+
+const CONDITIONS_LIST = [
+  'Deportista',
+  'Embarazo y Lactancia',
+  'Menopausia',
+];
+
+const PREGNANCY_STAGES: { value: string; kcalExtra: number; label: string }[] = [
+  { value: 'Primer trimestre',  kcalExtra: 0,   label: 'Primer trimestre (sin kcal extra)' },
+  { value: 'Segundo trimestre', kcalExtra: 340, label: 'Segundo trimestre (+340 kcal)' },
+  { value: 'Tercer trimestre',  kcalExtra: 450, label: 'Tercer trimestre (+450 kcal)' },
+  { value: 'Lactancia',         kcalExtra: 500, label: 'Lactancia (+500 kcal)' },
 ];
 
 
@@ -143,16 +188,22 @@ export default function MealPlanGenerator() {
     intolerances: [] as string[],
     activityLevel: 'Sedentario',
     objectives: '',
-    foodRestrictions: ''
+    foodRestrictions: '',
+    pregnancyStage: ''
   });
 
   function toggleIntolerance(intolerance: string) {
-    setPreferences(prev => ({
-      ...prev,
-      intolerances: prev.intolerances.includes(intolerance)
+    setPreferences(prev => {
+      const nextIntolerances = prev.intolerances.includes(intolerance)
         ? prev.intolerances.filter(i => i !== intolerance)
-        : [...prev.intolerances, intolerance]
-    }));
+        : [...prev.intolerances, intolerance];
+      const keepsEmbarazo = nextIntolerances.includes('Embarazo y Lactancia');
+      return {
+        ...prev,
+        intolerances: nextIntolerances,
+        pregnancyStage: keepsEmbarazo ? prev.pregnancyStage : ''
+      };
+    });
   }
   
   const [loading, setLoading] = useState(false);
@@ -230,7 +281,7 @@ export default function MealPlanGenerator() {
         };
 
         setPatientData(dataForGen);
-        updateMetrics(dataForGen, preferences.activityLevel);
+        updateMetrics(dataForGen, preferences.activityLevel, preferences.intolerances, preferences.pregnancyStage);
 
       } catch (e) {
         if (!cancelled) console.error(e);
@@ -242,15 +293,15 @@ export default function MealPlanGenerator() {
     return () => { cancelled = true; };
   }, [selectedPatientId, patients]);
 
-  // Update metrics when activity level changes
+  // Update metrics when activity level, intolerances or pregnancy stage change
   useEffect(() => {
     if (patientData) {
-      updateMetrics(patientData, preferences.activityLevel);
+      updateMetrics(patientData, preferences.activityLevel, preferences.intolerances, preferences.pregnancyStage);
     }
-  }, [preferences.activityLevel, patientData]);
+  }, [preferences.activityLevel, preferences.intolerances, preferences.pregnancyStage, patientData]);
 
-  function updateMetrics(data: any, activity: string) {
-    const calc = calculateMetrics(data.weight, data.height, data.age, data.sex, activity);
+  function updateMetrics(data: any, activity: string, intolerances: string[] = [], pregnancyStage: string = '') {
+    const calc = calculateMetrics(data.weight, data.height, data.age, data.sex, activity, intolerances, pregnancyStage);
     setMetrics(calc);
   }
 
@@ -549,7 +600,37 @@ export default function MealPlanGenerator() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>4. NIVEL DE ACTIVIDAD FÍSICA</label>
+                      <label className={labelCls}>4. CONDICIONES FISIOLÓGICAS</label>
+                      <div className="grid grid-cols-1 gap-2 mt-1">
+                        {CONDITIONS_LIST.map(cond => (
+                          <label key={cond} className="flex items-center gap-3 p-2.5 rounded-lg border-2 border-border-color bg-bg cursor-pointer hover:border-primary/40 transition-colors">
+                            <input
+                              type="checkbox"
+                              checked={preferences.intolerances.includes(cond)}
+                              onChange={() => toggleIntolerance(cond)}
+                              className="w-4 h-4 rounded accent-primary cursor-pointer"
+                            />
+                            <span className="text-sm font-medium text-text-main">{cond}</span>
+                          </label>
+                        ))}
+                      </div>
+                      {preferences.intolerances.includes('Embarazo y Lactancia') && (
+                        <div className="mt-3">
+                          <label className={labelCls}>Etapa</label>
+                          <CustomSelect
+                            value={preferences.pregnancyStage}
+                            onChange={v => setPreferences({...preferences, pregnancyStage: v})}
+                            options={[
+                              { value: '', label: 'Seleccionar etapa...' },
+                              ...PREGNANCY_STAGES.map(s => ({ value: s.value, label: s.label }))
+                            ]}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className={labelCls}>5. NIVEL DE ACTIVIDAD FÍSICA</label>
                       <CustomSelect
                         value={preferences.activityLevel}
                         onChange={v => setPreferences({...preferences, activityLevel: v})}
@@ -564,7 +645,7 @@ export default function MealPlanGenerator() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>5. ALIMENTOS QUE NO PUEDE CONSUMIR (Opcional)</label>
+                      <label className={labelCls}>6. ALIMENTOS QUE NO PUEDE CONSUMIR (Opcional)</label>
                       <textarea
                         className={inputCls}
                         placeholder="Ej: mariscos, nueces, lácteos, huevo..."
@@ -575,7 +656,7 @@ export default function MealPlanGenerator() {
                     </div>
 
                     <div>
-                      <label className={labelCls}>6. OBJETIVOS ESPECÍFICOS (Opcional)</label>
+                      <label className={labelCls}>7. OBJETIVOS ESPECÍFICOS (Opcional)</label>
                       <textarea
                         className={inputCls}
                         placeholder="Ej: Bajar índice glucémico, reducir inflamación intestinal..."
