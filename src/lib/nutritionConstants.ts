@@ -15,10 +15,14 @@ export const INTOLERANCES_LIST = [
   'Medicación GLP-1 (Saxenda / liraglutide)',
 ] as const;
 
-// "Deportista" ya no es una condición fisiológica — se deriva del nivel de actividad.
+// "Deportista" va separado del nivel de actividad: el nivel define el VCT
+// (factor de actividad sobre TMB), mientras que "Deportista" define 1.7 g/kg
+// de proteína y distribución de macros atlética (17% PRO). Permite subir
+// proteína sin alterar el aporte calórico.
 export const CONDITIONS_LIST = [
   'Embarazo y Lactancia',
   'Menopausia',
+  'Deportista',
 ] as const;
 
 export interface PregnancyStage {
@@ -49,7 +53,6 @@ export interface ActivityLevel {
   labelHB: string;  // Etiqueta mostrada en "Fórmula utilizada"
   // Factores del Excel para el GMT informativo (varían por sexo)
   faGMT: { m: GmtFactorBySex; f: GmtFactorBySex };
-  isHigh: boolean;  // Activa distribución de macros tipo atleta (17% PRO)
 }
 
 export const ACTIVITY_LEVELS: ActivityLevel[] = [
@@ -62,7 +65,6 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
       m: { factor: 1.3, label: 'GMR × 1.3 (muy leve)' },
       f: { factor: 1.3, label: 'GMR × 1.3 (muy leve)' },
     },
-    isHigh: false,
   },
   {
     value: 'Ligera',
@@ -73,7 +75,6 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
       m: { factor: 1.6, label: 'GMR × 1.6 (leve H)' },
       f: { factor: 1.5, label: 'GMR × 1.5 (leve M)' },
     },
-    isHigh: false,
   },
   {
     value: 'Moderada',
@@ -84,7 +85,6 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
       m: { factor: 1.7, label: 'GMR × 1.7 (mod H)' },
       f: { factor: 1.6, label: 'GMR × 1.6 (mod M)' },
     },
-    isHigh: false,
   },
   {
     value: 'Intensa',
@@ -95,7 +95,6 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
       m: { factor: 2.1, label: 'GMR × 2.1 (intensa H)' },
       f: { factor: 1.9, label: 'GMR × 1.9 (intensa M)' },
     },
-    isHigh: true,
   },
   {
     value: 'Muy Intensa',
@@ -106,7 +105,6 @@ export const ACTIVITY_LEVELS: ActivityLevel[] = [
       m: { factor: 2.1, label: 'GMR × 2.1 (intensa H)' },
       f: { factor: 1.9, label: 'GMR × 1.9 (intensa M)' },
     },
-    isHigh: true,
   },
 ];
 

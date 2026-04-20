@@ -75,15 +75,17 @@ function calculateMetrics(
   }
 
   // ── Proteínas ──
-  // Condiciones fisiológicas sobrescriben el cálculo basado en actividad.
+  // Proteína se define por condición fisiológica, no por nivel de actividad.
+  // El nivel de actividad solo impacta el VCT (calorías).
   const hasMenopausia = intolerances.includes('Menopausia');
   const hasEmbarazo   = intolerances.includes('Embarazo y Lactancia');
+  const hasDeportista = intolerances.includes('Deportista');
 
   let proteinGPerKg: number;
-  if (hasMenopausia)     proteinGPerKg = 1.0;
-  else if (hasEmbarazo)  proteinGPerKg = 1.5;
-  else if (activity.isHigh) proteinGPerKg = 1.7;
-  else                   proteinGPerKg = 1.3;
+  if (hasMenopausia)      proteinGPerKg = 1.0;
+  else if (hasEmbarazo)   proteinGPerKg = 1.5;
+  else if (hasDeportista) proteinGPerKg = 1.7;
+  else                    proteinGPerKg = 1.3;
 
   const refWeight = bmi >= 25 ? pic : weight;
   const proteinGrams = Math.round(proteinGPerKg * refWeight);
@@ -98,8 +100,8 @@ function calculateMetrics(
 
   // ── Distribución de macros ──
   // Normal:   55% CHO / 15% PRO / 30% GRASAS
-  // Activo:   55% CHO / 17% PRO / 28% GRASAS (≥150 min/sem y sin embarazo/menopausia)
-  const useAthleteMacros = activity.isHigh && !hasMenopausia && !hasEmbarazo;
+  // Atlético: 55% CHO / 17% PRO / 28% GRASAS (solo si Deportista, sin embarazo/menopausia)
+  const useAthleteMacros = hasDeportista && !hasMenopausia && !hasEmbarazo;
   const macros = useAthleteMacros
     ? { carbs: 55, protein: 17, fats: 28 }
     : { carbs: 55, protein: 15, fats: 30 };
