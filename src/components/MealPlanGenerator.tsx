@@ -10,6 +10,7 @@ import {
   PREGNANCY_STAGES,
   ACTIVITY_LEVELS,
   getActivityLevel,
+  getGmtFactor,
 } from '../lib/nutritionConstants';
 
 // -- ICONS --
@@ -49,7 +50,8 @@ function calculateMetrics(
     : 655 + 9.7 * weight + 1.8 * height - 4.7 * age;
 
   const activity = getActivityLevel(activityLevel);
-  const gmt = gmr * activity.faGMT;
+  const gmtFa = getGmtFactor(activity, sex);
+  const gmt = gmr * gmtFa.factor;
 
   // ── PIC (Peso Ideal Corregido) ──
   const pic = idealWeight + 0.25 * (weight - idealWeight);
