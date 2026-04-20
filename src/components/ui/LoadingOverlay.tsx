@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 interface LoadingOverlayProps {
   open: boolean;
@@ -43,16 +44,18 @@ export default function LoadingOverlay({
   }, [open, messages.length]);
 
   if (!open) return null;
+  if (typeof document === 'undefined') return null;
 
-  return (
+  const overlay = (
     <div
       aria-live="polite"
       aria-busy="true"
-      className="fixed inset-0 z-[9999] flex items-center justify-center px-4 animate-in"
+      className="fixed inset-0 z-[9999] flex items-center justify-center px-4"
       style={{
         background: 'radial-gradient(circle at 50% 40%, rgba(15,23,42,0.55), rgba(15,23,42,0.75))',
         backdropFilter: 'blur(8px)',
         WebkitBackdropFilter: 'blur(8px)',
+        animation: 'loading-overlay-fade 0.25s ease-out forwards',
       }}
     >
       <div
@@ -144,7 +147,13 @@ export default function LoadingOverlay({
           50%  { transform: translateX(150%); }
           100% { transform: translateX(-100%); }
         }
+        @keyframes loading-overlay-fade {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
       `}</style>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }
