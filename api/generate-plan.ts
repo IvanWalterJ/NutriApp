@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import Anthropic from '@anthropic-ai/sdk';
-import { buildIntoleranceRules } from '../src/lib/intoleranceRules';
+import { buildIntoleranceRules } from '../src/lib/intoleranceRules.js';
 
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
