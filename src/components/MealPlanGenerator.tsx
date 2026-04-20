@@ -154,9 +154,12 @@ const INTOLERANCES_LIST = [
   'Colon Irritable',
   'Enfermedad Diverticular',
   'SiBO',
+  'Hipertensión',
+  'Diabetes',
   'Colesterol Alto',
   'Triglicéridos Altos',
   'Intolerancia a la Fructosa',
+  'Medicación GLP-1 (Saxenda / liraglutide)',
 ];
 
 const CONDITIONS_LIST = [
@@ -189,7 +192,8 @@ export default function MealPlanGenerator() {
     activityLevel: 'Sedentario',
     objectives: '',
     foodRestrictions: '',
-    pregnancyStage: ''
+    pregnancyStage: '',
+    hideCalories: false
   });
 
   function toggleIntolerance(intolerance: string) {
@@ -258,7 +262,7 @@ export default function MealPlanGenerator() {
         // Get latest weight and height from sessions (either Antropometría or Consulta)
         const { data: sessionData } = await supabase
           .from('sessions')
-          .select('weight, height')
+          .select('weight, height, girth_waist')
           .eq('patient_id', p.id)
           .not('weight', 'is', null)
           .not('height', 'is', null)
@@ -270,6 +274,7 @@ export default function MealPlanGenerator() {
 
         const weight = sessionData?.[0]?.weight || p.initial_weight || 70;
         const height = sessionData?.[0]?.height || p.height || 165;
+        const waist = sessionData?.[0]?.girth_waist ?? null;
 
         const dataForGen = {
           firstName: p.first_name,
@@ -277,7 +282,8 @@ export default function MealPlanGenerator() {
           age,
           sex: p.sex || 'Masculino',
           weight,
-          height
+          height,
+          waist
         };
 
         setPatientData(dataForGen);
@@ -304,6 +310,13 @@ export default function MealPlanGenerator() {
     const calc = calculateMetrics(data.weight, data.height, data.age, data.sex, activity, intolerances, pregnancyStage);
     setMetrics(calc);
   }
+
+  const isPregnant = preferences.intolerances.includes('Embarazo y Lactancia');
+  const isMenopause = preferences.intolerances.includes('Menopausia');
+  const shouldHideCalories = preferences.hideCalories || isPregnant;
+  const waistHeightRatio = patientData?.waist && patientData?.height
+    ? patientData.waist / patientData.height
+    : null;
 
   async function generatePlan() {
     if (!patientData || !metrics) {
@@ -483,37 +496,46 @@ export default function MealPlanGenerator() {
     return '🥦';
   }
 
-  const PieChart = ({ pP, pC, pF }: { pP: number, pC: number, pF: number }) => {
-    const size = 200;
-    const cx = size/2, cy = size/2, r = size/2 - 15;
-    const slices = [
-      { pct: pP/100, color: 'url(#grad-p)', label: 'PROTEÍNAS' },
-      { pct: pC/100, color: 'url(#grad-C)', label: 'CARBOHIDRATOS' },
-      { pct: pF/100, color: 'url(#grad-f)', label: 'GRASAS' }
-    ];
-    let cum = -Math.PI / 2;
+  const HealthyPlate = () => {
+    const size = 220;
+    const cx = size / 2, cy = size / 2, r = 85;
     return (
       <div className="relative">
-        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="filter overflow-visible">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="overflow-visible">
           <defs>
-            <linearGradient id="grad-p" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#60a5fa"/><stop offset="100%" stopColor="#2563eb"/></linearGradient>
-            <linearGradient id="grad-C" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#fbbf24"/><stop offset="100%" stopColor="#d97706"/></linearGradient>
-            <linearGradient id="grad-f" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stopColor="#c084fc"/><stop offset="100%" stopColor="#9333ea"/></linearGradient>
-            <filter id="pie-shadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="8" stdDeviation="6" floodColor="#000000" floodOpacity="0.15" />
-              <feDropShadow dx="-2" dy="-2" stdDeviation="3" floodColor="#ffffff" floodOpacity="0.5" />
+            <radialGradient id="plate-bg" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffffff"/>
+              <stop offset="100%" stopColor="#f1f5f9"/>
+            </radialGradient>
+            <filter id="plate-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="6" stdDeviation="5" floodColor="#000000" floodOpacity="0.12" />
             </filter>
           </defs>
-          <g filter="url(#pie-shadow)">
-            {slices.map((s, i) => {
-              if (s.pct === 0) return null;
-              const start = cum, end = cum + s.pct * 2 * Math.PI; cum = end;
-              const x1 = cx + r*Math.cos(start), y1 = cy + r*Math.sin(start);
-              const x2 = cx + r*Math.cos(end), y2 = cy + r*Math.sin(end);
-              const largeArc = s.pct > 0.5 ? 1 : 0;
-              return <path key={i} d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc},1 ${x2},${y2} Z`} fill={s.color} stroke="#ffffff" strokeWidth="2.5" />;
-            })}
+          <g filter="url(#plate-shadow)">
+            {/* borde externo del plato */}
+            <circle cx={cx} cy={cy} r={r + 10} fill="#e2e8f0" />
+            <circle cx={cx} cy={cy} r={r + 6} fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.5" />
+            {/* sector vegetales 50% (mitad izquierda) */}
+            <path d={`M${cx},${cy} L${cx},${cy - r} A${r},${r} 0 0,0 ${cx},${cy + r} Z`}
+                  fill="#86efac" stroke="#ffffff" strokeWidth="2.5" />
+            {/* sector proteínas 25% (cuarto superior derecho) */}
+            <path d={`M${cx},${cy} L${cx},${cy - r} A${r},${r} 0 0,1 ${cx + r},${cy} Z`}
+                  fill="#fca5a5" stroke="#ffffff" strokeWidth="2.5" />
+            {/* sector carbohidratos 25% (cuarto inferior derecho) */}
+            <path d={`M${cx},${cy} L${cx + r},${cy} A${r},${r} 0 0,1 ${cx},${cy + r} Z`}
+                  fill="#fcd34d" stroke="#ffffff" strokeWidth="2.5" />
           </g>
+          {/* etiquetas con emoji */}
+          <text x={cx - r/2} y={cy + 8} textAnchor="middle" fontSize="26">🥗</text>
+          <text x={cx + r/2} y={cy - r/3 + 6} textAnchor="middle" fontSize="22">🍗</text>
+          <text x={cx + r/2} y={cy + r/2 + 8} textAnchor="middle" fontSize="22">🍞</text>
+          {/* labels de sectores */}
+          <text x={cx - r/2} y={cy - r/2} textAnchor="middle" fontSize="9" fontWeight="700" fill="#14532d">VEGETALES 50%</text>
+          <text x={cx + r/1.6} y={cy - r + 14} textAnchor="middle" fontSize="9" fontWeight="700" fill="#7f1d1d">PROTE. 25%</text>
+          <text x={cx + r/1.6} y={cy + r - 8} textAnchor="middle" fontSize="9" fontWeight="700" fill="#78350f">CARBS 25%</text>
+          {/* jarra de agua */}
+          <text x={size - 20} y={32} fontSize="28">💧</text>
+          <text x={size - 20} y={50} textAnchor="middle" fontSize="8" fontWeight="700" fill="#1e40af">AGUA</text>
         </svg>
       </div>
     );
@@ -627,6 +649,20 @@ export default function MealPlanGenerator() {
                           />
                         </div>
                       )}
+                      <label className="flex items-start gap-3 p-2.5 mt-3 rounded-lg border-2 border-dashed border-border-color bg-bg cursor-pointer hover:border-primary/40 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={preferences.hideCalories}
+                          onChange={e => setPreferences({...preferences, hideCalories: e.target.checked})}
+                          className="w-4 h-4 mt-0.5 rounded accent-primary cursor-pointer"
+                        />
+                        <span className="text-sm font-medium text-text-main">
+                          Ocultar requerimiento calórico en el plan
+                          <span className="block text-[11px] text-text-muted font-normal mt-0.5">
+                            Recomendado para pacientes con TCA (anorexia, etc.)
+                          </span>
+                        </span>
+                      </label>
                     </div>
 
                     <div>
@@ -687,54 +723,75 @@ export default function MealPlanGenerator() {
                     <div className="space-y-3 text-sm">
                       <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
                         <span className="text-text-muted">Biometría</span>
-                        <span className="font-bold">{patientData.weight}kg · {patientData.height}cm · IMC {metrics.bmi}</span>
+                        <span className="font-bold">{patientData.weight}kg · {patientData.height}cm{!isPregnant && ` · IMC ${metrics.bmi}`}</span>
                       </div>
 
-                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
-                        <span className="text-text-muted">Categoría IMC</span>
-                        <span className={`font-bold text-xs px-2 py-1 rounded-full ${metrics.bmiCategory === 'Normopeso' ? 'bg-green-100 text-green-700' : metrics.bmiCategory === 'Bajo Peso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{metrics.bmiCategory}</span>
-                      </div>
-
-                      {/* Peso Ideal y PIC */}
-                      <div className="bg-white p-3 rounded-lg border border-border-color">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-text-muted text-xs">Peso Ideal (Hamwi)</span>
-                          <span className="font-bold text-sm">{metrics.idealWeight} kg</span>
-                        </div>
-                        {metrics.bmiCategory !== 'Normopeso' && metrics.bmiCategory !== 'Bajo Peso' && (
-                          <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
-                            <span className="text-xs font-semibold text-orange-600">PIC (Peso Ideal Corregido)</span>
-                            <span className="font-bold text-sm text-orange-600">{metrics.pic} kg</span>
+                      {!isPregnant && (
+                        <>
+                          <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
+                            <span className="text-text-muted">Categoría IMC</span>
+                            <span className={`font-bold text-xs px-2 py-1 rounded-full ${metrics.bmiCategory === 'Normopeso' ? 'bg-green-100 text-green-700' : metrics.bmiCategory === 'Bajo Peso' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>{metrics.bmiCategory}</span>
                           </div>
-                        )}
-                      </div>
 
-                      {/* GMR y GMT */}
-                      <div className="bg-white p-3 rounded-lg border border-border-color">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-text-muted text-xs">GMR (Reposo / Harris-Benedict)</span>
-                          <span className="font-bold text-sm">{metrics.gmr} kcal</span>
-                        </div>
-                        <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
-                          <span className="text-text-muted text-xs">GMT (Total × FA actividad)</span>
-                          <span className="font-bold text-sm">{metrics.gmt} kcal</span>
-                        </div>
-                      </div>
+                          {/* Peso Ideal y PIC */}
+                          <div className="bg-white p-3 rounded-lg border border-border-color">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-text-muted text-xs">Peso Ideal (Hamwi)</span>
+                              <span className="font-bold text-sm">{metrics.idealWeight} kg</span>
+                            </div>
+                            {metrics.bmiCategory !== 'Normopeso' && metrics.bmiCategory !== 'Bajo Peso' && (
+                              <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
+                                <span className="text-xs font-semibold text-orange-600">PIC (Peso Ideal Corregido)</span>
+                                <span className="font-bold text-sm text-orange-600">{metrics.pic} kg</span>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
 
-                      <div className="bg-white p-3 rounded-lg border border-border-color">
-                        <span className="text-text-muted block text-xs mb-1">Fórmula utilizada</span>
-                        <span className="font-bold text-accent-dark text-xs">{metrics.calculationMethod}</span>
-                      </div>
+                      {!shouldHideCalories && (
+                        <>
+                          {/* GMR y GMT */}
+                          <div className="bg-white p-3 rounded-lg border border-border-color">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-text-muted text-xs">GMR (Reposo / Harris-Benedict)</span>
+                              <span className="font-bold text-sm">{metrics.gmr} kcal</span>
+                            </div>
+                            <div className="flex justify-between items-center pt-1 border-t border-border-color mt-1">
+                              <span className="text-text-muted text-xs">GMT (Total × FA actividad)</span>
+                              <span className="font-bold text-sm">{metrics.gmt} kcal</span>
+                            </div>
+                          </div>
 
-                      <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
-                        <span className="text-text-muted">Valor Calórico Objetivo (VCT)</span>
-                        <span className="font-bold text-lg text-primary">{metrics.calories} kcal/día</span>
-                      </div>
+                          <div className="bg-white p-3 rounded-lg border border-border-color">
+                            <span className="text-text-muted block text-xs mb-1">Fórmula utilizada</span>
+                            <span className="font-bold text-accent-dark text-xs">{metrics.calculationMethod}</span>
+                          </div>
+
+                          <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
+                            <span className="text-text-muted">Valor Calórico Objetivo (VCT)</span>
+                            <span className="font-bold text-lg text-primary">{metrics.calories} kcal/día</span>
+                          </div>
+                        </>
+                      )}
 
                       <div className="bg-white p-3 rounded-lg border border-border-color flex justify-between items-center">
                         <span className="text-text-muted">Proteínas ({metrics.proteinGPerKg} g/kg)</span>
                         <span className="font-bold text-[#2563eb]">{metrics.proteinGrams} g/día</span>
                       </div>
+
+                      {isPregnant && (
+                        <div className="bg-pink-50 border border-pink-200 p-3 rounded-lg space-y-1 text-xs">
+                          <div className="font-bold text-pink-900 text-sm mb-1">Esquema recomendado</div>
+                          <div>• Proteínas: 1.5 g/kg ({metrics.proteinGrams} g/día)</div>
+                          <div>• Calcio: 1200 mg/día  ·  Hierro: 27 mg/día</div>
+                          <div>• Ácido fólico: 600 mcg  ·  Omega-3 DHA 2×/sem</div>
+                          <div>• 3 comidas principales + 2-3 colaciones</div>
+                          <div className="text-pink-700 italic mt-1">
+                            En embarazo no se aplica VCT ni categoría de IMC.
+                          </div>
+                        </div>
+                      )}
 
                       <div className="bg-white p-3 rounded-lg border border-border-color">
                         <span className="text-text-muted block mb-2">Distribución de Macros</span>
@@ -749,6 +806,32 @@ export default function MealPlanGenerator() {
                           <span className="text-[#e11d48] border-b-2 border-[#f43f5e] pb-0.5">GRASAS {metrics.macros.fats}%</span>
                         </div>
                       </div>
+
+                      {isMenopause && (
+                        <div className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg">
+                          <span className="text-indigo-700 text-xs font-bold block mb-1">Índice cintura/talla</span>
+                          {waistHeightRatio ? (
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-lg text-indigo-900">
+                                {waistHeightRatio.toFixed(2)}
+                              </span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                waistHeightRatio < 0.45 ? 'bg-green-100 text-green-700' :
+                                waistHeightRatio <= 0.50 ? 'bg-amber-100 text-amber-700' :
+                                                           'bg-red-100 text-red-700'
+                              }`}>
+                                {waistHeightRatio < 0.45 ? 'Normal' :
+                                 waistHeightRatio <= 0.50 ? 'Sobrepeso abdominal' :
+                                                            'Obesidad abdominal · alto riesgo IR'}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-indigo-600 italic">
+                              Registrar cintura en una Consulta para calcular
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {preferences.intolerances.length > 0 && (
                         <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg">
@@ -845,7 +928,7 @@ export default function MealPlanGenerator() {
               })()}
 
               {/* 2. REQUERIMIENTO CALÓRICO */}
-              {metrics && (
+              {metrics && !shouldHideCalories && (
                 <div className="border-2 rounded-2xl p-5 shadow-sm bg-[#eff6ff] border-[#bfdbfe] break-inside-avoid">
                   <div className="flex items-center gap-4">
                     <div className="text-3xl shrink-0">🔥</div>
@@ -861,12 +944,33 @@ export default function MealPlanGenerator() {
                   </div>
                 </div>
               )}
+              {metrics && shouldHideCalories && (
+                <div className="border-2 rounded-2xl p-5 shadow-sm bg-pink-50 border-pink-200 break-inside-avoid">
+                  <div className="flex items-center gap-4">
+                    <div className="text-3xl shrink-0">🌿</div>
+                    <div>
+                      <div className="text-xs font-bold uppercase tracking-widest text-pink-900">
+                        {isPregnant ? 'Esquema para embarazo / lactancia' : 'Enfoque sin contar calorías'}
+                      </div>
+                      <p className="text-pink-900 font-semibold text-sm mt-1">
+                        {isPregnant
+                          ? '3 comidas principales + 2-3 colaciones · sin enfocar en kcal ni IMC'
+                          : 'Plan orientado a calidad nutricional, variedad y saciedad'}
+                      </p>
+                    </div>
+                    <div className="ml-auto text-right">
+                      <div className="text-xs text-text-muted">Proteínas</div>
+                      <p className="font-bold text-pink-700">{metrics.proteinGrams} g/día</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* 3. DISTRIBUCIÓN DE MACRONUTRIENTES */}
               <div className="bg-white border-2 border-border-color rounded-2xl p-6 shadow-sm flex flex-col md:flex-row items-center gap-8 break-inside-avoid">
                 <div className="shrink-0 flex flex-col items-center">
                   <div className="text-xs font-bold text-text-muted mb-2 tracking-widest uppercase">Plato Saludable</div>
-                  <PieChart pP={(editedPlan||generatedPlan).healthyPlate.proteinsPct} pC={(editedPlan||generatedPlan).healthyPlate.carbsPct} pF={(editedPlan||generatedPlan).healthyPlate.fatsPct} />
+                  <HealthyPlate />
                 </div>
                 <div className="flex-1">
                   <h3 className="font-bold text-lg mb-3 uppercase tracking-widest text-[#2c3e50]">Distribución de Macronutrientes</h3>
