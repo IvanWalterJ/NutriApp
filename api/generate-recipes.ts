@@ -1,5 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import Anthropic from '@anthropic-ai/sdk';
+import { buildIntoleranceRules } from '../src/lib/intoleranceRules';
 
 const GEMINI_KEYS = [
   process.env.GEMINI_API_KEY,
@@ -68,20 +69,20 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { patientInfo, mealType, mealTypes, objective, dietType, intolerances, foodRestrictions, count } = req.body;
+    const {
+      patientInfo, mealType, mealTypes, objective, dietType,
+      intolerances, pregnancyStage, hideCalories,
+      foodRestrictions, count,
+    } = req.body;
 
     const intolerancesList: string[] = intolerances || [];
     const recipeCount = count || 3;
     const resolvedMealTypes: string[] = mealTypes || (mealType ? [mealType] : ['Almuerzos rápidos']);
+    const stage: string = pregnancyStage || '';
+    const omitCalories: boolean =
+      !!hideCalories || intolerancesList.includes('Embarazo y Lactancia');
 
-    const intoleranceRules = intolerancesList.map((intol: string) => {
-      if (intol.includes('Lactosa')) return 'INTOLERANCIA A LA LACTOSA: Sin lácteos con lactosa. Usar leche deslactosada, bebida de almendras o avena, quesos duros, yogur deslactosado.';
-      if (intol.includes('Gluten') || intol.includes('Celíaco')) return 'CELÍACO / SIN TACC: Prohibido trigo, avena, cebada y centeno. Usar harinas de arroz, fécula de mandioca, maíz. Todos los ingredientes procesados deben ser certificados sin TACC.';
-      if (intol.includes('Colon Irritable')) return 'COLON IRRITABLE (SII): Pauta baja en FODMAP. Evitar cebolla, ajo, legumbres, lactosa, manzana, pera, miel. Preferir arroz, papa, zanahoria, zapallo, pollo, pescado, huevo, arándanos, frutillas.';
-      if (intol.includes('Diverticular')) return 'ENFERMEDAD DIVERTICULAR: Alta en fibra soluble. Evitar semillas pequeñas (chía, sésamo), frutas con semillas incrustadas, porotos enteros. Preferir avena, zanahoria, calabaza, banana.';
-      if (intol.includes('SiBO')) return 'SIBO: Dieta FODMAP estricta. Evitar legumbres, lactosa, fructosa, ajo, cebolla, repollo, coliflor, brócoli, manzana, pera. Permitir arroz, papa, carne, pollo, pescado, huevo, zanahoria, lechuga, tomate.';
-      return '';
-    }).filter(Boolean).join('\n');
+    const intoleranceRules = buildIntoleranceRules(intolerancesList, stage);
 
     const patientContext = patientInfo
       ? `Paciente: ${patientInfo.firstName} ${patientInfo.lastName}, ${patientInfo.sex}, ${patientInfo.age} años, ${patientInfo.weight}kg.`
@@ -97,17 +98,20 @@ Contexto:
 - Tipo de alimentación: ${dietType || 'Normal (Omnívora)'}
 - Objetivo nutricional: ${objective || 'Alimentación saludable general'}
 - Alimentos que NO puede consumir: ${foodRestrictions || 'Ninguno'}
-- Intolerancias / Patologías:
+- Intolerancias / Patologías / Condiciones:
 ${intoleranceRules || '  (Sin intolerancias declaradas)'}
 
 REGLAS OBLIGATORIAS:
 1. TIPO DE ALIMENTACIÓN "${dietType || 'Normal'}": NO incluyas alimentos prohibidos. Vegana: sin carnes/lácteos/huevo. Vegetariana: sin carnes/pescado. Pesco-vegetariana: sin carnes rojas ni aves.
 2. ALIMENTOS PROHIBIDOS: "${foodRestrictions || 'ninguno'}" — no aparezcan en ningún ingrediente.
-3. Respetar ESTRICTAMENTE las intolerancias indicadas.
+3. Respetar ESTRICTAMENTE todas las intolerancias, patologías y condiciones clínicas indicadas arriba (no usar ningún alimento marcado como evitado/prohibido).
 4. NOMBRES ARGENTINOS: fideos, galletitas, zapallo, choclo, batata, ananá, durazno, ricota, porotos, arvejas, mandioca, bife, pan lactal, medialunas, mate.
 5. Cantidades en medidas caseras argentinas (pocillo, taza, cda, cdita, unidad).
 6. Recetas prácticas, rápidas (≤30 min de preparación cuando el tipo lo requiera) y alineadas al objetivo.
 7. Cada receta debe tener ingredientes precisos con cantidades y pasos claros de preparación.
+8. ${omitCalories
+    ? 'NO mencionar calorías, kcal ni valor calórico en ninguna parte del JSON (ni en "nutritionalHighlight" ni en "tip"). Enfocar los destacados nutricionales en macronutrientes cualitativos, fibra, vitaminas, minerales o beneficios funcionales.'
+    : 'En "nutritionalHighlight" podés mencionar aportes cualitativos y, si aporta claridad, una estimación breve de energía.'}
 
 Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
 {
@@ -130,7 +134,7 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
         "Paso 2 detallado.",
         "Paso 3 detallado."
       ],
-      "nutritionalHighlight": "Aporta aproximadamente X proteínas, Y carbohidratos. Ideal para...",
+      "nutritionalHighlight": "${omitCalories ? 'Destacado nutricional cualitativo (sin mencionar kcal).' : 'Aporta aproximadamente X proteínas, Y carbohidratos. Ideal para...'}",
       "tip": "Consejo práctico de preparación o conservación"
     }
   ]

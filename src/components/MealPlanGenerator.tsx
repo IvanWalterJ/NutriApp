@@ -3,6 +3,14 @@ import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
 import CustomSelect from './ui/CustomSelect';
+import LoadingOverlay from './ui/LoadingOverlay';
+import {
+  INTOLERANCES_LIST,
+  CONDITIONS_LIST,
+  PREGNANCY_STAGES,
+  ACTIVITY_LEVELS,
+  getActivityLevel,
+} from '../lib/nutritionConstants';
 
 // -- ICONS --
 const CheckCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -15,30 +23,6 @@ const Pencil = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
 const SaveIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 
 // -- CALCULATIONS --
-// ── Factores de Actividad (Harris-Benedict estándar) usados para normopeso/bajo peso ──
-const ACTIVITY_FACTORS_HB: Record<string, { factor: number; label: string }> = {
-  'Sedentario':    { factor: 1.2,   label: 'TMB × 1.2' },
-  'Ligera':        { factor: 1.375, label: 'TMB × 1.375' },
-  'Moderada':      { factor: 1.55,  label: 'TMB × 1.55' },
-  'Intensa':       { factor: 1.725, label: 'TMB × 1.725' },
-  'Muy Intensa':   { factor: 1.9,   label: 'TMB × 1.9' },
-};
-
-// ── Factores de Actividad del Excel (por sexo) — sólo para mostrar el GMT ──
-const ACTIVITY_FACTORS_GMT_M: Record<string, { factor: number; label: string }> = {
-  'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
-  'Ligera':        { factor: 1.6,   label: 'GMR × 1.6 (leve H)' },
-  'Moderada':      { factor: 1.7,   label: 'GMR × 1.7 (mod H)' },
-  'Intensa':       { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
-  'Muy Intensa':   { factor: 2.1,   label: 'GMR × 2.1 (intensa H)' },
-};
-const ACTIVITY_FACTORS_GMT_F: Record<string, { factor: number; label: string }> = {
-  'Sedentario':    { factor: 1.3,   label: 'GMR × 1.3 (muy leve)' },
-  'Ligera':        { factor: 1.5,   label: 'GMR × 1.5 (leve M)' },
-  'Moderada':      { factor: 1.6,   label: 'GMR × 1.6 (mod M)' },
-  'Intensa':       { factor: 1.9,   label: 'GMR × 1.9 (intensa M)' },
-  'Muy Intensa':   { factor: 1.9,   label: 'GMR × 1.9 (intensa M)' },
-};
 
 function calculateMetrics(
   weight: number,
@@ -60,63 +44,48 @@ function calculateMetrics(
   let bmiCategory = '';
 
   // ── GMR (Harris-Benedict exacto del Excel) ──
-  // Hombre: =66 + 13.7*peso + 5*talla - 6.8*edad
-  // Mujer:  =655 + 9.7*peso + 1.8*talla - 4.7*edad
   const gmr = sex === 'Masculino'
     ? 66 + 13.7 * weight + 5 * height - 6.8 * age
     : 655 + 9.7 * weight + 1.8 * height - 4.7 * age;
 
-  // GMT (para mostrar informativo, con FA del Excel por sexo)
-  const gmtTable = sex === 'Masculino' ? ACTIVITY_FACTORS_GMT_M : ACTIVITY_FACTORS_GMT_F;
-  const gmtFa = gmtTable[activityLevel] ?? gmtTable['Sedentario'];
-  const gmt = gmr * gmtFa.factor;
+  const activity = getActivityLevel(activityLevel);
+  const gmt = gmr * activity.faGMT;
 
   // ── PIC (Peso Ideal Corregido) ──
-  // PIC = Peso Ideal + 0.25 × (Peso Real − Peso Ideal)
   const pic = idealWeight + 0.25 * (weight - idealWeight);
 
   // ── Calorías objetivo (VCT) ──
-  // Factores HB estándar para normopeso
-  const hbFa = ACTIVITY_FACTORS_HB[activityLevel] ?? ACTIVITY_FACTORS_HB['Sedentario'];
   let calories = 0;
   let calculationMethod = '';
 
   if (bmi >= 25) {
-    // Sobrepeso / Obesidad → Knox: PIC × 22
     bmiCategory = 'Sobrepeso / Obesidad';
     calories = pic * 22;
     calculationMethod = `Knox: PIC (${pic.toFixed(1)} kg) × 22 kcal`;
   } else if (bmi < 18.5) {
-    // Bajo peso → densidad calórica: Harris-Benedict × FA + 10%
     bmiCategory = 'Bajo Peso';
-    calories = gmr * hbFa.factor * 1.1;
-    calculationMethod = `Harris-Benedict × ${hbFa.label} + 10% (bajo peso)`;
+    calories = gmr * activity.faHB * 1.1;
+    calculationMethod = `Harris-Benedict × ${activity.labelHB} + 10% (bajo peso)`;
   } else {
-    // Normopeso / Deportista → Harris-Benedict × FA
     bmiCategory = 'Normopeso';
-    calories = gmr * hbFa.factor;
-    calculationMethod = `Harris-Benedict × ${hbFa.label}`;
+    calories = gmr * activity.faHB;
+    calculationMethod = `Harris-Benedict × ${activity.labelHB}`;
   }
 
   // ── Proteínas ──
-  // Condiciones fisiológicas pueden sobrescribir el cálculo basado en actividad.
-  const hasDeportista  = intolerances.includes('Deportista');
-  const hasMenopausia  = intolerances.includes('Menopausia');
-  const hasEmbarazo    = intolerances.includes('Embarazo y Lactancia');
-  const isHighActivity = activityLevel === 'Intensa' || activityLevel === 'Muy Intensa';
+  // Condiciones fisiológicas sobrescriben el cálculo basado en actividad.
+  const hasMenopausia = intolerances.includes('Menopausia');
+  const hasEmbarazo   = intolerances.includes('Embarazo y Lactancia');
 
   let proteinGPerKg: number;
-  if (hasMenopausia)       proteinGPerKg = 1.0;
-  else if (hasEmbarazo)    proteinGPerKg = 1.5;
-  else if (hasDeportista)  proteinGPerKg = 1.7;
-  else if (isHighActivity) proteinGPerKg = 1.8;
-  else                     proteinGPerKg = 1.3;
+  if (hasMenopausia)     proteinGPerKg = 1.0;
+  else if (hasEmbarazo)  proteinGPerKg = 1.5;
+  else if (activity.isHigh) proteinGPerKg = 1.7;
+  else                   proteinGPerKg = 1.3;
 
-  // Para sobrepeso usamos PIC como referencia de peso proteico
   const refWeight = bmi >= 25 ? pic : weight;
   const proteinGrams = Math.round(proteinGPerKg * refWeight);
 
-  // Ajuste calórico por embarazo/lactancia (se suma DESPUÉS del cálculo base)
   if (hasEmbarazo && pregnancyStage) {
     const stage = PREGNANCY_STAGES.find(s => s.value === pregnancyStage);
     if (stage) {
@@ -125,55 +94,28 @@ function calculateMetrics(
     }
   }
 
-  // ── Distribución de macros (porcentajes fijos según indicación de Rosana) ──
-  // Normal:    55% CHO / 15% PRO / 30% GRASAS
-  // Deportista: 55% CHO / 17% PRO / 28% GRASAS
-  const useAthleteMacros = hasDeportista || (isHighActivity && !hasMenopausia && !hasEmbarazo);
+  // ── Distribución de macros ──
+  // Normal:   55% CHO / 15% PRO / 30% GRASAS
+  // Activo:   55% CHO / 17% PRO / 28% GRASAS (≥150 min/sem y sin embarazo/menopausia)
+  const useAthleteMacros = activity.isHigh && !hasMenopausia && !hasEmbarazo;
   const macros = useAthleteMacros
     ? { carbs: 55, protein: 17, fats: 28 }
     : { carbs: 55, protein: 15, fats: 30 };
 
   return {
-    idealWeight:         parseFloat(idealWeight.toFixed(3)),
-    pic:                 parseFloat(pic.toFixed(3)),
-    gmr:                 parseFloat(gmr.toFixed(1)),
-    gmt:                 parseFloat(gmt.toFixed(2)),
-    bmi:                 parseFloat(bmi.toFixed(2)),
+    idealWeight:  parseFloat(idealWeight.toFixed(3)),
+    pic:          parseFloat(pic.toFixed(3)),
+    gmr:          parseFloat(gmr.toFixed(1)),
+    gmt:          parseFloat(gmt.toFixed(2)),
+    bmi:          parseFloat(bmi.toFixed(2)),
     bmiCategory,
     proteinGPerKg,
     proteinGrams,
-    calories:            Math.round(calories),
+    calories:     Math.round(calories),
     calculationMethod,
     macros
   };
 }
-
-const INTOLERANCES_LIST = [
-  'Lactosa',
-  'Gluten (Celíaco / Sin TACC)',
-  'Colon Irritable',
-  'Enfermedad Diverticular',
-  'SiBO',
-  'Hipertensión',
-  'Diabetes',
-  'Colesterol Alto',
-  'Triglicéridos Altos',
-  'Intolerancia a la Fructosa',
-  'Medicación GLP-1 (Saxenda / liraglutide)',
-];
-
-const CONDITIONS_LIST = [
-  'Deportista',
-  'Embarazo y Lactancia',
-  'Menopausia',
-];
-
-const PREGNANCY_STAGES: { value: string; kcalExtra: number; label: string }[] = [
-  { value: 'Primer trimestre',  kcalExtra: 0,   label: 'Primer trimestre (sin kcal extra)' },
-  { value: 'Segundo trimestre', kcalExtra: 340, label: 'Segundo trimestre (+340 kcal)' },
-  { value: 'Tercer trimestre',  kcalExtra: 450, label: 'Tercer trimestre (+450 kcal)' },
-  { value: 'Lactancia',         kcalExtra: 500, label: 'Lactancia (+500 kcal)' },
-];
 
 
 export default function MealPlanGenerator() {
@@ -189,7 +131,7 @@ export default function MealPlanGenerator() {
   const [preferences, setPreferences] = useState({
     dietType: 'Normal',
     intolerances: [] as string[],
-    activityLevel: 'Sedentario',
+    activityLevel: ACTIVITY_LEVELS[0].value,
     objectives: '',
     foodRestrictions: '',
     pregnancyStage: '',
@@ -546,6 +488,19 @@ export default function MealPlanGenerator() {
 
   return (
     <div className="animate-in" style={{ animationDelay: '0.2s' }}>
+      <LoadingOverlay
+        open={loading}
+        title="Generando plan alimentario"
+        subtitle="Creando un plan personalizado para el paciente"
+        messages={[
+          'Analizando biometría y métricas del paciente...',
+          'Aplicando reglas clínicas de intolerancias y patologías...',
+          'Armando el esquema de comidas y porciones...',
+          'Seleccionando alimentos con denominación argentina...',
+          'Ajustando distribución de macronutrientes...',
+          'Finalizando lista de compras y recomendaciones...',
+        ]}
+      />
       {!generatedPlan ? (
         <div className="max-w-4xl mx-auto">
           <div className="bg-surface border-2 border-border-color rounded-xl p-6 md:p-8 shadow-sm">
@@ -670,13 +625,7 @@ export default function MealPlanGenerator() {
                       <CustomSelect
                         value={preferences.activityLevel}
                         onChange={v => setPreferences({...preferences, activityLevel: v})}
-                        options={[
-                          {value:'Sedentario', label:'Sedentario — poco o ningún ejercicio'},
-                          {value:'Ligera', label:'Ligera — 1 a 3 días por semana'},
-                          {value:'Moderada', label:'Moderada — 3 a 5 días por semana'},
-                          {value:'Intensa', label:'Intensa — 6 a 7 días por semana'},
-                          {value:'Muy Intensa', label:'Muy Intensa — entrenamiento doble o trabajo físico'},
-                        ]}
+                        options={ACTIVITY_LEVELS.map(a => ({ value: a.value, label: a.label }))}
                       />
                     </div>
 

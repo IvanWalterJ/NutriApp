@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import CustomSelect from './ui/CustomSelect';
+import LoadingOverlay from './ui/LoadingOverlay';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
+import {
+  INTOLERANCES_LIST,
+  CONDITIONS_LIST,
+  PREGNANCY_STAGES,
+} from '../lib/nutritionConstants';
 
 // -- ICONS --
 const ChefHat = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>;
@@ -16,14 +22,6 @@ const Pencil = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
 const SaveIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>;
 const PlusIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 const TrashIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>;
-
-const INTOLERANCES_LIST = [
-  'Lactosa',
-  'Gluten (Celíaco / Sin TACC)',
-  'Colon Irritable',
-  'Enfermedad Diverticular',
-  'SiBO',
-];
 
 const MEAL_TYPES = [
   { value: 'Almuerzos rápidos', label: '🥗 Almuerzos rápidos', desc: 'Listos en ≤20 min' },
@@ -54,8 +52,12 @@ export default function RecipeGenerator() {
   const [objective, setObjective] = useState('');
   const [dietType, setDietType] = useState('Normal');
   const [intolerances, setIntolerances] = useState<string[]>([]);
+  const [pregnancyStage, setPregnancyStage] = useState('');
+  const [hideCalories, setHideCalories] = useState(false);
   const [foodRestrictions, setFoodRestrictions] = useState('');
   const [count, setCount] = useState(3);
+
+  const isPregnant = intolerances.includes('Embarazo y Lactancia');
 
   function toggleMealType(value: string) {
     setMealTypes(prev =>
@@ -129,9 +131,14 @@ export default function RecipeGenerator() {
   }, [selectedPatientId]);
 
   function toggleIntolerance(intol: string) {
-    setIntolerances(prev =>
-      prev.includes(intol) ? prev.filter(i => i !== intol) : [...prev, intol]
-    );
+    setIntolerances(prev => {
+      const next = prev.includes(intol) ? prev.filter(i => i !== intol) : [...prev, intol];
+      // Si sacan "Embarazo y Lactancia", limpiar la etapa seleccionada
+      if (!next.includes('Embarazo y Lactancia')) {
+        setPregnancyStage('');
+      }
+      return next;
+    });
   }
 
   // When multiple types selected, total = number of types (1 per type).
@@ -144,7 +151,17 @@ export default function RecipeGenerator() {
       const response = await fetch('/api/generate-recipes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ patientInfo: patientData, mealTypes, objective, dietType, intolerances, foodRestrictions, count: effectiveCount })
+        body: JSON.stringify({
+          patientInfo: patientData,
+          mealTypes,
+          objective,
+          dietType,
+          intolerances,
+          pregnancyStage,
+          hideCalories,
+          foodRestrictions,
+          count: effectiveCount,
+        })
       });
       if (!response.ok) throw new Error('Error en la generación');
       const data = await response.json();
@@ -246,6 +263,19 @@ export default function RecipeGenerator() {
   if (!result) {
     return (
       <div className="animate-in max-w-4xl mx-auto" style={{ animationDelay: '0.2s' }}>
+        <LoadingOverlay
+          open={loading}
+          title="Generando recetas"
+          subtitle={effectiveCount === 1 ? 'Creando 1 receta personalizada' : `Creando ${effectiveCount} recetas personalizadas`}
+          messages={[
+            'Analizando tipos de comida seleccionados...',
+            'Aplicando restricciones clínicas y objetivos...',
+            'Eligiendo ingredientes con denominación argentina...',
+            'Calculando cantidades en medidas caseras...',
+            'Redactando pasos de preparación...',
+            'Finalizando destacados nutricionales...',
+          ]}
+        />
         <div className="bg-surface border-2 border-border-color rounded-xl p-6 md:p-8 shadow-sm">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -359,7 +389,51 @@ export default function RecipeGenerator() {
               </div>
 
               <div>
-                <label className={labelCls}>6. ALIMENTOS QUE NO PUEDE CONSUMIR</label>
+                <label className={labelCls}>6. CONDICIONES FISIOLÓGICAS</label>
+                <div className="grid grid-cols-1 gap-2">
+                  {CONDITIONS_LIST.map(cond => (
+                    <label key={cond} className="flex items-center gap-3 p-2.5 rounded-lg border-2 border-border-color bg-bg cursor-pointer hover:border-primary/40 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={intolerances.includes(cond)}
+                        onChange={() => toggleIntolerance(cond)}
+                        className="w-4 h-4 rounded accent-primary cursor-pointer"
+                      />
+                      <span className="text-sm font-medium text-text-main">{cond}</span>
+                    </label>
+                  ))}
+                </div>
+                {isPregnant && (
+                  <div className="mt-3">
+                    <label className={labelCls}>Etapa</label>
+                    <CustomSelect
+                      value={pregnancyStage}
+                      onChange={setPregnancyStage}
+                      options={[
+                        { value: '', label: 'Seleccionar etapa...' },
+                        ...PREGNANCY_STAGES.map(s => ({ value: s.value, label: s.label }))
+                      ]}
+                    />
+                  </div>
+                )}
+                <label className="flex items-start gap-3 p-2.5 mt-3 rounded-lg border-2 border-dashed border-border-color bg-bg cursor-pointer hover:border-primary/40 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={hideCalories}
+                    onChange={e => setHideCalories(e.target.checked)}
+                    className="w-4 h-4 mt-0.5 rounded accent-primary cursor-pointer"
+                  />
+                  <span className="text-sm font-medium text-text-main">
+                    Ocultar calorías en las recetas
+                    <span className="block text-[11px] text-text-muted font-normal mt-0.5">
+                      Recomendado para pacientes con TCA (anorexia, etc.)
+                    </span>
+                  </span>
+                </label>
+              </div>
+
+              <div>
+                <label className={labelCls}>7. ALIMENTOS QUE NO PUEDE CONSUMIR</label>
                 <textarea
                   className={inputCls}
                   placeholder="Ej: mariscos, nueces, huevo..."
@@ -371,7 +445,7 @@ export default function RecipeGenerator() {
 
               {mealTypes.length <= 1 ? (
                 <div>
-                  <label className={labelCls}>7. CANTIDAD DE RECETAS</label>
+                  <label className={labelCls}>8. CANTIDAD DE RECETAS</label>
                   <div className="flex gap-2">
                     {[1, 3, 5, 6].map(n => (
                       <button
