@@ -659,8 +659,8 @@ export default function MealPlanGenerator() {
               </div>
 
               {/* Summary Section */}
-              <div>
-                <div className="bg-bg border border-border-color rounded-xl p-5 h-full">
+              <div className="md:sticky md:top-4 md:self-start">
+                <div className="bg-bg border border-border-color rounded-xl p-5 md:max-h-[calc(100vh-2rem)] md:overflow-y-auto">
                   <h3 className="text-sm font-bold uppercase tracking-widest mb-4 border-b border-border-color pb-2">Resumen de Cálculos</h3>
                   
                   {!selectedPatientId ? (
