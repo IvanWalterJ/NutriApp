@@ -283,7 +283,12 @@ export default function MealPlanGenerator() {
       });
 
       if (!response.ok) {
-        throw new Error('Error en la generación del servidor');
+        let serverMsg = `${response.status} ${response.statusText}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.error) serverMsg = errBody.error;
+        } catch { /* ignore body parse errors */ }
+        throw new Error(serverMsg);
       }
 
       const planJson = await response.json();
@@ -308,7 +313,8 @@ export default function MealPlanGenerator() {
       
     } catch (err: any) {
       console.error(err);
-      showToast('Ocurrió un error al generar el plan.', 'error');
+      const detail = err?.message ? `: ${err.message}` : '';
+      showToast(`Ocurrió un error al generar el plan${detail}`, 'error');
     } finally {
       setLoading(false);
     }

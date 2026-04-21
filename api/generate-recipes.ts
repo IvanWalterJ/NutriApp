@@ -68,6 +68,12 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (GEMINI_KEYS.length === 0 && !process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({
+      error: 'No hay proveedores de IA configurados (faltan GEMINI_API_KEY* y ANTHROPIC_API_KEY en Vercel).',
+    });
+  }
+
   try {
     const {
       patientInfo, mealType, mealTypes, objective, dietType,
@@ -147,9 +153,14 @@ Devuelve UN OBJETO JSON PURO válido con esta estructura exacta:
 
     if (!response.text) throw new Error('No text from AI providers');
     const cleaned = response.text.trim().replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-    res.status(200).json(JSON.parse(cleaned));
+    try {
+      res.status(200).json(JSON.parse(cleaned));
+    } catch (parseErr: any) {
+      console.error('[Recetario] JSON parse error. Snippet:', cleaned.slice(0, 400));
+      throw new Error(`Respuesta IA no es JSON válido: ${parseErr?.message || 'parse error'}`);
+    }
   } catch (error: any) {
     console.error('Error generating recipes:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error?.message || 'Error desconocido en el recetario' });
   }
 }

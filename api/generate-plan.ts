@@ -68,12 +68,24 @@ export default async function handler(req: any, res: any) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  if (GEMINI_KEYS.length === 0 && !process.env.ANTHROPIC_API_KEY) {
+    return res.status(500).json({
+      error: 'No hay proveedores de IA configurados (faltan GEMINI_API_KEY* y ANTHROPIC_API_KEY en Vercel).',
+    });
+  }
+
   try {
     const {
       patientInfo,
       metrics,
       preferences
     } = req.body;
+
+    if (!patientInfo || !metrics || !preferences) {
+      return res.status(400).json({
+        error: 'Body inválido: faltan patientInfo, metrics o preferences.',
+      });
+    }
 
     const intolerancesList: string[] = preferences.intolerances || [];
     const pregnancyStage: string = preferences.pregnancyStage || '';
@@ -196,9 +208,14 @@ Debes devolver obligatoriamente la respuesta como UN OBJETO JSON PURO válido y 
 
     if (!response.text) throw new Error("No text from AI providers");
     const planText = response.text.trim().replace(/^```json\s*/i, '').replace(/```$/i, '').trim();
-    res.status(200).json(JSON.parse(planText));
+    try {
+      res.status(200).json(JSON.parse(planText));
+    } catch (parseErr: any) {
+      console.error('[Planes] JSON parse error. Snippet:', planText.slice(0, 400));
+      throw new Error(`Respuesta IA no es JSON válido: ${parseErr?.message || 'parse error'}`);
+    }
   } catch (error: any) {
     console.error('Error generating plan:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error?.message || 'Error desconocido en el generador' });
   }
 }

@@ -163,7 +163,14 @@ export default function RecipeGenerator() {
           count: effectiveCount,
         })
       });
-      if (!response.ok) throw new Error('Error en la generación');
+      if (!response.ok) {
+        let serverMsg = `${response.status} ${response.statusText}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.error) serverMsg = errBody.error;
+        } catch { /* ignore body parse errors */ }
+        throw new Error(serverMsg);
+      }
       const data = await response.json();
       setResult(data);
       setEditedResult(JSON.parse(JSON.stringify(data)));
@@ -174,7 +181,8 @@ export default function RecipeGenerator() {
       }, 100);
     } catch (err: any) {
       console.error(err);
-      showToast('Ocurrió un error al generar las recetas.', 'error');
+      const detail = err?.message ? `: ${err.message}` : '';
+      showToast(`Ocurrió un error al generar las recetas${detail}`, 'error');
     } finally {
       setLoading(false);
     }
