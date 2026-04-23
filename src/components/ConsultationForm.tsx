@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { todayLocalISODate } from '../lib/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import CustomSelect from './ui/CustomSelect';
@@ -16,7 +17,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    session_date: new Date().toISOString().split('T')[0],
+    session_date: todayLocalISODate(),
     modality: 'Presencial',
     duration_minutes: 45,
     weight: '',
@@ -152,7 +153,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       showToast('Consulta registrada exitosamente', 'success');
       setFormData({
         patient_id: '',
-        session_date: new Date().toISOString().split('T')[0],
+        session_date: todayLocalISODate(),
         modality: 'Presencial',
         duration_minutes: 45,
         weight: '',

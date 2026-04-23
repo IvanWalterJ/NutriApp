@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { todayLocalISODate } from '../lib/dateUtils';
 import { Building2, Monitor } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
@@ -16,7 +17,7 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
 
   const [formData, setFormData] = useState({
     patient_id: '',
-    session_date: new Date().toISOString().split('T')[0],
+    session_date: todayLocalISODate(),
     modality: 'Presencial', // 'Presencial' | 'Online'
     duration_minutes: 45,
     // Antropometría - Datos Básicos

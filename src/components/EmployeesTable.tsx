@@ -6,6 +6,7 @@ import SuccessModal from './SuccessModal';
 import AnthroReportButton from './AnthroReportButton';
 import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { formatLocalDate } from '../lib/dateUtils';
 
 export default function EmployeesTable() {
   const { showToast } = useToast();
@@ -761,7 +762,7 @@ export default function EmployeesTable() {
                     <div className="flex items-center gap-2"><span className="uppercase text-[10px] tracking-widest bg-primary/10 text-primary font-bold px-2 py-1 rounded">Área</span> {selectedPatient.area}</div>
                     <div className="flex items-center gap-2"><span className="uppercase text-[10px] tracking-widest bg-primary/10 text-primary font-bold px-2 py-1 rounded">Email</span> {selectedPatient.email || <span className="opacity-50 italic">N/A</span>}</div>
                     <div className="flex items-center gap-2"><span className="uppercase text-[10px] tracking-widest bg-primary/10 text-primary font-bold px-2 py-1 rounded">WhatsApp</span> {selectedPatient.phone || <span className="opacity-50 italic">N/A</span>}</div>
-                    <div className="flex items-center gap-2"><span className="uppercase text-[10px] tracking-widest bg-primary/10 text-primary font-bold px-2 py-1 rounded">Nacimiento</span> {selectedPatient.birth_date ? new Date(selectedPatient.birth_date).toLocaleDateString() : <span className="opacity-50 italic">N/A</span>}</div>
+                    <div className="flex items-center gap-2"><span className="uppercase text-[10px] tracking-widest bg-primary/10 text-primary font-bold px-2 py-1 rounded">Nacimiento</span> {selectedPatient.birth_date ? formatLocalDate(selectedPatient.birth_date, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'es-AR') : <span className="opacity-50 italic">N/A</span>}</div>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mt-4 bg-surface p-4 rounded-xl border-2 border-primary/30 shadow-sm animate-in fade-in">
@@ -875,7 +876,7 @@ export default function EmployeesTable() {
                             <div className="flex flex-wrap items-center gap-3 md:gap-6">
                               {/* Date pill */}
                               <div className="bg-primary text-white font-mono font-bold px-3 py-1.5 rounded-lg text-sm shadow-sm">
-                                {new Date(session.session_date).toLocaleDateString('es-ES', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
+                                {formatLocalDate(session.session_date, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
                               </div>
 
                               {/* ── Session Type Badge ── */}
@@ -981,7 +982,7 @@ export default function EmployeesTable() {
           const s = selectedSession;
           const isAnthroSel = s.session_type === 'Antropometría';
           const has = (v: any) => v !== null && v !== undefined && v !== '';
-          const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const fmtDate = (d: string) => formatLocalDate(d, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
           const hydrationLabel = s.hydration === true ? 'Sí' : s.hydration === false ? 'No' : null;
           const rating = (n: number) => '⭐'.repeat(n) + ` (${n}/5)`;
 

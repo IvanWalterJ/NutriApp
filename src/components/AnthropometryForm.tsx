@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import CustomSelect from './ui/CustomSelect';
 import { supabase } from '../lib/supabase';
+import { todayLocalISODate } from '../lib/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
@@ -239,7 +240,7 @@ const ACTIVITY_GROUPS = [
 
 const EMPTY_FORM = {
   patient_id: '', observation_number: '1',
-  session_date: new Date().toISOString().split('T')[0],
+  session_date: todayLocalISODate(),
   birth_date: '', sex: '', activity_group: '', race_ethnicity: 'Blanca o Hispánica',
   weight: '', height: '', sitting_height: '', arm_span: '',
   fold_triceps: '', fold_subscapular: '', fold_biceps: '', fold_iliac_crest: '',
