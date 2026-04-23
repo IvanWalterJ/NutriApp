@@ -41,6 +41,7 @@ export default function EmployeesTable() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmDeletePatient, setConfirmDeletePatient] = useState<any | null>(null);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [selectedSession, setSelectedSession] = useState<any | null>(null);
 
   useEffect(() => {
     fetchEmployees();
@@ -859,9 +860,17 @@ export default function EmployeesTable() {
                         .filter((s: any) => s.session_type === 'Consulta')
                         .sort((a: any, b: any) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0] || null;
                       return (
-                        <div key={session.id} className={`bg-bg border-2 rounded-xl p-5 hover:border-primary/20 transition-all card-transition ${
-                          isAnthro ? 'border-primary/30 bg-gradient-to-br from-bg to-primary/[0.02]' : 'border-border-color'
-                        }`}>
+                        <div
+                          key={session.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => setSelectedSession(session)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSession(session); } }}
+                          title="Ver detalle de la sesión"
+                          className={`cursor-pointer bg-bg border-2 rounded-xl p-5 hover:border-primary/60 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all card-transition ${
+                            isAnthro ? 'border-primary/30 bg-gradient-to-br from-bg to-primary/[0.02]' : 'border-border-color'
+                          }`}
+                        >
                           <div className="flex flex-col md:flex-row justify-between md:items-start gap-3">
                             <div className="flex flex-wrap items-center gap-3 md:gap-6">
                               {/* Date pill */}
@@ -901,7 +910,7 @@ export default function EmployeesTable() {
                             </div>
 
                             {/* Right side: status + report button */}
-                            <div className="flex items-center gap-2 shrink-0">
+                            <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
                               {session.overall_status && (
                                 <span className="text-xs font-bold uppercase tracking-wider text-text-muted bg-surface px-3 py-1.5 rounded-md border border-border-color">
                                   Estado: {session.overall_status}
@@ -965,6 +974,176 @@ export default function EmployeesTable() {
         title="¡Registro Exitoso!"
         message="El nuevo paciente ha sido registrado correctamente en el sistema."
       />
+
+      {/* Modal de detalle de sesión */}
+      {selectedSession && createPortal(
+        (() => {
+          const s = selectedSession;
+          const isAnthroSel = s.session_type === 'Antropometría';
+          const has = (v: any) => v !== null && v !== undefined && v !== '';
+          const fmtDate = (d: string) => new Date(d).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+          const hydrationLabel = s.hydration === true ? 'Sí' : s.hydration === false ? 'No' : null;
+          const rating = (n: number) => '⭐'.repeat(n) + ` (${n}/5)`;
+
+          const renderField = (key: string, label: string, value: any, unit?: string) => (
+            <div key={key} className="bg-bg p-3 rounded-lg border border-border-color">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{label}</p>
+              <p className="text-sm font-mono font-semibold text-text-main">{value}{unit ? ` ${unit}` : ''}</p>
+            </div>
+          );
+
+          const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
+            <div>
+              <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-3 border-b border-primary/20 pb-1">{title}</h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">{children}</div>
+            </div>
+          );
+
+          const foldFields: [string, string][] = [
+            ['fold_triceps', 'Tríceps'], ['fold_subscapular', 'Subescapular'], ['fold_biceps', 'Bíceps'],
+            ['fold_iliac_crest', 'Cresta ilíaca'], ['fold_supraspinale', 'Supraespinal'], ['fold_abdominal', 'Abdominal'],
+            ['fold_front_thigh', 'Muslo anterior'], ['fold_medial_calf', 'Pantorrilla medial'],
+          ];
+          const girthFields: [string, string][] = [
+            ['girth_head', 'Cabeza'], ['girth_neck', 'Cuello'], ['girth_arm_relaxed', 'Brazo relajado'],
+            ['girth_arm_flexed', 'Brazo flexionado'], ['girth_forearm', 'Antebrazo'], ['girth_wrist', 'Muñeca'],
+            ['girth_chest', 'Tórax'], ['girth_hip', 'Cadera'], ['girth_thigh_max', 'Muslo máximo'],
+            ['girth_thigh_mid', 'Muslo medial'], ['girth_calf', 'Pantorrilla'], ['girth_ankle', 'Tobillo'],
+          ];
+          const diamFields: [string, string][] = [
+            ['diam_biacromial', 'Biacromial'], ['diam_biiliocristal', 'Bi-iliocrestídeo'],
+            ['diam_transverse_chest', 'Tórax transverso'], ['diam_ap_chest', 'Tórax A-P'],
+            ['diam_humerus', 'Húmero'], ['diam_femur', 'Fémur'], ['diam_wrist', 'Muñeca'], ['diam_ankle', 'Tobillo'],
+          ];
+          const lenFields: [string, string][] = [
+            ['len_acromiale_radiale', 'Acromio-radial'], ['len_radiale_stylion', 'Radial-estiloidea'],
+            ['len_midstylion_dactylion', 'M-E a dactiloidea'], ['len_iliospinale', 'Ilioespinal'],
+            ['len_trochanterion', 'Trocantérea'], ['len_trochanterion_tibiale_laterale', 'Troc.-tibial lat.'],
+            ['len_tibiale_laterale', 'Tibial lateral'], ['len_tibiale_mediale_sphyrion_tibiale', 'Tibial med.-maleolar'],
+            ['len_foot', 'Long. del pie'],
+          ];
+
+          const anyInGroup = (group: [string, string][]) => group.some(([k]) => has(s[k]));
+
+          return (
+            <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+              <div
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+                onClick={() => setSelectedSession(null)}
+              />
+              <div className="relative z-10 bg-surface rounded-2xl shadow-2xl border-2 border-border-color max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                {/* Header */}
+                <div className="sticky top-0 bg-surface border-b-2 border-border-color px-6 py-4 flex items-start justify-between z-10">
+                  <div>
+                    <div className="flex items-center gap-3 mb-1">
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                        isAnthroSel
+                          ? 'bg-primary/15 text-primary border border-primary/20'
+                          : 'bg-[#6366f1]/10 text-[#4f46e5] border border-[#6366f1]/20'
+                      }`}>
+                        {isAnthroSel ? 'Antropometría' : 'Consulta'}
+                      </span>
+                      <span className="text-xs text-text-muted">{s.modality || '—'} · {s.duration_minutes ? `${s.duration_minutes} min` : '—'}</span>
+                    </div>
+                    <h3 className="text-lg font-bold text-text-main capitalize">{fmtDate(s.session_date)}</h3>
+                  </div>
+                  <button
+                    onClick={() => setSelectedSession(null)}
+                    className="p-2 rounded-lg hover:bg-bg transition-colors text-text-muted"
+                    aria-label="Cerrar"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Body */}
+                <div className="p-6 space-y-6">
+                  {(has(s.weight) || has(s.height) || has(s.girth_waist) || has(s.sitting_height) || has(s.arm_span)) && (
+                    <Section title="Medidas Básicas">
+                      {has(s.weight) && renderField('weight', 'Peso', s.weight, 'kg')}
+                      {has(s.height) && renderField('height', 'Talla', s.height, 'cm')}
+                      {has(s.girth_waist) && renderField('girth_waist', 'Cintura', s.girth_waist, 'cm')}
+                      {has(s.sitting_height) && renderField('sitting_height', 'Talla sentado', s.sitting_height, 'cm')}
+                      {has(s.arm_span) && renderField('arm_span', 'Envergadura', s.arm_span, 'cm')}
+                    </Section>
+                  )}
+
+                  {(has(s.adherence) || has(s.energy_level) || has(s.sleep_quality) || hydrationLabel || has(s.physical_activity) || has(s.consumo_frutas_verduras) || has(s.overall_status)) && (
+                    <Section title="Evaluación Nutricional">
+                      {has(s.adherence) && renderField('adherence', 'Adherencia', rating(s.adherence))}
+                      {has(s.energy_level) && renderField('energy_level', 'Energía', rating(s.energy_level))}
+                      {has(s.sleep_quality) && renderField('sleep_quality', 'Calidad de sueño', rating(s.sleep_quality))}
+                      {hydrationLabel && renderField('hydration', 'Hidratación', hydrationLabel)}
+                      {has(s.physical_activity) && renderField('physical_activity', 'Actividad física', s.physical_activity)}
+                      {has(s.consumo_frutas_verduras) && renderField('consumo_frutas_verduras', 'Frutas y verduras', rating(s.consumo_frutas_verduras))}
+                      {has(s.overall_status) && renderField('overall_status', 'Estado general', s.overall_status)}
+                    </Section>
+                  )}
+
+                  {has(s.laboratorio_alterado) && (
+                    <div>
+                      <h4 className="text-xs font-black uppercase tracking-widest text-[#92400e] mb-2 border-b border-warning/20 pb-1">Laboratorio Alterado</h4>
+                      <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.laboratorio_alterado}</p>
+                    </div>
+                  )}
+
+                  {(has(s.achievements) || has(s.difficulties)) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {has(s.achievements) && (
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-accent-dark mb-2 border-b border-accent/20 pb-1">Logros</h4>
+                          <p className="text-sm text-text-main bg-accent/5 p-3 rounded-lg border border-accent/20 whitespace-pre-wrap">{s.achievements}</p>
+                        </div>
+                      )}
+                      {has(s.difficulties) && (
+                        <div>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-warning mb-2 border-b border-warning/20 pb-1">Dificultades</h4>
+                          <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.difficulties}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {anyInGroup(foldFields) && (
+                    <Section title="Pliegues Cutáneos (mm)">
+                      {foldFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'mm'))}
+                    </Section>
+                  )}
+
+                  {anyInGroup(girthFields) && (
+                    <Section title="Perímetros (cm)">
+                      {girthFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                    </Section>
+                  )}
+
+                  {anyInGroup(diamFields) && (
+                    <Section title="Diámetros Óseos (cm)">
+                      {diamFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                    </Section>
+                  )}
+
+                  {anyInGroup(lenFields) && (
+                    <Section title="Longitudes y Alturas (cm)">
+                      {lenFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                    </Section>
+                  )}
+                </div>
+
+                {/* Footer */}
+                <div className="sticky bottom-0 bg-surface border-t-2 border-border-color px-6 py-4 flex justify-end">
+                  <button
+                    onClick={() => setSelectedSession(null)}
+                    className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })(),
+        document.body
+      )}
 
       {/* Modal de confirmación para eliminar paciente */}
       {confirmDeletePatient && createPortal(
