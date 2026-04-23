@@ -43,79 +43,157 @@ export default function EmployeesTable() {
   const [confirmDeletePatient, setConfirmDeletePatient] = useState<any | null>(null);
   const [deletingPatient, setDeletingPatient] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
+  const [editingSession, setEditingSession] = useState(false);
+  const [sessionEditData, setSessionEditData] = useState<any>({});
+  const [savingSession, setSavingSession] = useState(false);
+
+  function closeSessionModal() {
+    setSelectedSession(null);
+    setEditingSession(false);
+    setSessionEditData({});
+  }
+
+  function startEditSession() {
+    if (!selectedSession) return;
+    setSessionEditData({ ...selectedSession });
+    setEditingSession(true);
+  }
+
+  function cancelEditSession() {
+    setEditingSession(false);
+    setSessionEditData({});
+  }
+
+  async function saveSessionEdit() {
+    if (!selectedSession || savingSession) return;
+    setSavingSession(true);
+    try {
+      const toNumOrNull = (v: any) => {
+        if (v === '' || v === null || v === undefined) return null;
+        const n = typeof v === 'number' ? v : parseFloat(String(v));
+        return Number.isFinite(n) ? n : null;
+      };
+
+      const numericKeys = [
+        'weight', 'height', 'girth_waist', 'duration_minutes',
+        'adherence', 'energy_level', 'sleep_quality', 'consumo_frutas_verduras',
+      ];
+      const textKeys = [
+        'session_date', 'modality', 'physical_activity', 'overall_status',
+        'laboratorio_alterado', 'achievements', 'difficulties',
+      ];
+
+      const patch: Record<string, any> = {};
+      for (const k of numericKeys) {
+        if (k in sessionEditData) patch[k] = toNumOrNull(sessionEditData[k]);
+      }
+      for (const k of textKeys) {
+        if (k in sessionEditData) patch[k] = sessionEditData[k] === '' ? null : sessionEditData[k];
+      }
+      if ('hydration' in sessionEditData) patch.hydration = !!sessionEditData.hydration;
+
+      if (!patch.session_date) {
+        showToast('La fecha de la sesión es obligatoria', 'error');
+        setSavingSession(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('sessions')
+        .update(patch)
+        .eq('id', selectedSession.id);
+      if (error) throw error;
+
+      const processed = await loadProcessedEmployees();
+      setEmployees(processed);
+
+      if (selectedPatient) {
+        const updatedPatient = processed.find(e => e.id === selectedPatient.id);
+        if (updatedPatient) {
+          setSelectedPatient(updatedPatient);
+          const updatedSession = (updatedPatient.sessions || []).find(
+            (x: any) => x.id === selectedSession.id,
+          );
+          if (updatedSession) setSelectedSession(updatedSession);
+        }
+      }
+
+      showToast('Sesión actualizada', 'success');
+      setEditingSession(false);
+      setSessionEditData({});
+    } catch (err: any) {
+      console.error('Error updating session:', err);
+      showToast(err?.message || 'No se pudo actualizar la sesión', 'error');
+    } finally {
+      setSavingSession(false);
+    }
+  }
 
   useEffect(() => {
     fetchEmployees();
   }, [selectedCompany]);
 
+  function processEmployeeRow(emp: any) {
+    const lastSession = (emp.sessions as any[])?.reduce((best: any, current: any) => {
+      if (!best) return current;
+      const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+      return diff >= 0 ? current : best;
+    }, null) ?? null;
+
+    const lastSessionWithWeight = (emp.sessions as any[])?.reduce((best: any, current: any) => {
+      if (current.weight == null) return best;
+      if (!best) return current;
+      const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+      return diff >= 0 ? current : best;
+    }, null) ?? null;
+
+    const weightLossNum = lastSessionWithWeight
+      ? parseFloat((lastSessionWithWeight.weight - emp.initial_weight).toFixed(1))
+      : 0;
+
+    const lossPercentageNum = lastSessionWithWeight && emp.initial_weight
+      ? parseFloat((((lastSessionWithWeight.weight - emp.initial_weight) / emp.initial_weight) * 100).toFixed(1))
+      : 0;
+
+    const weightLoss = weightLossNum.toString();
+    const lossPercentage = lossPercentageNum.toString();
+
+    const daysSinceLastSession = lastSession
+      ? Math.floor((new Date().getTime() - new Date(lastSession.session_date).getTime()) / (1000 * 3600 * 24))
+      : null;
+
+    return {
+      ...emp,
+      name: `${emp.first_name} ${emp.last_name}`,
+      weight: lastSessionWithWeight ? `${lastSessionWithWeight.weight} kg` : `${emp.initial_weight} kg`,
+      weightChange: `${weightLossNum > 0 ? '+' : ''}${weightLoss}kg`,
+      weightChangeColor: weightLossNum <= 0 ? 'positive' : 'negative',
+      loss: `${lossPercentageNum > 0 ? '+' : ''}${lossPercentage}%`,
+      adherence: lastSession?.adherence || 0,
+      imc: lastSessionWithWeight && emp.height
+        ? (lastSessionWithWeight.weight / Math.pow(emp.height / 100, 2)).toFixed(1)
+        : (emp.initial_weight / Math.pow(emp.height / 100, 2)).toFixed(1),
+      lastSessionText: daysSinceLastSession !== null
+        ? (daysSinceLastSession === 0 ? 'Hoy' : `Hace ${daysSinceLastSession} días`)
+        : 'Sin sesiones',
+      statusColor: emp.status === 'Objetivo Alcanzado' ? 'success' : (emp.status === 'En Riesgo' ? 'danger' : 'warning')
+    };
+  }
+
+  async function loadProcessedEmployees(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from('patients')
+      .select(`*, sessions (*)`)
+      .eq('company', selectedCompany)
+      .order('last_name', { ascending: true });
+    if (error) throw error;
+    return (data || []).map(processEmployeeRow);
+  }
+
   async function fetchEmployees() {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('patients')
-        .select(`
-          *,
-          sessions (
-            *
-          )
-        `)
-        .eq('company', selectedCompany)
-        .order('last_name', { ascending: true });
-
-      if (error) throw error;
-
-      // Process employees data
-      const processed = data.map(emp => {
-        // Use reduce to pick the most recent session; on same-date tie prefer the
-        // last element in the array (Supabase returns rows in insertion order).
-        const lastSession = (emp.sessions as any[])?.reduce((best: any, current: any) => {
-          if (!best) return current;
-          const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
-          return diff >= 0 ? current : best;
-        }, null) ?? null;
-
-        // Separate latest session that actually has a weight value (consultations
-        // without weight shouldn't affect weight-based calculations).
-        const lastSessionWithWeight = (emp.sessions as any[])?.reduce((best: any, current: any) => {
-          if (current.weight == null) return best;
-          if (!best) return current;
-          const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
-          return diff >= 0 ? current : best;
-        }, null) ?? null;
-
-        const weightLossNum = lastSessionWithWeight
-          ? parseFloat((lastSessionWithWeight.weight - emp.initial_weight).toFixed(1))
-          : 0;
-
-        const lossPercentageNum = lastSessionWithWeight && emp.initial_weight
-          ? parseFloat((((lastSessionWithWeight.weight - emp.initial_weight) / emp.initial_weight) * 100).toFixed(1))
-          : 0;
-
-        const weightLoss = weightLossNum.toString();
-        const lossPercentage = lossPercentageNum.toString();
-
-        const daysSinceLastSession = lastSession
-          ? Math.floor((new Date().getTime() - new Date(lastSession.session_date).getTime()) / (1000 * 3600 * 24))
-          : null;
-
-        return {
-          ...emp,
-          name: `${emp.first_name} ${emp.last_name}`,
-          weight: lastSessionWithWeight ? `${lastSessionWithWeight.weight} kg` : `${emp.initial_weight} kg`,
-          weightChange: `${weightLossNum > 0 ? '+' : ''}${weightLoss}kg`,
-          weightChangeColor: weightLossNum <= 0 ? 'positive' : 'negative',
-          loss: `${lossPercentageNum > 0 ? '+' : ''}${lossPercentage}%`,
-          adherence: lastSession?.adherence || 0,
-          imc: lastSessionWithWeight && emp.height
-            ? (lastSessionWithWeight.weight / Math.pow(emp.height / 100, 2)).toFixed(1)
-            : (emp.initial_weight / Math.pow(emp.height / 100, 2)).toFixed(1),
-          lastSessionText: daysSinceLastSession !== null
-            ? (daysSinceLastSession === 0 ? 'Hoy' : `Hace ${daysSinceLastSession} días`)
-            : 'Sin sesiones',
-          statusColor: emp.status === 'Objetivo Alcanzado' ? 'success' : (emp.status === 'En Riesgo' ? 'danger' : 'warning')
-        };
-      });
-
+      const processed = await loadProcessedEmployees();
       setEmployees(processed);
     } catch (err) {
       console.error('Error fetching employees:', err);
@@ -986,12 +1064,51 @@ export default function EmployeesTable() {
           const hydrationLabel = s.hydration === true ? 'Sí' : s.hydration === false ? 'No' : null;
           const rating = (n: number) => '⭐'.repeat(n) + ` (${n}/5)`;
 
+          const setEdit = (key: string, value: any) => setSessionEditData((prev: any) => ({ ...prev, [key]: value }));
+          const editVal = (key: string) => sessionEditData[key] ?? '';
+
           const renderField = (key: string, label: string, value: any, unit?: string) => (
             <div key={key} className="bg-bg p-3 rounded-lg border border-border-color">
               <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{label}</p>
               <p className="text-sm font-mono font-semibold text-text-main">{value}{unit ? ` ${unit}` : ''}</p>
             </div>
           );
+
+          const editInput = (key: string, label: string, type: 'number' | 'text' | 'date' = 'number', unit?: string) => (
+            <div key={key} className="bg-bg p-3 rounded-lg border border-border-color">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{label}{unit ? ` (${unit})` : ''}</label>
+              <input
+                type={type}
+                step={type === 'number' ? '0.1' : undefined}
+                value={editVal(key)}
+                onChange={(e) => setEdit(key, e.target.value)}
+                className="w-full p-2 text-sm font-mono border border-border-color rounded-md bg-surface focus:outline-none focus:border-primary"
+              />
+            </div>
+          );
+
+          const editSelect = (key: string, label: string, options: { value: string; label: string }[]) => (
+            <div key={key} className="bg-bg p-3 rounded-lg border border-border-color">
+              <label className="block text-[10px] font-bold uppercase tracking-widest text-text-muted mb-1">{label}</label>
+              <select
+                value={editVal(key) === '' || editVal(key) === null ? '' : String(editVal(key))}
+                onChange={(e) => setEdit(key, e.target.value)}
+                className="w-full p-2 text-sm border border-border-color rounded-md bg-surface focus:outline-none focus:border-primary"
+              >
+                {options.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+          );
+
+          const ratingOptions = [
+            { value: '1', label: '1 - Muy baja' },
+            { value: '2', label: '2 - Baja' },
+            { value: '3', label: '3 - Media' },
+            { value: '4', label: '4 - Alta' },
+            { value: '5', label: '5 - Muy alta' },
+          ];
 
           const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
             <div>
@@ -1030,7 +1147,7 @@ export default function EmployeesTable() {
             <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
               <div
                 className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-                onClick={() => setSelectedSession(null)}
+                onClick={() => { if (!editingSession) closeSessionModal(); }}
               />
               <div className="relative z-10 bg-surface rounded-2xl shadow-2xl border-2 border-border-color max-w-4xl w-full max-h-[90vh] overflow-y-auto">
                 {/* Header */}
@@ -1044,100 +1161,217 @@ export default function EmployeesTable() {
                       }`}>
                         {isAnthroSel ? 'Antropometría' : 'Consulta'}
                       </span>
-                      <span className="text-xs text-text-muted">{s.modality || '—'} · {s.duration_minutes ? `${s.duration_minutes} min` : '—'}</span>
+                      {editingSession
+                        ? <span className="text-xs font-bold text-[#D97706] uppercase tracking-wider">Editando</span>
+                        : <span className="text-xs text-text-muted">{s.modality || '—'} · {s.duration_minutes ? `${s.duration_minutes} min` : '—'}</span>
+                      }
                     </div>
                     <h3 className="text-lg font-bold text-text-main capitalize">{fmtDate(s.session_date)}</h3>
                   </div>
-                  <button
-                    onClick={() => setSelectedSession(null)}
-                    className="p-2 rounded-lg hover:bg-bg transition-colors text-text-muted"
-                    aria-label="Cerrar"
-                  >
-                    <X size={20} />
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {!editingSession && (
+                      <button
+                        onClick={startEditSession}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors font-semibold text-sm"
+                      >
+                        <Edit2 size={16} /> Editar
+                      </button>
+                    )}
+                    <button
+                      onClick={closeSessionModal}
+                      disabled={savingSession}
+                      className="p-2 rounded-lg hover:bg-bg transition-colors text-text-muted disabled:opacity-50"
+                      aria-label="Cerrar"
+                    >
+                      <X size={20} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Body */}
                 <div className="p-6 space-y-6">
-                  {(has(s.weight) || has(s.height) || has(s.girth_waist) || has(s.sitting_height) || has(s.arm_span)) && (
-                    <Section title="Medidas Básicas">
-                      {has(s.weight) && renderField('weight', 'Peso', s.weight, 'kg')}
-                      {has(s.height) && renderField('height', 'Talla', s.height, 'cm')}
-                      {has(s.girth_waist) && renderField('girth_waist', 'Cintura', s.girth_waist, 'cm')}
-                      {has(s.sitting_height) && renderField('sitting_height', 'Talla sentado', s.sitting_height, 'cm')}
-                      {has(s.arm_span) && renderField('arm_span', 'Envergadura', s.arm_span, 'cm')}
-                    </Section>
-                  )}
+                  {editingSession ? (
+                    <>
+                      <Section title="Fecha y Modalidad">
+                        {editInput('session_date', 'Fecha de la sesión', 'date')}
+                        {editSelect('modality', 'Modalidad', [
+                          { value: 'Presencial', label: 'Presencial' },
+                          { value: 'Online', label: 'Online' },
+                        ])}
+                        {editSelect('duration_minutes', 'Duración', [
+                          { value: '30', label: '30 minutos' },
+                          { value: '45', label: '45 minutos' },
+                          { value: '60', label: '60 minutos' },
+                        ])}
+                      </Section>
 
-                  {(has(s.adherence) || has(s.energy_level) || has(s.sleep_quality) || hydrationLabel || has(s.physical_activity) || has(s.consumo_frutas_verduras) || has(s.overall_status)) && (
-                    <Section title="Evaluación Nutricional">
-                      {has(s.adherence) && renderField('adherence', 'Adherencia', rating(s.adherence))}
-                      {has(s.energy_level) && renderField('energy_level', 'Energía', rating(s.energy_level))}
-                      {has(s.sleep_quality) && renderField('sleep_quality', 'Calidad de sueño', rating(s.sleep_quality))}
-                      {hydrationLabel && renderField('hydration', 'Hidratación', hydrationLabel)}
-                      {has(s.physical_activity) && renderField('physical_activity', 'Actividad física', s.physical_activity)}
-                      {has(s.consumo_frutas_verduras) && renderField('consumo_frutas_verduras', 'Frutas y verduras', rating(s.consumo_frutas_verduras))}
-                      {has(s.overall_status) && renderField('overall_status', 'Estado general', s.overall_status)}
-                    </Section>
-                  )}
+                      <Section title="Medidas Básicas">
+                        {editInput('weight', 'Peso', 'number', 'kg')}
+                        {editInput('height', 'Talla', 'number', 'cm')}
+                        {editInput('girth_waist', 'Cintura', 'number', 'cm')}
+                      </Section>
 
-                  {has(s.laboratorio_alterado) && (
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-[#92400e] mb-2 border-b border-warning/20 pb-1">Laboratorio Alterado</h4>
-                      <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.laboratorio_alterado}</p>
-                    </div>
-                  )}
+                      {!isAnthroSel && (
+                        <Section title="Evaluación Nutricional">
+                          {editSelect('adherence', 'Adherencia', ratingOptions)}
+                          {editSelect('energy_level', 'Energía', ratingOptions)}
+                          {editSelect('sleep_quality', 'Calidad de sueño', ratingOptions)}
+                          {editSelect('hydration', 'Hidratación', [
+                            { value: 'true', label: 'Sí' },
+                            { value: 'false', label: 'No' },
+                          ])}
+                          {editSelect('physical_activity', 'Actividad física', [
+                            { value: '≤150 min', label: '≤150 min/semana' },
+                            { value: '+150 min', label: '+150 min/semana' },
+                          ])}
+                          {editSelect('consumo_frutas_verduras', 'Frutas y verduras', ratingOptions)}
+                          {editSelect('overall_status', 'Estado general', [
+                            { value: 'En Progreso', label: 'En Progreso' },
+                            { value: 'Objetivo Alcanzado', label: 'Objetivo Alcanzado' },
+                            { value: 'En Riesgo', label: 'En Riesgo' },
+                            { value: 'Requiere Derivación', label: 'Requiere Derivación' },
+                          ])}
+                        </Section>
+                      )}
 
-                  {(has(s.achievements) || has(s.difficulties)) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {has(s.achievements) && (
+                      <div>
+                        <label className="block text-xs font-black uppercase tracking-widest text-[#92400e] mb-2 border-b border-warning/20 pb-1">Laboratorio Alterado</label>
+                        <textarea
+                          value={editVal('laboratorio_alterado')}
+                          onChange={(e) => setEdit('laboratorio_alterado', e.target.value)}
+                          className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm min-h-[80px] focus:outline-none focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <h4 className="text-xs font-black uppercase tracking-widest text-accent-dark mb-2 border-b border-accent/20 pb-1">Logros</h4>
-                          <p className="text-sm text-text-main bg-accent/5 p-3 rounded-lg border border-accent/20 whitespace-pre-wrap">{s.achievements}</p>
+                          <label className="block text-xs font-black uppercase tracking-widest text-accent-dark mb-2 border-b border-accent/20 pb-1">Logros</label>
+                          <textarea
+                            value={editVal('achievements')}
+                            onChange={(e) => setEdit('achievements', e.target.value)}
+                            className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm min-h-[80px] focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-black uppercase tracking-widest text-warning mb-2 border-b border-warning/20 pb-1">Dificultades</label>
+                          <textarea
+                            value={editVal('difficulties')}
+                            onChange={(e) => setEdit('difficulties', e.target.value)}
+                            className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm min-h-[80px] focus:outline-none focus:border-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {isAnthroSel && (anyInGroup(foldFields) || anyInGroup(girthFields) || anyInGroup(diamFields) || anyInGroup(lenFields)) && (
+                        <div className="bg-bg/60 border border-border-color rounded-lg p-4 text-sm text-text-muted">
+                          Las mediciones antropométricas detalladas (pliegues, perímetros, diámetros, longitudes) no se editan desde acá. Para corregirlas, eliminá la sesión y cargala nuevamente.
                         </div>
                       )}
-                      {has(s.difficulties) && (
+                    </>
+                  ) : (
+                    <>
+                      {(has(s.weight) || has(s.height) || has(s.girth_waist) || has(s.sitting_height) || has(s.arm_span)) && (
+                        <Section title="Medidas Básicas">
+                          {has(s.weight) && renderField('weight', 'Peso', s.weight, 'kg')}
+                          {has(s.height) && renderField('height', 'Talla', s.height, 'cm')}
+                          {has(s.girth_waist) && renderField('girth_waist', 'Cintura', s.girth_waist, 'cm')}
+                          {has(s.sitting_height) && renderField('sitting_height', 'Talla sentado', s.sitting_height, 'cm')}
+                          {has(s.arm_span) && renderField('arm_span', 'Envergadura', s.arm_span, 'cm')}
+                        </Section>
+                      )}
+
+                      {(has(s.adherence) || has(s.energy_level) || has(s.sleep_quality) || hydrationLabel || has(s.physical_activity) || has(s.consumo_frutas_verduras) || has(s.overall_status)) && (
+                        <Section title="Evaluación Nutricional">
+                          {has(s.adherence) && renderField('adherence', 'Adherencia', rating(s.adherence))}
+                          {has(s.energy_level) && renderField('energy_level', 'Energía', rating(s.energy_level))}
+                          {has(s.sleep_quality) && renderField('sleep_quality', 'Calidad de sueño', rating(s.sleep_quality))}
+                          {hydrationLabel && renderField('hydration', 'Hidratación', hydrationLabel)}
+                          {has(s.physical_activity) && renderField('physical_activity', 'Actividad física', s.physical_activity)}
+                          {has(s.consumo_frutas_verduras) && renderField('consumo_frutas_verduras', 'Frutas y verduras', rating(s.consumo_frutas_verduras))}
+                          {has(s.overall_status) && renderField('overall_status', 'Estado general', s.overall_status)}
+                        </Section>
+                      )}
+
+                      {has(s.laboratorio_alterado) && (
                         <div>
-                          <h4 className="text-xs font-black uppercase tracking-widest text-warning mb-2 border-b border-warning/20 pb-1">Dificultades</h4>
-                          <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.difficulties}</p>
+                          <h4 className="text-xs font-black uppercase tracking-widest text-[#92400e] mb-2 border-b border-warning/20 pb-1">Laboratorio Alterado</h4>
+                          <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.laboratorio_alterado}</p>
                         </div>
                       )}
-                    </div>
-                  )}
 
-                  {anyInGroup(foldFields) && (
-                    <Section title="Pliegues Cutáneos (mm)">
-                      {foldFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'mm'))}
-                    </Section>
-                  )}
+                      {(has(s.achievements) || has(s.difficulties)) && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {has(s.achievements) && (
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-widest text-accent-dark mb-2 border-b border-accent/20 pb-1">Logros</h4>
+                              <p className="text-sm text-text-main bg-accent/5 p-3 rounded-lg border border-accent/20 whitespace-pre-wrap">{s.achievements}</p>
+                            </div>
+                          )}
+                          {has(s.difficulties) && (
+                            <div>
+                              <h4 className="text-xs font-black uppercase tracking-widest text-warning mb-2 border-b border-warning/20 pb-1">Dificultades</h4>
+                              <p className="text-sm text-text-main bg-warning/5 p-3 rounded-lg border border-warning/20 whitespace-pre-wrap">{s.difficulties}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
-                  {anyInGroup(girthFields) && (
-                    <Section title="Perímetros (cm)">
-                      {girthFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
-                    </Section>
-                  )}
+                      {anyInGroup(foldFields) && (
+                        <Section title="Pliegues Cutáneos (mm)">
+                          {foldFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'mm'))}
+                        </Section>
+                      )}
 
-                  {anyInGroup(diamFields) && (
-                    <Section title="Diámetros Óseos (cm)">
-                      {diamFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
-                    </Section>
-                  )}
+                      {anyInGroup(girthFields) && (
+                        <Section title="Perímetros (cm)">
+                          {girthFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                        </Section>
+                      )}
 
-                  {anyInGroup(lenFields) && (
-                    <Section title="Longitudes y Alturas (cm)">
-                      {lenFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
-                    </Section>
+                      {anyInGroup(diamFields) && (
+                        <Section title="Diámetros Óseos (cm)">
+                          {diamFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                        </Section>
+                      )}
+
+                      {anyInGroup(lenFields) && (
+                        <Section title="Longitudes y Alturas (cm)">
+                          {lenFields.filter(([k]) => has(s[k])).map(([k, label]) => renderField(k, label, s[k], 'cm'))}
+                        </Section>
+                      )}
+                    </>
                   )}
                 </div>
 
                 {/* Footer */}
-                <div className="sticky bottom-0 bg-surface border-t-2 border-border-color px-6 py-4 flex justify-end">
-                  <button
-                    onClick={() => setSelectedSession(null)}
-                    className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all"
-                  >
-                    Cerrar
-                  </button>
+                <div className="sticky bottom-0 bg-surface border-t-2 border-border-color px-6 py-4 flex justify-end gap-3">
+                  {editingSession ? (
+                    <>
+                      <button
+                        onClick={cancelEditSession}
+                        disabled={savingSession}
+                        className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={saveSessionEdit}
+                        disabled={savingSession}
+                        className="px-5 py-2 bg-gradient-to-br from-primary to-primary-light text-white rounded-xl font-semibold hover:-translate-y-0.5 hover:shadow-lg transition-all disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {savingSession && <Loader2 size={16} className="animate-spin" />}
+                        <Save size={16} />
+                        Guardar cambios
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={closeSessionModal}
+                      className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all"
+                    >
+                      Cerrar
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
