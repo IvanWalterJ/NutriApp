@@ -56,18 +56,26 @@ export default function Parameters() {
         .select('id', { count: 'exact', head: true })
         .eq('company', data.company || 'Galeno');
 
-      const sortedSessions = (data.sessions || []).sort((a: any, b: any) =>
-        new Date(a.session_date).getTime() - new Date(b.session_date).getTime()
-      );
+      const sortedSessions = (data.sessions || []).sort((a: any, b: any) => {
+        const dateDiff = new Date(a.session_date).getTime() - new Date(b.session_date).getTime();
+        if (dateDiff !== 0) return dateDiff;
+        const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return aCreated - bCreated;
+      });
 
       const initial = sortedSessions[0] || { weight: data.initial_weight };
       const latest = sortedSessions[sortedSessions.length - 1] || initial;
 
-      // ── IMC ──
-      const imcInitial = data.height && data.initial_weight
-        ? (data.initial_weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
-      const imcActual = data.height && latest.weight
-        ? (latest.weight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
+      // ── IMC (ignorar sesiones sin peso registrado para reflejar evolución real) ──
+      const sessionsWithWeight = sortedSessions.filter((s: any) => s.weight != null);
+      const firstWeight = sessionsWithWeight[0]?.weight ?? data.initial_weight;
+      const latestWeight = sessionsWithWeight[sessionsWithWeight.length - 1]?.weight ?? data.initial_weight;
+
+      const imcInitial = data.height && firstWeight
+        ? (firstWeight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
+      const imcActual = data.height && latestWeight
+        ? (latestWeight / Math.pow(data.height / 100, 2)).toFixed(1) : '-';
       const imcVal = parseFloat(imcActual);
       const imcOk = imcVal >= 18.5 && imcVal < 25;
 
@@ -119,7 +127,7 @@ export default function Parameters() {
           status: imcOk ? 'Normal' : imcVal < 18.5 ? 'Bajo Peso' : 'Sobrepeso',
           statusColor: imcOk ? 'normal' : 'alert',
           note: 'OMS: 18.5–24.9 = Normal',
-          noteValue: latest.weight && data.initial_weight ? `${(latest.weight - data.initial_weight).toFixed(1)} kg` : '—'
+          noteValue: latestWeight && firstWeight ? `${(latestWeight - firstWeight).toFixed(1)} kg` : '—'
         },
         {
           name: 'Adherencia al Plan',

@@ -205,22 +205,34 @@ export default function MealPlanGenerator() {
             age = today.getFullYear() - dob.getFullYear();
         }
 
-        // Get latest weight and height from sessions (either Antropometría or Consulta)
-        const { data: sessionData } = await supabase
-          .from('sessions')
-          .select('weight, height, girth_waist')
-          .eq('patient_id', p.id)
-          .not('weight', 'is', null)
-          .not('height', 'is', null)
-          .order('session_date', { ascending: false })
-          .order('created_at', { ascending: false })
-          .limit(1);
+        // Obtener último valor no nulo de cada medida por separado.
+        // En consultas de seguimiento Rosana puede cargar solo el peso y dejar la talla
+        // en blanco; con un filtro combinado esas sesiones quedaban descartadas y el plan
+        // se generaba con los datos de la primera antropometría.
+        const latestMeasure = async (column: 'weight' | 'height' | 'girth_waist'): Promise<number | null> => {
+          const { data } = await supabase
+            .from('sessions')
+            .select('weight, height, girth_waist')
+            .eq('patient_id', p.id)
+            .not(column, 'is', null)
+            .order('session_date', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1);
+          const row = data?.[0] as any;
+          return row?.[column] ?? null;
+        };
+
+        const [latestWeight, latestHeight, latestWaist] = await Promise.all([
+          latestMeasure('weight'),
+          latestMeasure('height'),
+          latestMeasure('girth_waist'),
+        ]);
 
         if (cancelled) return;
 
-        const weight = sessionData?.[0]?.weight || p.initial_weight || 70;
-        const height = sessionData?.[0]?.height || p.height || 165;
-        const waist = sessionData?.[0]?.girth_waist ?? null;
+        const weight = latestWeight ?? p.initial_weight ?? 70;
+        const height = latestHeight ?? p.height ?? 165;
+        const waist = latestWaist;
 
         const dataForGen = {
           firstName: p.first_name,

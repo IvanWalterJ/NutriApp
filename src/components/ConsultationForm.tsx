@@ -38,6 +38,49 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
     fetchPatients();
   }, [selectedCompany]);
 
+  // Precargar peso, talla y cintura con el último valor no nulo del paciente
+  // (la nutricionista los puede editar si la medida cambió en esta consulta).
+  useEffect(() => {
+    let cancelled = false;
+    if (!formData.patient_id) return;
+
+    const prefillMeasurements = async () => {
+      const latestMeasure = async (column: 'weight' | 'height' | 'girth_waist'): Promise<number | null> => {
+        const { data } = await supabase
+          .from('sessions')
+          .select('weight, height, girth_waist')
+          .eq('patient_id', formData.patient_id)
+          .not(column, 'is', null)
+          .order('session_date', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(1);
+        const row = data?.[0] as any;
+        return row?.[column] ?? null;
+      };
+
+      try {
+        const [latestWeight, latestHeight, latestWaist] = await Promise.all([
+          latestMeasure('weight'),
+          latestMeasure('height'),
+          latestMeasure('girth_waist'),
+        ]);
+        if (cancelled) return;
+
+        setFormData(prev => ({
+          ...prev,
+          weight: latestWeight != null ? String(latestWeight) : prev.weight,
+          height: latestHeight != null ? String(latestHeight) : prev.height,
+          girth_waist: latestWaist != null ? String(latestWaist) : prev.girth_waist,
+        }));
+      } catch (err) {
+        if (!cancelled) console.error('Error precargando medidas del paciente:', err);
+      }
+    };
+
+    prefillMeasurements();
+    return () => { cancelled = true; };
+  }, [formData.patient_id]);
+
   async function fetchPatients() {
     setFetchingPatients(true);
     try {
