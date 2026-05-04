@@ -1,10 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { todayLocalISODate } from '../lib/dateUtils';
+import { todayLocalISODate, parseLocalDate } from '../lib/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import CustomSelect from './ui/CustomSelect';
 import SuccessModal from './SuccessModal';
+import { History, X as IconX } from 'lucide-react';
+
+function shiftISODate(iso: string, days: number): string {
+  const d = parseLocalDate(iso);
+  if (!d) return todayLocalISODate();
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export default function ConsultationForm({ onComplete }: { onComplete?: () => void }) {
   const { showToast } = useToast();
@@ -14,6 +25,8 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
   const [loading, setLoading] = useState(false);
   const [fetchingPatients, setFetchingPatients] = useState(true);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [historicalMode, setHistoricalMode] = useState(false);
+  const [historicalCount, setHistoricalCount] = useState(0);
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -47,11 +60,17 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
 
     const prefillMeasurements = async () => {
       const latestMeasure = async (column: 'weight' | 'height' | 'girth_waist'): Promise<number | null> => {
-        const { data } = await supabase
+        let query = supabase
           .from('sessions')
-          .select('weight, height, girth_waist')
+          .select('weight, height, girth_waist, session_date')
           .eq('patient_id', formData.patient_id)
-          .not(column, 'is', null)
+          .not(column, 'is', null);
+        // En modo histórico, sólo mirar sesiones anteriores a la fecha que se está cargando
+        // para evitar prefillear con valores de consultas más recientes.
+        if (historicalMode && formData.session_date) {
+          query = query.lt('session_date', formData.session_date);
+        }
+        const { data } = await query
           .order('session_date', { ascending: false })
           .order('created_at', { ascending: false })
           .limit(1);
@@ -80,7 +99,10 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
 
     prefillMeasurements();
     return () => { cancelled = true; };
-  }, [formData.patient_id]);
+    // En modo histórico re-disparamos el prefill cuando cambia la fecha porque
+    // la última medida "anterior" depende de session_date.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.patient_id, historicalMode ? formData.session_date : null]);
 
   async function fetchPatients() {
     setFetchingPatients(true);
@@ -146,30 +168,55 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       const { error: sessionError } = await supabase.from('sessions').insert([sessionData]);
       if (sessionError) throw sessionError;
 
-      const { error: patientError } = await supabase.from('patients').update({ status: formData.overall_status }).eq('id', formData.patient_id);
-      if (patientError) throw patientError;
+      // En modo histórico evitamos pisar el estado del paciente con la consulta
+      // que se está cargando, porque puede ser una consulta antigua y dejaría el
+      // estado actual del paciente desactualizado.
+      if (!historicalMode) {
+        const { error: patientError } = await supabase.from('patients').update({ status: formData.overall_status }).eq('id', formData.patient_id);
+        if (patientError) throw patientError;
+      }
 
-      setShowSuccessModal(true);
-      showToast('Consulta registrada exitosamente', 'success');
-      setFormData({
-        patient_id: '',
-        session_date: todayLocalISODate(),
-        modality: 'Presencial',
-        duration_minutes: 45,
-        weight: '',
-        height: '',
-        girth_waist: '',
-        laboratorio_alterado: '',
-        consumo_frutas_verduras: 3,
-        hydration: true,
-        physical_activity: '+150 min',
-        adherence: 5,
-        energy_level: 4,
-        sleep_quality: 4,
-        overall_status: 'En Progreso',
-        achievements: '',
-        difficulties: ''
-      });
+      if (historicalMode) {
+        // No mostramos el modal (rompería el flujo de carga rápida) y mantenemos
+        // el paciente seleccionado. Sugerimos una fecha 30 días anterior a la
+        // recién cargada como punto de partida para la próxima.
+        const nextDate = shiftISODate(formData.session_date, -30);
+        setHistoricalCount(c => c + 1);
+        showToast('Consulta histórica cargada', 'success');
+        setFormData(prev => ({
+          ...prev,
+          session_date: nextDate,
+          // limpiamos sólo los campos que cambian de consulta a consulta
+          weight: '',
+          height: '',
+          girth_waist: '',
+          laboratorio_alterado: '',
+          achievements: '',
+          difficulties: ''
+        }));
+      } else {
+        setShowSuccessModal(true);
+        showToast('Consulta registrada exitosamente', 'success');
+        setFormData({
+          patient_id: '',
+          session_date: todayLocalISODate(),
+          modality: 'Presencial',
+          duration_minutes: 45,
+          weight: '',
+          height: '',
+          girth_waist: '',
+          laboratorio_alterado: '',
+          consumo_frutas_verduras: 3,
+          hydration: true,
+          physical_activity: '+150 min',
+          adherence: 5,
+          energy_level: 4,
+          sleep_quality: 4,
+          overall_status: 'En Progreso',
+          achievements: '',
+          difficulties: ''
+        });
+      }
     } catch (err: any) {
       const errorText = err.message || 'Error al guardar la consulta';
       setMessage({ type: 'error', text: errorText });
@@ -183,15 +230,95 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
   const inputClass = 'p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all';
   const labelClass = 'text-[0.85rem] font-semibold uppercase tracking-widest';
 
+  function activateHistoricalMode() {
+    setHistoricalMode(true);
+    setHistoricalCount(0);
+    setMessage(null);
+    // Sugerimos arrancar 30 días atrás para diferenciarlo de "consulta de hoy"
+    setFormData(prev => ({
+      ...prev,
+      session_date: shiftISODate(todayLocalISODate(), -30),
+    }));
+  }
+
+  function exitHistoricalMode() {
+    setHistoricalMode(false);
+    setHistoricalCount(0);
+    setMessage(null);
+    setFormData({
+      patient_id: '',
+      session_date: todayLocalISODate(),
+      modality: 'Presencial',
+      duration_minutes: 45,
+      weight: '',
+      height: '',
+      girth_waist: '',
+      laboratorio_alterado: '',
+      consumo_frutas_verduras: 3,
+      hydration: true,
+      physical_activity: '+150 min',
+      adherence: 5,
+      energy_level: 4,
+      sleep_quality: 4,
+      overall_status: 'En Progreso',
+      achievements: '',
+      difficulties: ''
+    });
+  }
+
+  const selectedPatientLabel = (() => {
+    const p = patients.find(x => x.id === formData.patient_id);
+    return p ? `${p.last_name}, ${p.first_name}` : null;
+  })();
+
   return (
     <div className="bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 mb-8 animate-in" style={{ animationDelay: '0.3s' }}>
-      <div className="flex flex-col md:flex-row justify-between md:items-center gap-2 mb-6">
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-3 mb-6">
         <h2 className="text-xl md:text-2xl font-bold flex items-center gap-3">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z" /></svg>
-          Nueva Consulta
+          {historicalMode ? 'Cargar Consultas Históricas' : 'Nueva Consulta'}
         </h2>
-        <div className="text-text-muted text-xs md:text-sm">Seguimiento clínico del paciente</div>
+        <div className="flex items-center gap-3">
+          <div className="text-text-muted text-xs md:text-sm hidden md:block">
+            {historicalMode ? 'Carga rápida de consultas pasadas' : 'Seguimiento clínico del paciente'}
+          </div>
+          {!historicalMode ? (
+            <button
+              type="button"
+              onClick={activateHistoricalMode}
+              className="px-4 py-2 border-2 border-primary/40 bg-primary/5 text-primary rounded-lg font-semibold text-xs md:text-sm transition-all hover:bg-primary hover:text-white active:scale-95 flex items-center gap-2"
+              title="Cargar varias consultas pasadas del mismo paciente sin reseleccionarlo cada vez"
+            >
+              <History size={15} strokeWidth={2.5} />
+              Cargar consultas históricas
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={exitHistoricalMode}
+              className="px-4 py-2 border-2 border-border-color text-text-main rounded-lg font-semibold text-xs md:text-sm transition-all hover:bg-bg active:scale-95 flex items-center gap-2"
+            >
+              <IconX size={15} strokeWidth={2.5} />
+              Terminar carga histórica
+            </button>
+          )}
+        </div>
       </div>
+
+      {historicalMode && (
+        <div className="mb-6 p-4 rounded-lg border-2 border-primary/30 bg-primary/5 text-sm flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <div className="flex items-center gap-2 text-primary font-semibold">
+            <History size={16} strokeWidth={2.5} />
+            <span>
+              Modo histórico activo
+              {selectedPatientLabel ? ` · Paciente: ${selectedPatientLabel}` : ' · Seleccioná un paciente'}
+            </span>
+          </div>
+          <div className="text-text-muted text-xs md:text-sm">
+            Consultas cargadas en esta sesión: <strong className="text-primary">{historicalCount}</strong>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className={`p-4 rounded-lg mb-6 text-sm font-semibold ${message.type === 'success' ? 'bg-primary/10 text-primary border border-primary' : 'bg-danger/10 text-danger border border-danger'}`}>
