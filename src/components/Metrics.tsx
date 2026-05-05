@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
+import { assessPatientRisk, deriveStatus } from '../lib/patientRisk';
 
 const UsersIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -59,53 +60,78 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
 
       const { data: patients, error: pError } = await supabase
         .from('patients')
-        .select('id, initial_weight, status, created_at')
+        .select('id, initial_weight, height, sex, status, created_at')
         .eq('company', selectedCompany);
 
       if (pError) throw pError;
 
       const newP = patients.filter(p => p.created_at >= firstDayOfMonth).length;
-      const riskP = patients.filter(p => p.status === 'En Riesgo').length;
 
       let sessionQuery = supabase
         .from('sessions')
-        .select('patient_id, weight, adherence')
+        .select('patient_id, weight, height, girth_waist, adherence, session_date')
         .eq('company', selectedCompany);
 
       if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
       if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
 
       const { data: sessions, error: sError } = await sessionQuery;
-
       if (sError) throw sError;
+
+      // Último laboratorio por paciente (sin filtro de fecha — el riesgo
+      // metabólico no debería desaparecer del dashboard solo porque el rango
+      // del filtro no cubre el último análisis del paciente).
+      const patientIds = patients.map(p => p.id);
+      const { data: labs } = patientIds.length > 0
+        ? await supabase
+            .from('lab_results')
+            .select('patient_id, lab_date, glucose, hba1c, total_cholesterol, ldl, hdl, triglycerides, bp_systolic, bp_diastolic')
+            .in('patient_id', patientIds)
+            .order('lab_date', { ascending: false })
+        : { data: [] as any[] };
+      const latestLabByPatient: Record<string, any> = {};
+      (labs || []).forEach((l: any) => {
+        if (!latestLabByPatient[l.patient_id]) latestLabByPatient[l.patient_id] = l;
+      });
 
       const sessionsWithAdherence = sessions.filter(s => s.adherence != null && s.adherence > 0);
       const avgAdh = sessionsWithAdherence.length > 0
         ? sessionsWithAdherence.reduce((acc, s) => acc + s.adherence, 0) / sessionsWithAdherence.length
         : 0;
 
-      // Build latestWeights by only overwriting when the session is more recent,
-      // so the final value is always the most recent session's weight regardless
-      // of the order rows are returned from the database.
-      const latestWeightDates: Record<string, string> = {};
-      const latestWeights: Record<string, number> = {};
+      // Latest measure por paciente: peso, talla y cintura (cada uno con su fecha)
+      const latest: Record<string, { weight?: number; height?: number; waist?: number; weightDate?: string; heightDate?: string; waistDate?: string }> = {};
       sessions.forEach(s => {
-        if (
-          s.weight != null &&
-          (!latestWeightDates[s.patient_id] || s.session_date >= latestWeightDates[s.patient_id])
-        ) {
-          latestWeights[s.patient_id] = s.weight;
-          latestWeightDates[s.patient_id] = s.session_date;
+        const ent = latest[s.patient_id] ||= {};
+        if (s.weight != null && (!ent.weightDate || s.session_date >= ent.weightDate)) {
+          ent.weight = s.weight; ent.weightDate = s.session_date;
+        }
+        if (s.height != null && (!ent.heightDate || s.session_date >= ent.heightDate)) {
+          ent.height = s.height; ent.heightDate = s.session_date;
+        }
+        if (s.girth_waist != null && (!ent.waistDate || s.session_date >= ent.waistDate)) {
+          ent.waist = s.girth_waist; ent.waistDate = s.session_date;
         }
       });
 
       let totalLoss = 0;
       let countLoss = 0;
+      let riskCount = 0;
       patients.forEach(p => {
-        if (latestWeights[p.id]) {
-          totalLoss += (latestWeights[p.id] - p.initial_weight);
+        const m = latest[p.id] || {};
+        if (m.weight != null) {
+          totalLoss += (m.weight - p.initial_weight);
           countLoss++;
         }
+        const assessment = assessPatientRisk({
+          sex: p.sex,
+          height: m.height ?? p.height ?? null,
+          weight: m.weight ?? p.initial_weight ?? null,
+          waist: m.waist ?? null,
+          lab: latestLabByPatient[p.id] ?? null,
+        });
+        const status = deriveStatus(p.status, assessment);
+        if (status === 'En Riesgo') riskCount++;
       });
 
       const avgLoss = countLoss > 0 ? totalLoss / countLoss : 0;
@@ -114,7 +140,7 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
         active: patients.length,
         adherence: avgAdh,
         weightLoss: avgLoss,
-        atRisk: riskP,
+        atRisk: riskCount,
         newThisMonth: newP
       });
     } catch (err) {

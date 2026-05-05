@@ -9,6 +9,7 @@ import LabTimeline from './LabTimeline';
 import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatLocalDate } from '../lib/dateUtils';
+import { assessPatientRisk, deriveStatus, RiskFlag } from '../lib/patientRisk';
 
 interface EmployeesTableProps {
   /** Si se pasa, click en un paciente delega al padre (vista dedicada).
@@ -143,7 +144,7 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
     fetchEmployees();
   }, [selectedCompany]);
 
-  function processEmployeeRow(emp: any) {
+  function processEmployeeRow(emp: any, latestLab?: any) {
     const lastSession = (emp.sessions as any[])?.reduce((best: any, current: any) => {
       if (!best) return current;
       const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
@@ -152,6 +153,13 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
 
     const lastSessionWithWeight = (emp.sessions as any[])?.reduce((best: any, current: any) => {
       if (current.weight == null) return best;
+      if (!best) return current;
+      const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+      return diff >= 0 ? current : best;
+    }, null) ?? null;
+
+    const lastSessionWithWaist = (emp.sessions as any[])?.reduce((best: any, current: any) => {
+      if (current.girth_waist == null) return best;
       if (!best) return current;
       const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
       return diff >= 0 ? current : best;
@@ -172,6 +180,18 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
       ? Math.floor((new Date().getTime() - new Date(lastSession.session_date).getTime()) / (1000 * 3600 * 24))
       : null;
 
+    // Riesgo derivado: si hay al menos un factor en rojo (IMC, cintura, lab),
+    // el paciente queda como "En Riesgo" salvo que esté manualmente en
+    // "Objetivo Alcanzado" o "Requiere Derivación".
+    const assessment = assessPatientRisk({
+      sex: emp.sex,
+      height: lastSessionWithWeight?.height ?? emp.height ?? null,
+      weight: lastSessionWithWeight?.weight ?? emp.initial_weight ?? null,
+      waist: lastSessionWithWaist?.girth_waist ?? null,
+      lab: latestLab ?? null,
+    });
+    const derivedStatus = deriveStatus(emp.status, assessment);
+
     return {
       ...emp,
       name: `${emp.first_name} ${emp.last_name}`,
@@ -186,7 +206,13 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
       lastSessionText: daysSinceLastSession !== null
         ? (daysSinceLastSession === 0 ? 'Hoy' : `Hace ${daysSinceLastSession} días`)
         : 'Sin sesiones',
-      statusColor: emp.status === 'Objetivo Alcanzado' ? 'success' : (emp.status === 'En Riesgo' ? 'danger' : 'warning')
+      // Reemplazamos el status visible por el derivado para que el filtro y el badge
+      // reflejen los factores clínicos automáticamente. El status manual original
+      // queda preservado en `manualStatus` por si hace falta.
+      manualStatus: emp.status,
+      status: derivedStatus,
+      riskFlags: assessment.flags as RiskFlag[],
+      statusColor: derivedStatus === 'Objetivo Alcanzado' ? 'success' : (derivedStatus === 'En Riesgo' ? 'danger' : 'warning')
     };
   }
 
@@ -197,7 +223,21 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
       .eq('company', selectedCompany)
       .order('last_name', { ascending: true });
     if (error) throw error;
-    return (data || []).map(processEmployeeRow);
+    const patients = data || [];
+    if (patients.length === 0) return [];
+
+    // Traer el último laboratorio por paciente (sin filtro de fecha — el riesgo
+    // metabólico no debe desaparecer de la tabla por filtros temporales).
+    const ids = patients.map((p: any) => p.id);
+    const { data: labs } = await supabase
+      .from('lab_results')
+      .select('patient_id, lab_date, glucose, hba1c, total_cholesterol, ldl, hdl, triglycerides, bp_systolic, bp_diastolic')
+      .in('patient_id', ids)
+      .order('lab_date', { ascending: false });
+    const latestLabByPatient: Record<string, any> = {};
+    (labs || []).forEach((l: any) => { if (!latestLabByPatient[l.patient_id]) latestLabByPatient[l.patient_id] = l; });
+
+    return patients.map((p: any) => processEmployeeRow(p, latestLabByPatient[p.id]));
   }
 
   async function fetchEmployees() {

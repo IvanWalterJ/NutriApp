@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
+import { assessPatientRisk, deriveStatus } from '../lib/patientRisk';
 
 interface ChartsProps {
   dateFrom?: string;
@@ -49,22 +50,61 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
 
       setSessionStats(months.map(m => ({ name: m, value: monthlyCount[m] })));
 
-      // 2. Fetch patients for status distribution (filtered by company)
+      // 2. Fetch patients for status distribution (filtered by company) y derivar
+      // el estado real combinando status manual + factores de riesgo automáticos.
       const { data: patients, error: pError } = await supabase
         .from('patients')
-        .select('status')
+        .select('id, status, sex, height, initial_weight')
         .eq('company', selectedCompany);
 
       if (pError) throw pError;
 
-      const counts = {
-        objetivo: patients?.filter(p => p.status === 'Objetivo Alcanzado').length || 0,
-        progreso: patients?.filter(p => p.status === 'En Progreso').length || 0,
-        riesgo: patients?.filter(p => p.status === 'En Riesgo').length || 0,
-        total: patients?.length || 0
-      };
+      // Última medida de cintura/peso/talla por paciente (de TODAS las sesiones,
+      // sin filtro de fecha — el riesgo metabólico no debe desaparecer del
+      // panel solo porque el rango del filtro no cubra el último análisis).
+      const ids = (patients || []).map((p: any) => p.id);
+      const { data: allSessions } = ids.length > 0
+        ? await supabase
+            .from('sessions')
+            .select('patient_id, weight, height, girth_waist, session_date')
+            .in('patient_id', ids)
+            .order('session_date', { ascending: false })
+        : { data: [] as any[] };
+      const latest: Record<string, { weight?: number; height?: number; waist?: number }> = {};
+      (allSessions || []).forEach((s: any) => {
+        const ent = latest[s.patient_id] ||= {};
+        if (s.weight != null && ent.weight == null) ent.weight = s.weight;
+        if (s.height != null && ent.height == null) ent.height = s.height;
+        if (s.girth_waist != null && ent.waist == null) ent.waist = s.girth_waist;
+      });
 
-      setStatusStats(counts);
+      const { data: labs } = ids.length > 0
+        ? await supabase
+            .from('lab_results')
+            .select('patient_id, lab_date, glucose, hba1c, total_cholesterol, ldl, hdl, triglycerides, bp_systolic, bp_diastolic')
+            .in('patient_id', ids)
+            .order('lab_date', { ascending: false })
+        : { data: [] as any[] };
+      const latestLab: Record<string, any> = {};
+      (labs || []).forEach((l: any) => { if (!latestLab[l.patient_id]) latestLab[l.patient_id] = l; });
+
+      let objetivo = 0, progreso = 0, riesgo = 0;
+      (patients || []).forEach((p: any) => {
+        const m = latest[p.id] || {};
+        const assessment = assessPatientRisk({
+          sex: p.sex,
+          height: m.height ?? p.height ?? null,
+          weight: m.weight ?? p.initial_weight ?? null,
+          waist: m.waist ?? null,
+          lab: latestLab[p.id] ?? null,
+        });
+        const status = deriveStatus(p.status, assessment);
+        if (status === 'Objetivo Alcanzado') objetivo++;
+        else if (status === 'En Riesgo') riesgo++;
+        else progreso++;
+      });
+
+      setStatusStats({ objetivo, progreso, riesgo, total: patients?.length || 0 });
     } catch (err) {
       console.error('Error fetching chart data:', err);
     } finally {

@@ -13,6 +13,7 @@ import { useToast } from '../context/ToastContext';
 import LabTimeline from './LabTimeline';
 import LabResultsForm, { EMPTY_LAB_VALUES, LabFormValues, labFormToPayload } from './LabResultsForm';
 import AnthroReportButton from './AnthroReportButton';
+import { assessPatientRisk, deriveStatus, RiskFlag } from '../lib/patientRisk';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -32,7 +33,7 @@ function getStatusDotClasses(color?: string): string {
   }
 }
 
-function processPatient(p: any) {
+function processPatient(p: any, latestLab?: any) {
   const sessions = (p.sessions ?? []) as any[];
 
   const lastSession = sessions.reduce((best: any, current: any) => {
@@ -67,7 +68,23 @@ function processPatient(p: any) {
     ? Number((currentWeight / Math.pow(currentHeight / 100, 2)).toFixed(1))
     : null;
 
-  const status = p.status ?? lastSession?.overall_status ?? 'En Progreso';
+  const lastWithWaist = sessions.reduce((best: any, current: any) => {
+    if (current.girth_waist == null) return best;
+    if (!best) return current;
+    const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
+    return diff >= 0 ? current : best;
+  }, null);
+
+  const assessment = assessPatientRisk({
+    sex: p.sex,
+    height: currentHeight,
+    weight: currentWeight,
+    waist: lastWithWaist?.girth_waist ?? null,
+    lab: latestLab ?? null,
+  });
+
+  const manualStatus = p.status ?? lastSession?.overall_status ?? 'En Progreso';
+  const status = deriveStatus(manualStatus, assessment);
   const statusColor = status === 'Objetivo Alcanzado' ? 'success'
     : status === 'En Riesgo' ? 'danger'
     : 'warning';
@@ -82,8 +99,10 @@ function processPatient(p: any) {
     lossPctNum,
     imc,
     lastAdherence: lastSession?.adherence ?? 0,
+    manualStatus,
     status,
     statusColor,
+    riskFlags: assessment.flags as RiskFlag[],
   };
 }
 
@@ -137,7 +156,14 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
         .eq('id', patientId)
         .single();
       if (error) throw error;
-      setPatient(processPatient(data));
+      const { data: labs } = await supabase
+        .from('lab_results')
+        .select('lab_date, glucose, hba1c, total_cholesterol, ldl, hdl, triglycerides, bp_systolic, bp_diastolic')
+        .eq('patient_id', patientId)
+        .order('lab_date', { ascending: false })
+        .limit(1);
+      const latestLab = labs?.[0] ?? null;
+      setPatient(processPatient(data, latestLab));
     } catch (err) {
       console.error('Error fetching patient:', err);
       showToast('No se pudo cargar el paciente', 'error');
@@ -491,9 +517,17 @@ function PatientHeader({
                 </span>
               </h2>
               {!isEditing && (
-                <div className="text-sm text-text-muted mt-1">
-                  {patient.email || 'Sin email'} {patient.phone ? `· ${patient.phone}` : ''}
-                </div>
+                <>
+                  <div className="text-sm text-text-muted mt-1">
+                    {patient.email || 'Sin email'} {patient.phone ? `· ${patient.phone}` : ''}
+                  </div>
+                  {patient.riskFlags && patient.riskFlags.length > 0 && (
+                    <div className="mt-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-danger/10 border border-danger/30 text-danger text-xs font-bold">
+                      <AlertTriangle size={14} strokeWidth={2.5} />
+                      {patient.riskFlags.length} factor{patient.riskFlags.length === 1 ? '' : 'es'} de salud en rojo
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
@@ -737,6 +771,42 @@ function TabResumen({ patient }: { patient: any }) {
           </div>
         )}
       </div>
+
+      {/* Factores de salud en rojo (derivados automáticamente de IMC, cintura y lab) */}
+      <div className="lg:col-span-3 bg-surface border-2 border-border-color rounded-2xl p-5 shadow-sm">
+        <h3 className="font-bold text-text-main mb-3 flex items-center gap-2">
+          <AlertTriangle size={18} className={patient.riskFlags?.length ? 'text-danger' : 'text-primary'} />
+          Factores de salud
+          {patient.riskFlags?.length > 0 && (
+            <span className="text-xs font-semibold text-danger bg-danger/10 border border-danger/30 px-2 py-0.5 rounded">
+              {patient.riskFlags.length} en rojo
+            </span>
+          )}
+        </h3>
+        {patient.riskFlags && patient.riskFlags.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {patient.riskFlags.map((f: RiskFlag) => (
+              <div key={f.code} className="bg-danger/5 border-2 border-danger/20 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={16} className="text-danger shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-bold text-text-main">{f.label}</div>
+                    <div className="text-xs text-text-muted mt-0.5">
+                      Valor actual: <span className="font-mono font-bold text-danger">{f.value}</span>
+                      <span className="text-text-muted/70"> · Umbral: {f.thresholdLabel}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-accent/5 border-2 border-accent/20 rounded-xl p-4 flex items-center gap-3 text-sm">
+            <span className="text-2xl">✅</span>
+            <span className="text-text-main">Sin factores de salud en rojo según las últimas mediciones y laboratorio.</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -782,6 +852,18 @@ const MEASURE_KPIS: MeasureKpiDef[] = [
       const w = num(s.weight); const h = num(s.height);
       return (w != null && h != null && h > 0) ? Number((w / Math.pow(h / 100, 2)).toFixed(1)) : null;
     } },
+  { key: 'bodyFatYuhasz', label: '% Grasa (Yuhasz)', unit: '%', decimals: 1, lowerIsBetter: true,
+    getValue: s => {
+      const sum6 = sumOrNull([
+        num(s.fold_triceps), num(s.fold_subscapular), num(s.fold_supraspinale),
+        num(s.fold_abdominal), num(s.fold_front_thigh), num(s.fold_medial_calf),
+      ]);
+      if (sum6 == null) return null;
+      // Yuhasz: Hombre 0.097·Σ6 + 3.64 · Mujer 0.143·Σ6 + 4.56
+      const isMale = s.__sex === 'Masculino';
+      const pct = isMale ? 0.097 * sum6 + 3.64 : 0.143 * sum6 + 4.56;
+      return Number(pct.toFixed(1));
+    } },
   { key: 'waist',   label: 'Cintura',       unit: 'cm', decimals: 1, lowerIsBetter: true,
     getValue: s => num(s.girth_waist) },
   { key: 'hip',     label: 'Cadera',        unit: 'cm', decimals: 1, lowerIsBetter: false,
@@ -791,11 +873,19 @@ const MEASURE_KPIS: MeasureKpiDef[] = [
       const w = num(s.girth_waist); const h = num(s.girth_hip);
       return (w != null && h != null && h > 0) ? Number((w / h).toFixed(2)) : null;
     } },
-  { key: 'sumFolds', label: 'Σ 6 pliegues',  unit: 'mm', decimals: 1, lowerIsBetter: true,
+  { key: 'sumFolds6', label: 'Σ 6 pliegues',  unit: 'mm', decimals: 1, lowerIsBetter: true,
     getValue: s => sumOrNull([
       num(s.fold_triceps), num(s.fold_subscapular), num(s.fold_supraspinale),
       num(s.fold_abdominal), num(s.fold_front_thigh), num(s.fold_medial_calf),
     ]) },
+  { key: 'sumFolds8', label: 'Σ 8 pliegues',  unit: 'mm', decimals: 1, lowerIsBetter: true,
+    getValue: s => sumOrNull([
+      num(s.fold_triceps), num(s.fold_subscapular), num(s.fold_biceps),
+      num(s.fold_iliac_crest), num(s.fold_supraspinale), num(s.fold_abdominal),
+      num(s.fold_front_thigh), num(s.fold_medial_calf),
+    ]) },
+  { key: 'neck',    label: 'Cuello',         unit: 'cm', decimals: 1, lowerIsBetter: true,
+    getValue: s => num(s.girth_neck) },
   { key: 'arm',     label: 'Brazo relajado', unit: 'cm', decimals: 1, lowerIsBetter: false,
     getValue: s => num(s.girth_arm_relaxed) },
   { key: 'thigh',   label: 'Muslo medial',   unit: 'cm', decimals: 1, lowerIsBetter: false,
@@ -857,7 +947,11 @@ function MeasureMiniChart({ def, series }: { def: MeasureKpiDef; series: { date:
 
 function TabMedidas({ patient, onSelectSession }: { patient: any; onSelectSession: (s: any) => void }) {
   const sortedSessions = useMemo(() => {
+    // Inyectamos __sex en cada sesión para que los getValue que dependan del
+    // sexo del paciente (% grasa Yuhasz) puedan calcularlo sin recibir el
+    // paciente por separado.
     return [...(patient.sessions as any[])]
+      .map(s => ({ ...s, __sex: patient.sex }))
       .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
   }, [patient]);
 
@@ -880,8 +974,9 @@ function TabMedidas({ patient, onSelectSession }: { patient: any; onSelectSessio
       .map(s => {
         const imc = MEASURE_KPIS.find(k => k.key === 'imc')!.getValue(s);
         const whr = MEASURE_KPIS.find(k => k.key === 'whr')!.getValue(s);
-        const sumFolds = MEASURE_KPIS.find(k => k.key === 'sumFolds')!.getValue(s);
-        return { ...s, imc, whr, sumFolds };
+        const sumFolds = MEASURE_KPIS.find(k => k.key === 'sumFolds6')!.getValue(s);
+        const bodyFat = MEASURE_KPIS.find(k => k.key === 'bodyFatYuhasz')!.getValue(s);
+        return { ...s, imc, whr, sumFolds, bodyFat };
       });
   }, [sortedSessions]);
 
@@ -935,7 +1030,7 @@ function TabMedidas({ patient, onSelectSession }: { patient: any; onSelectSessio
             <table className="w-full text-sm">
               <thead className="bg-bg">
                 <tr>
-                  {['Fecha', 'Tipo', 'Peso (kg)', 'Talla (cm)', 'IMC', 'Cintura', 'Cadera', 'C/C', 'Σ 6 plieg.'].map(h => (
+                  {['Fecha', 'Tipo', 'Peso (kg)', 'Talla (cm)', 'IMC', '% Grasa', 'Cintura', 'Cadera', 'C/C', 'Σ 6 plieg.'].map(h => (
                     <th key={h} className="text-left p-3 text-[11px] font-black uppercase tracking-widest text-text-muted border-b-2 border-border-color whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -956,6 +1051,7 @@ function TabMedidas({ patient, onSelectSession }: { patient: any; onSelectSessio
                     <td className="p-3 font-mono">{r.weight ?? '—'}</td>
                     <td className="p-3 font-mono">{r.height ?? '—'}</td>
                     <td className="p-3 font-mono font-bold">{r.imc ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.bodyFat != null ? `${r.bodyFat}%` : '—'}</td>
                     <td className="p-3 font-mono">{r.girth_waist ?? '—'}</td>
                     <td className="p-3 font-mono">{r.girth_hip ?? '—'}</td>
                     <td className="p-3 font-mono">{r.whr ?? '—'}</td>
