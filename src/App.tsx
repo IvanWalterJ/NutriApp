@@ -19,6 +19,7 @@ import EmpresasView from './components/EmpresasView';
 import OmsPopulationMetrics from './components/OmsPopulationMetrics';
 import ExcelExportButton from './components/ExcelExportButton';
 import DashboardPdfButton from './components/DashboardPdfButton';
+import PatientDetailView from './components/PatientDetailView';
 import Auth from './components/Auth';
 import ResetPassword from './components/ResetPassword';
 import { CompanyProvider } from './context/CompanyContext';
@@ -31,6 +32,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  // Cuando hay un paciente seleccionado, el área principal muestra la vista
+  // dedicada del paciente (con sidebar visible) en lugar del tab activo.
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
+  // Permite preseleccionar paciente al navegar a "Nueva consulta" / "Antropometría"
+  // desde la vista del paciente.
+  const [preselectedPatientId, setPreselectedPatientId] = useState<string | null>(null);
   const [dashboardDateFrom, setDashboardDateFrom] = useState<string | undefined>(undefined);
   const [dashboardDateTo, setDashboardDateTo]     = useState<string | undefined>(undefined);
   const [dashboardCompany, setDashboardCompany]   = useState<string>('');
@@ -145,13 +152,21 @@ export default function App() {
     );
   }
 
+  // Cambiar de tab desde el sidebar siempre limpia la vista de paciente
+  // para volver al flujo normal de la app.
+  const handleSetActiveTab = (tab: string) => {
+    setSelectedPatientId(null);
+    setPreselectedPatientId(null);
+    setActiveTab(tab);
+  };
+
   return (
     <CompanyProvider>
       <div className="flex h-screen bg-bg text-text-main font-sans overflow-hidden">
         {/* Sidebar */}
         <Sidebar
           activeTab={activeTab}
-          setActiveTab={setActiveTab}
+          setActiveTab={handleSetActiveTab}
           collapsed={sidebarCollapsed}
           setCollapsed={setSidebarCollapsed}
           mobileOpen={sidebarMobileOpen}
@@ -168,6 +183,18 @@ export default function App() {
 
           <main className="flex-1 overflow-y-auto p-4 md:p-8">
             <div className="max-w-[1600px] mx-auto">
+              {selectedPatientId ? (
+                <PatientDetailView
+                  patientId={selectedPatientId}
+                  onBack={() => setSelectedPatientId(null)}
+                  onNavigate={(tab, pid) => {
+                    setSelectedPatientId(null);
+                    setPreselectedPatientId(pid);
+                    setActiveTab(tab);
+                  }}
+                />
+              ) : (
+              <>
               {activeTab === 'dashboard' && (
                 <>
                   <div className="flex justify-end mb-4 gap-2 print:hidden">
@@ -186,20 +213,26 @@ export default function App() {
                   <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
-                  <EmployeesTable />
+                  <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} />
                 </>
               )}
 
               {activeTab === 'empleados' && (
-                <EmployeesTable />
+                <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} />
               )}
 
               {activeTab === 'antropometria' && (
-                <AnthropometryForm onComplete={() => setActiveTab('dashboard')} />
+                <AnthropometryForm
+                  preselectedPatientId={preselectedPatientId}
+                  onComplete={() => { setPreselectedPatientId(null); setActiveTab('dashboard'); }}
+                />
               )}
 
               {activeTab === 'nueva-consulta' && (
-                <ConsultationForm onComplete={() => setActiveTab('dashboard')} />
+                <ConsultationForm
+                  preselectedPatientId={preselectedPatientId}
+                  onComplete={() => { setPreselectedPatientId(null); setActiveTab('dashboard'); }}
+                />
               )}
 
               {activeTab === 'parametros' && (
@@ -216,6 +249,8 @@ export default function App() {
 
               {activeTab === 'empresas' && (
                 <EmpresasView />
+              )}
+              </>
               )}
             </div>
           </main>

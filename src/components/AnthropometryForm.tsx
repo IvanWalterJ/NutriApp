@@ -256,7 +256,13 @@ const EMPTY_FORM = {
 } as Record<string, string>;
 
 // ─── Main component ──────────────────────────────────────────────────────────
-export default function AnthropometryForm({ onComplete }: { onComplete?: () => void }) {
+interface AnthropometryFormProps {
+  onComplete?: () => void;
+  /** Si se pasa, el paciente queda preseleccionado al montar el componente */
+  preselectedPatientId?: string | null;
+}
+
+export default function AnthropometryForm({ onComplete, preselectedPatientId }: AnthropometryFormProps) {
   const { showToast }       = useToast();
   const { selectedCompany } = useCompany();
   const [patients, setPatients]           = useState<any[]>([]);
@@ -265,7 +271,7 @@ export default function AnthropometryForm({ onComplete }: { onComplete?: () => v
   const [results, setResults]             = useState<any | null>(null);
   const [patientInfo, setPatientInfo]     = useState<any | null>(null);
   const [currentStep, setCurrentStep]     = useState(1);
-  const [formData, setFormData]           = useState<Record<string, string>>({ ...EMPTY_FORM });
+  const [formData, setFormData]           = useState<Record<string, string>>({ ...EMPTY_FORM, patient_id: preselectedPatientId || '' });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [latestConsultation, setLatestConsultation] = useState<any | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);

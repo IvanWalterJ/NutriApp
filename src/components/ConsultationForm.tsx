@@ -18,7 +18,13 @@ function shiftISODate(iso: string, days: number): string {
   return `${y}-${m}-${day}`;
 }
 
-export default function ConsultationForm({ onComplete }: { onComplete?: () => void }) {
+interface ConsultationFormProps {
+  onComplete?: () => void;
+  /** Si se pasa, el paciente queda preseleccionado al montar el componente */
+  preselectedPatientId?: string | null;
+}
+
+export default function ConsultationForm({ onComplete, preselectedPatientId }: ConsultationFormProps) {
   const { showToast } = useToast();
   const { selectedCompany } = useCompany();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -32,7 +38,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
   const [patientSex, setPatientSex] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    patient_id: '',
+    patient_id: preselectedPatientId || '',
     session_date: todayLocalISODate(),
     modality: 'Presencial',
     duration_minutes: 45,

@@ -10,7 +10,13 @@ import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, 
 import { createPortal } from 'react-dom';
 import { formatLocalDate } from '../lib/dateUtils';
 
-export default function EmployeesTable() {
+interface EmployeesTableProps {
+  /** Si se pasa, click en un paciente delega al padre (vista dedicada).
+   *  Si no se pasa, fallback al modal de detalle interno. */
+  onSelectPatient?: (id: string) => void;
+}
+
+export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps = {}) {
   const { showToast } = useToast();
   const { selectedCompany } = useCompany();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -469,7 +475,7 @@ export default function EmployeesTable() {
                     if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
                     return false;
                   }).map((emp, i) => (
-                    <tr key={i} onClick={() => setSelectedPatient(emp)} className="transition-all duration-300 hover:bg-white hover:scale-[1.01] hover:shadow-lg border-b border-border-color group cursor-pointer">
+                    <tr key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="transition-all duration-300 hover:bg-white hover:scale-[1.01] hover:shadow-lg border-b border-border-color group cursor-pointer">
                       <td className="p-5">
                         <strong className="group-hover:text-primary transition-colors">{emp.name}</strong><br />
                         <span className="text-[0.85rem] text-text-muted">{emp.area}</span>
@@ -512,7 +518,7 @@ export default function EmployeesTable() {
                 if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
                 return false;
               }).map((emp, i) => (
-                <div key={i} onClick={() => setSelectedPatient(emp)} className="bg-bg rounded-xl p-5 border border-border-color hover:border-primary/30 transition-all shadow-sm cursor-pointer active:scale-[0.98]">
+                <div key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="bg-bg rounded-xl p-5 border border-border-color hover:border-primary/30 transition-all shadow-sm cursor-pointer active:scale-[0.98]">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h4 className="font-bold text-lg leading-tight">{emp.name}</h4>
@@ -565,14 +571,14 @@ export default function EmployeesTable() {
 
       {showAddModal && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[100] animate-fade-in px-4">
-          <div className="bg-surface rounded-2xl p-8 w-full max-w-md shadow-2xl animate-scale-in border border-white/20">
+          <div className="bg-surface rounded-2xl p-8 w-full max-w-3xl shadow-2xl animate-scale-in border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold">Agregar Nuevo Paciente</h3>
               <button onClick={() => setShowAddModal(false)} className="text-text-muted hover:text-text-main"><X size={24} /></button>
             </div>
             <form onSubmit={handleAddEmployee}>
               <div className="relative">
-                <div className="space-y-4 mb-2 max-h-[62vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
+                <div className="space-y-4 mb-2 max-h-[78vh] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-transparent">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-text-muted mb-1">Nombre</label>
@@ -597,7 +603,7 @@ export default function EmployeesTable() {
                     />
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 mb-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 mt-4">
                   <div>
                     <label className="block text-sm font-semibold text-text-muted mb-1">Email</label>
                     <input
@@ -618,43 +624,45 @@ export default function EmployeesTable() {
                       onChange={e => setNewEmployee({ ...newEmployee, phone: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-text-muted mb-1">Fecha de Nacimiento</label>
+                    <input
+                      type="date"
+                      className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                      value={newEmployee.birth_date}
+                      onChange={e => setNewEmployee({ ...newEmployee, birth_date: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-text-muted mb-1">Fecha de Nacimiento</label>
-                  <input
-                    type="date"
-                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
-                    value={newEmployee.birth_date}
-                    onChange={e => setNewEmployee({ ...newEmployee, birth_date: e.target.value })}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-text-muted mb-1">Sexo</label>
+                    <select
+                      className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                      value={newEmployee.sex}
+                      onChange={e => setNewEmployee({ ...newEmployee, sex: e.target.value })}
+                    >
+                      <option value="Femenino">Femenino</option>
+                      <option value="Masculino">Masculino</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-text-muted mb-1">Departamento</label>
+                    <select
+                      className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
+                      value={newEmployee.area}
+                      onChange={e => setNewEmployee({ ...newEmployee, area: e.target.value })}
+                    >
+                      <option>Administración</option>
+                      <option>Operaciones</option>
+                      <option>Marketing</option>
+                      <option>IT</option>
+                      <option>Ventas</option>
+                      <option>Finanzas</option>
+                    </select>
+                  </div>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-text-muted mb-1">Sexo</label>
-                  <select
-                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
-                    value={newEmployee.sex}
-                    onChange={e => setNewEmployee({ ...newEmployee, sex: e.target.value })}
-                  >
-                    <option value="Femenino">Femenino</option>
-                    <option value="Masculino">Masculino</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-text-muted mb-1">Departamento</label>
-                  <select
-                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none"
-                    value={newEmployee.area}
-                    onChange={e => setNewEmployee({ ...newEmployee, area: e.target.value })}
-                  >
-                    <option>Administración</option>
-                    <option>Operaciones</option>
-                    <option>Marketing</option>
-                    <option>IT</option>
-                    <option>Ventas</option>
-                    <option>Finanzas</option>
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-text-muted mb-1">Peso Inicial (kg)</label>
                     <input
@@ -678,35 +686,35 @@ export default function EmployeesTable() {
                       onChange={e => setNewEmployee({ ...newEmployee, height: e.target.value })}
                     />
                   </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-text-muted mb-1">Circunferencia de Cintura (cm)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none font-mono"
+                      placeholder="Opcional"
+                      value={newEmployee.girth_waist}
+                      onChange={e => setNewEmployee({ ...newEmployee, girth_waist: e.target.value })}
+                    />
+                  </div>
                 </div>
-                <div className="mt-4">
-                  <label className="block text-sm font-semibold text-text-muted mb-1">Circunferencia de Cintura (cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none font-mono"
-                    placeholder="Opcional"
-                    value={newEmployee.girth_waist}
-                    onChange={e => setNewEmployee({ ...newEmployee, girth_waist: e.target.value })}
-                  />
-                  {newEmployee.girth_waist && (() => {
-                    const val = parseFloat(newEmployee.girth_waist);
-                    const threshold = newEmployee.sex === 'Masculino' ? 94 : 80;
-                    const isRisk = val > threshold;
-                    return (
-                      <div className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${isRisk ? 'bg-danger/10 text-danger border-danger/20' : 'bg-accent/10 text-primary border-accent/20'}`}>
-                        {isRisk
-                          ? `⚠ Riesgo cardiovascular elevado (${newEmployee.sex === 'Masculino' ? '> 94' : '> 80'} cm)`
-                          : `✓ Sin riesgo cardiovascular (${newEmployee.sex === 'Masculino' ? '≤ 94' : '≤ 80'} cm)`}
-                      </div>
-                    );
-                  })()}
-                </div>
+                {newEmployee.girth_waist && (() => {
+                  const val = parseFloat(newEmployee.girth_waist);
+                  const threshold = newEmployee.sex === 'Masculino' ? 94 : 80;
+                  const isRisk = val > threshold;
+                  return (
+                    <div className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border ${isRisk ? 'bg-danger/10 text-danger border-danger/20' : 'bg-accent/10 text-primary border-accent/20'}`}>
+                      {isRisk
+                        ? `⚠ Riesgo cardiovascular elevado (${newEmployee.sex === 'Masculino' ? '> 94' : '> 80'} cm)`
+                        : `✓ Sin riesgo cardiovascular (${newEmployee.sex === 'Masculino' ? '≤ 94' : '≤ 80'} cm)`}
+                    </div>
+                  );
+                })()}
 
                 {/* Evaluación Inicial OMS */}
                 <div className="mt-4 pt-4 border-t-2 border-border-color">
                   <h4 className="text-sm font-bold text-primary mb-3 uppercase tracking-wider">Evaluación Inicial OMS</h4>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-text-muted mb-1">Adherencia al Plan</label>
                       <select
