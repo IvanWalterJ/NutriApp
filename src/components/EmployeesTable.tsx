@@ -4,6 +4,8 @@ import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
 import AnthroReportButton from './AnthroReportButton';
+import LabResultsForm, { EMPTY_LAB_VALUES, LabFormValues, labFormToPayload } from './LabResultsForm';
+import LabTimeline from './LabTimeline';
 import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatLocalDate } from '../lib/dateUtils';
@@ -42,6 +44,8 @@ export default function EmployeesTable() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmDeletePatient, setConfirmDeletePatient] = useState<any | null>(null);
   const [deletingPatient, setDeletingPatient] = useState(false);
+  const [newPatientLab, setNewPatientLab] = useState<LabFormValues>(EMPTY_LAB_VALUES);
+  const [labRefreshKey, setLabRefreshKey] = useState(0);
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [editingSession, setEditingSession] = useState(false);
   const [sessionEditData, setSessionEditData] = useState<any>({});
@@ -248,10 +252,11 @@ export default function EmployeesTable() {
       if (error) throw error;
 
       // Create initial session with OMS assessment data
-      const { error: sessionError } = await supabase.from('sessions').insert([{
+      const sessionDate = new Date().toISOString().split('T')[0];
+      const { data: sessionInserted, error: sessionError } = await supabase.from('sessions').insert([{
         patient_id: patientResult.id,
         nutritionist_id: user?.id,
-        session_date: new Date().toISOString().split('T')[0],
+        session_date: sessionDate,
         company: selectedCompany,
         session_type: 'Consulta',
         weight: parseFloat(newEmployee.initial_weight),
@@ -263,8 +268,23 @@ export default function EmployeesTable() {
         consumo_frutas_verduras: parseInt(newEmployee.consumo_frutas_verduras),
         energy_level: parseInt(newEmployee.energy_level),
         sleep_quality: parseInt(newEmployee.sleep_quality),
-      }]);
+      }]).select('id').single();
       if (sessionError) throw sessionError;
+
+      // Si la nutricionista cargó valores de laboratorio basal, los registramos
+      // como lab_result asociado a la sesión inicial. Si falla, no rompemos el
+      // alta del paciente — sólo notificamos.
+      const labPayload = labFormToPayload(newPatientLab, patientResult.id, sessionInserted?.id ?? null, sessionDate);
+      if (labPayload) {
+        const { error: labError } = await supabase.from('lab_results').insert([{
+          ...labPayload,
+          created_by: user?.id,
+        }]);
+        if (labError) {
+          console.error('Error guardando laboratorio basal:', labError);
+          showToast('Paciente creado, pero el laboratorio no pudo registrarse', 'error');
+        }
+      }
 
       setShowAddModal(false);
       setNewEmployee({
@@ -285,6 +305,7 @@ export default function EmployeesTable() {
         energy_level: '3',
         sleep_quality: '3',
       });
+      setNewPatientLab(EMPTY_LAB_VALUES);
       fetchEmployees();
       setShowSuccessModal(true);
       showToast('Paciente agregado con éxito', 'success');
@@ -766,6 +787,18 @@ export default function EmployeesTable() {
                     </div>
                   </div>
                 </div>
+
+                {/* Laboratorio basal (opcional, plegable) */}
+                <div className="mt-4 pt-4 border-t-2 border-border-color">
+                  <LabResultsForm
+                    value={newPatientLab}
+                    onChange={setNewPatientLab}
+                    patientSex={newEmployee.sex}
+                    collapsible
+                    title="Laboratorio basal (opcional)"
+                    subtitle="Permite seguimiento metabólico desde la primera consulta"
+                  />
+                </div>
                 </div>
                 {/* Indicador de scroll */}
                 <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent rounded-b-lg" />
@@ -917,6 +950,15 @@ export default function EmployeesTable() {
                   </div>
                 );
               })()}
+
+              {/* Laboratorio · Línea del tiempo por KPI */}
+              <div className="my-6">
+                <LabTimeline
+                  patientId={selectedPatient.id}
+                  patientSex={selectedPatient.sex}
+                  refreshKey={labRefreshKey}
+                />
+              </div>
 
               <div className="mb-4 flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">

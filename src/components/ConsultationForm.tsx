@@ -5,6 +5,7 @@ import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import CustomSelect from './ui/CustomSelect';
 import SuccessModal from './SuccessModal';
+import LabResultsForm, { EMPTY_LAB_VALUES, LabFormValues, labFormToPayload } from './LabResultsForm';
 import { History, X as IconX } from 'lucide-react';
 
 function shiftISODate(iso: string, days: number): string {
@@ -27,6 +28,8 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [historicalMode, setHistoricalMode] = useState(false);
   const [historicalCount, setHistoricalCount] = useState(0);
+  const [labValues, setLabValues] = useState<LabFormValues>(EMPTY_LAB_VALUES);
+  const [patientSex, setPatientSex] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     patient_id: '',
@@ -109,7 +112,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
     try {
       const { data, error } = await supabase
         .from('patients')
-        .select('id, first_name, last_name')
+        .select('id, first_name, last_name, sex')
         .eq('company', selectedCompany)
         .order('last_name', { ascending: true });
       if (error) throw error;
@@ -120,6 +123,13 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       setFetchingPatients(false);
     }
   }
+
+  // Mantenemos sincronizado el sexo del paciente para clasificar HDL correctamente
+  useEffect(() => {
+    if (!formData.patient_id) { setPatientSex(null); return; }
+    const p = patients.find(x => x.id === formData.patient_id);
+    setPatientSex(p?.sex ?? null);
+  }, [formData.patient_id, patients]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,8 +175,32 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       if (formData.height) sessionData.height = parseFloat(formData.height);
       if (formData.girth_waist) sessionData.girth_waist = parseFloat(formData.girth_waist);
 
-      const { error: sessionError } = await supabase.from('sessions').insert([sessionData]);
+      const { data: sessionInserted, error: sessionError } = await supabase
+        .from('sessions')
+        .insert([sessionData])
+        .select('id')
+        .single();
       if (sessionError) throw sessionError;
+      const newSessionId: string | null = sessionInserted?.id ?? null;
+
+      // Si hay valores de laboratorio cargados, insertamos un row asociado a la
+      // consulta. Si falla, no rompemos el guardado de la consulta — sólo
+      // mostramos un warning en consola y un toast informativo.
+      const labPayload = labFormToPayload(labValues, formData.patient_id, newSessionId, formData.session_date);
+      if (labPayload) {
+        try {
+          const { error: labError } = await supabase.from('lab_results').insert([{
+            ...labPayload,
+            created_by: userData.user?.id,
+          }]);
+          if (labError) {
+            console.error('Error guardando laboratorio:', labError);
+            showToast('La consulta se guardó pero el laboratorio no pudo registrarse', 'error');
+          }
+        } catch (labErr) {
+          console.error('Error guardando laboratorio:', labErr);
+        }
+      }
 
       // En modo histórico evitamos pisar el estado del paciente con la consulta
       // que se está cargando, porque puede ser una consulta antigua y dejaría el
@@ -194,6 +228,8 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
           achievements: '',
           difficulties: ''
         }));
+        // El laboratorio sí se limpia siempre — cada consulta tiene su propio set
+        setLabValues(EMPTY_LAB_VALUES);
       } else {
         setShowSuccessModal(true);
         showToast('Consulta registrada exitosamente', 'success');
@@ -216,6 +252,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
           achievements: '',
           difficulties: ''
         });
+        setLabValues(EMPTY_LAB_VALUES);
       }
     } catch (err: any) {
       const errorText = err.message || 'Error al guardar la consulta';
@@ -264,6 +301,7 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
       achievements: '',
       difficulties: ''
     });
+    setLabValues(EMPTY_LAB_VALUES);
   }
 
   const selectedPatientLabel = (() => {
@@ -437,6 +475,18 @@ export default function ConsultationForm({ onComplete }: { onComplete?: () => vo
               <CustomSelect value={formData.overall_status} onChange={v => setFormData({ ...formData, overall_status: v })} options={[{value:'En Progreso',label:'En Progreso'},{value:'Objetivo Alcanzado',label:'Objetivo Alcanzado'},{value:'En Riesgo',label:'En Riesgo'},{value:'Requiere Derivación',label:'Requiere Derivación'}]} />
             </div>
           </div>
+        </div>
+
+        {/* Laboratorio (opcional, plegable) */}
+        <div className="mb-6">
+          <LabResultsForm
+            value={labValues}
+            onChange={setLabValues}
+            patientSex={patientSex}
+            collapsible
+            title="Laboratorio (opcional)"
+            subtitle="Glucemia, lípidos, vitamina D, presión — para seguimiento metabólico"
+          />
         </div>
 
         {/* Logros y dificultades */}
