@@ -752,68 +752,282 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 
 // ─── Tab: Medidas ────────────────────────────────────────────────────────
 
+interface MeasureKpiDef {
+  key: string;
+  label: string;
+  unit: string;
+  decimals: number;
+  /** Función que extrae el valor desde una sesión (puede calcular ratios o sumas) */
+  getValue: (s: any) => number | null;
+  /** Si bajar es mejor (peso, IMC, cintura, pliegues) o subir (masa muscular, etc.) */
+  lowerIsBetter?: boolean;
+}
+
+function num(v: any): number | null {
+  if (v == null) return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : null;
+}
+
+function sumOrNull(values: (number | null)[]): number | null {
+  if (values.some(v => v == null)) return null;
+  return (values as number[]).reduce((a, b) => a + b, 0);
+}
+
+const MEASURE_KPIS: MeasureKpiDef[] = [
+  { key: 'weight',  label: 'Peso',          unit: 'kg', decimals: 1, lowerIsBetter: true,
+    getValue: s => num(s.weight) },
+  { key: 'imc',     label: 'IMC',           unit: '',   decimals: 1, lowerIsBetter: true,
+    getValue: s => {
+      const w = num(s.weight); const h = num(s.height);
+      return (w != null && h != null && h > 0) ? Number((w / Math.pow(h / 100, 2)).toFixed(1)) : null;
+    } },
+  { key: 'waist',   label: 'Cintura',       unit: 'cm', decimals: 1, lowerIsBetter: true,
+    getValue: s => num(s.girth_waist) },
+  { key: 'hip',     label: 'Cadera',        unit: 'cm', decimals: 1, lowerIsBetter: false,
+    getValue: s => num(s.girth_hip) },
+  { key: 'whr',     label: 'Cintura/Cadera',unit: '',   decimals: 2, lowerIsBetter: true,
+    getValue: s => {
+      const w = num(s.girth_waist); const h = num(s.girth_hip);
+      return (w != null && h != null && h > 0) ? Number((w / h).toFixed(2)) : null;
+    } },
+  { key: 'sumFolds', label: 'Σ 6 pliegues',  unit: 'mm', decimals: 1, lowerIsBetter: true,
+    getValue: s => sumOrNull([
+      num(s.fold_triceps), num(s.fold_subscapular), num(s.fold_supraspinale),
+      num(s.fold_abdominal), num(s.fold_front_thigh), num(s.fold_medial_calf),
+    ]) },
+  { key: 'arm',     label: 'Brazo relajado', unit: 'cm', decimals: 1, lowerIsBetter: false,
+    getValue: s => num(s.girth_arm_relaxed) },
+  { key: 'thigh',   label: 'Muslo medial',   unit: 'cm', decimals: 1, lowerIsBetter: false,
+    getValue: s => num(s.girth_thigh_mid) },
+];
+
+function MeasureMiniChart({ def, series }: { def: MeasureKpiDef; series: { date: string; v: number }[] }) {
+  const last = series.length > 0 ? series[series.length - 1].v : null;
+  const first = series.length > 0 ? series[0].v : null;
+  const delta = (last != null && first != null) ? Number((last - first).toFixed(def.decimals)) : null;
+  const isImprovement = delta != null && delta !== 0
+    ? (def.lowerIsBetter ? delta < 0 : delta > 0)
+    : null;
+
+  return (
+    <div className="bg-surface rounded-xl border-2 border-border-color p-3">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="min-w-0">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted">{def.label}</div>
+          <div className="flex items-baseline gap-1.5">
+            <span className="font-mono font-bold text-lg text-text-main">
+              {last != null ? last.toFixed(def.decimals) : '—'}
+            </span>
+            <span className="text-[10px] text-text-muted">{def.unit}</span>
+          </div>
+        </div>
+        {delta != null && (
+          <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shrink-0 ${
+            isImprovement === true ? 'bg-accent/10 text-primary border border-accent/30' :
+            isImprovement === false ? 'bg-danger/10 text-danger border border-danger/30' :
+            'bg-bg text-text-muted border border-border-color'
+          }`}>
+            {delta > 0 ? '+' : ''}{delta.toFixed(def.decimals)} {def.unit}
+          </span>
+        )}
+      </div>
+      <div className="h-20 -mx-1">
+        {series.length >= 1 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={series} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.05)" vertical={false} />
+              <XAxis dataKey="date" hide />
+              <YAxis hide domain={['auto', 'auto']} />
+              <Tooltip
+                contentStyle={{ fontSize: 11, padding: '4px 8px', borderRadius: 6 }}
+                labelFormatter={(v) => formatLocalDate(v as string, { day: '2-digit', month: 'short', year: 'numeric' }, 'es-AR')}
+                formatter={(v: any) => [`${Number(v).toFixed(def.decimals)} ${def.unit}`, def.label]}
+              />
+              <Line type="monotone" dataKey="v" stroke="#0A4D3C" strokeWidth={2} dot={{ r: 3, fill: '#0A4D3C' }} activeDot={{ r: 5 }} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-[11px] text-text-muted/60">Sin datos</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TabMedidas({ patient, onSelectSession }: { patient: any; onSelectSession: (s: any) => void }) {
-  const rows = useMemo(() => {
+  const sortedSessions = useMemo(() => {
     return [...(patient.sessions as any[])]
-      .filter(s => s.weight != null || s.height != null || s.girth_waist != null || s.girth_hip != null)
-      .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())
-      .map(s => {
-        const imc = s.weight && s.height
-          ? Number((s.weight / Math.pow(s.height / 100, 2)).toFixed(1))
-          : null;
-        return { ...s, imc };
-      });
+      .sort((a, b) => new Date(a.session_date).getTime() - new Date(b.session_date).getTime());
   }, [patient]);
 
-  if (rows.length === 0) {
+  // Series por KPI: solo sesiones donde el KPI tiene valor
+  const seriesByKpi = useMemo(() => {
+    const out: Record<string, { date: string; v: number }[]> = {};
+    for (const def of MEASURE_KPIS) {
+      out[def.key] = sortedSessions
+        .map(s => ({ date: s.session_date, v: def.getValue(s) }))
+        .filter((p): p is { date: string; v: number } => p.v != null);
+    }
+    return out;
+  }, [sortedSessions]);
+
+  // Tabla histórica: filas con al menos un dato relevante
+  const tableRows = useMemo(() => {
+    return [...sortedSessions]
+      .reverse()
+      .filter(s => s.weight != null || s.height != null || s.girth_waist != null || s.girth_hip != null)
+      .map(s => {
+        const imc = MEASURE_KPIS.find(k => k.key === 'imc')!.getValue(s);
+        const whr = MEASURE_KPIS.find(k => k.key === 'whr')!.getValue(s);
+        const sumFolds = MEASURE_KPIS.find(k => k.key === 'sumFolds')!.getValue(s);
+        return { ...s, imc, whr, sumFolds };
+      });
+  }, [sortedSessions]);
+
+  // Última antropometría para mostrar el detalle completo
+  const lastAnthro = useMemo(() => {
+    return [...sortedSessions]
+      .reverse()
+      .find(s => s.session_type === 'Antropometría');
+  }, [sortedSessions]);
+
+  if (tableRows.length === 0 && !lastAnthro) {
     return (
       <div className="bg-surface border-2 border-dashed border-border-color rounded-2xl p-12 text-center">
         <Ruler size={36} className="text-border-color mx-auto mb-3" />
         <h4 className="text-base font-bold text-text-muted">Aún no hay medidas registradas</h4>
-        <p className="text-sm text-text-muted/70 mt-1">Registrá una sesión con peso/talla para empezar a ver la evolución.</p>
+        <p className="text-sm text-text-muted/70 mt-1">Registrá una sesión con peso/talla o una antropometría completa para empezar a ver la evolución.</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-surface border-2 border-border-color rounded-2xl p-4 md:p-5 shadow-sm">
-      <h3 className="font-bold text-text-main mb-3 flex items-center gap-2">
-        <Ruler size={18} className="text-primary" /> Histórico de medidas
-        <span className="text-xs text-text-muted font-normal">· {rows.length} mediciones</span>
-      </h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-bg">
-            <tr>
-              {['Fecha', 'Tipo', 'Peso (kg)', 'Talla (cm)', 'IMC', 'Cintura (cm)', 'Cadera (cm)'].map(h => (
-                <th key={h} className="text-left p-3 text-[11px] font-black uppercase tracking-widest text-text-muted border-b-2 border-border-color whitespace-nowrap">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr
-                key={r.id}
-                onClick={() => onSelectSession(r)}
-                className="cursor-pointer hover:bg-primary/5 transition-colors border-b border-border-color"
-              >
-                <td className="p-3 font-mono whitespace-nowrap">{formatLocalDate(r.session_date, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'es-AR')}</td>
-                <td className="p-3">
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${r.session_type === 'Antropometría' ? 'bg-primary/15 text-primary' : 'bg-[#6366f1]/10 text-[#4f46e5]'}`}>
-                    {r.session_type === 'Antropometría' ? 'Antropo.' : 'Consulta'}
-                  </span>
-                </td>
-                <td className="p-3 font-mono">{r.weight ?? '—'}</td>
-                <td className="p-3 font-mono">{r.height ?? '—'}</td>
-                <td className="p-3 font-mono font-bold">{r.imc ?? '—'}</td>
-                <td className="p-3 font-mono">{r.girth_waist ?? '—'}</td>
-                <td className="p-3 font-mono">{r.girth_hip ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="space-y-4">
+      {/* Línea del tiempo de KPIs antropométricos */}
+      <div className="bg-surface border-2 border-border-color rounded-2xl p-4 md:p-5 shadow-sm">
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <Ruler size={20} />
+          </div>
+          <div>
+            <h3 className="text-lg font-bold text-text-main">Progreso de medidas</h3>
+            <p className="text-xs text-text-muted">Evolución de los KPIs antropométricos · {sortedSessions.length} sesiones</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+          {MEASURE_KPIS.map(def => (
+            <div key={def.key}>
+              <MeasureMiniChart def={def} series={seriesByKpi[def.key]} />
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* Tabla histórica */}
+      {tableRows.length > 0 && (
+        <div className="bg-surface border-2 border-border-color rounded-2xl p-4 md:p-5 shadow-sm">
+          <h3 className="font-bold text-text-main mb-3 flex items-center gap-2">
+            <CalendarDays size={18} className="text-primary" /> Histórico
+            <span className="text-xs text-text-muted font-normal">· {tableRows.length} mediciones</span>
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-bg">
+                <tr>
+                  {['Fecha', 'Tipo', 'Peso (kg)', 'Talla (cm)', 'IMC', 'Cintura', 'Cadera', 'C/C', 'Σ 6 plieg.'].map(h => (
+                    <th key={h} className="text-left p-3 text-[11px] font-black uppercase tracking-widest text-text-muted border-b-2 border-border-color whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((r) => (
+                  <tr
+                    key={r.id}
+                    onClick={() => onSelectSession(r)}
+                    className="cursor-pointer hover:bg-primary/5 transition-colors border-b border-border-color"
+                  >
+                    <td className="p-3 font-mono whitespace-nowrap">{formatLocalDate(r.session_date, { day: '2-digit', month: '2-digit', year: 'numeric' }, 'es-AR')}</td>
+                    <td className="p-3">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${r.session_type === 'Antropometría' ? 'bg-primary/15 text-primary' : 'bg-[#6366f1]/10 text-[#4f46e5]'}`}>
+                        {r.session_type === 'Antropometría' ? 'Antropo.' : 'Consulta'}
+                      </span>
+                    </td>
+                    <td className="p-3 font-mono">{r.weight ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.height ?? '—'}</td>
+                    <td className="p-3 font-mono font-bold">{r.imc ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.girth_waist ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.girth_hip ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.whr ?? '—'}</td>
+                    <td className="p-3 font-mono">{r.sumFolds != null ? r.sumFolds.toFixed(1) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Detalle de la última antropometría */}
+      {lastAnthro && (
+        <DetailedAnthropometryCard session={lastAnthro} />
+      )}
     </div>
+  );
+}
+
+function DetailedAnthropometryCard({ session: s }: { session: any }) {
+  const has = (v: any) => v != null && v !== '';
+  const foldFields: [string, string][] = [
+    ['fold_triceps', 'Tríceps'], ['fold_subscapular', 'Subescapular'], ['fold_biceps', 'Bíceps'],
+    ['fold_iliac_crest', 'Cresta ilíaca'], ['fold_supraspinale', 'Supraespinal'], ['fold_abdominal', 'Abdominal'],
+    ['fold_front_thigh', 'Muslo anterior'], ['fold_medial_calf', 'Pantorrilla medial'],
+  ];
+  const girthFields: [string, string][] = [
+    ['girth_neck', 'Cuello'], ['girth_arm_relaxed', 'Brazo relajado'], ['girth_arm_flexed', 'Brazo flexionado'],
+    ['girth_forearm', 'Antebrazo'], ['girth_wrist', 'Muñeca'], ['girth_chest', 'Tórax'],
+    ['girth_thigh_max', 'Muslo máximo'], ['girth_thigh_mid', 'Muslo medial'],
+    ['girth_calf', 'Pantorrilla'], ['girth_ankle', 'Tobillo'],
+  ];
+  const diamFields: [string, string][] = [
+    ['diam_biacromial', 'Biacromial'], ['diam_biiliocristal', 'Bi-iliocrestídeo'],
+    ['diam_humerus', 'Húmero'], ['diam_femur', 'Fémur'],
+    ['diam_wrist', 'Muñeca'], ['diam_ankle', 'Tobillo'],
+  ];
+
+  const renderGroup = (title: string, unit: string, fields: [string, string][]) => {
+    const present = fields.filter(([k]) => has(s[k]));
+    if (present.length === 0) return null;
+    return (
+      <div>
+        <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2 border-b border-primary/20 pb-1">{title}</h4>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+          {present.map(([k, label]) => (
+            <div key={k} className="bg-bg p-2.5 rounded-lg border border-border-color">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">{label}</p>
+              <p className="text-sm font-mono font-semibold">{s[k]} <span className="text-[10px] text-text-muted">{unit}</span></p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <details className="bg-surface border-2 border-border-color rounded-2xl shadow-sm">
+      <summary className="cursor-pointer p-4 md:p-5 font-bold text-text-main flex items-center gap-3">
+        <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+          <Ruler size={18} />
+        </div>
+        <span>Última antropometría completa</span>
+        <span className="text-xs text-text-muted font-normal">· {formatLocalDate(s.session_date, { day: '2-digit', month: 'long', year: 'numeric' }, 'es-AR')}</span>
+      </summary>
+      <div className="px-5 pb-5 space-y-4 border-t border-border-color pt-4">
+        {renderGroup('Pliegues cutáneos', 'mm', foldFields)}
+        {renderGroup('Perímetros', 'cm', girthFields)}
+        {renderGroup('Diámetros óseos', 'cm', diamFields)}
+      </div>
+    </details>
   );
 }
 

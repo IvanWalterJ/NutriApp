@@ -213,7 +213,10 @@ export default function App() {
                   <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
-                  <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} />
+                  {/* La tabla de pacientes se oculta del informe PDF por confidencialidad. */}
+                  <div className="print:hidden">
+                    <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} />
+                  </div>
                 </>
               )}
 
