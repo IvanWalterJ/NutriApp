@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
@@ -23,6 +23,8 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [filter, setFilter] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [currentPage, setCurrentPage] = useState<number>(1);
   const [showAddModal, setShowAddModal] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [employees, setEmployees] = useState<any[]>([]);
@@ -449,6 +451,35 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
     }
   };
 
+  const filteredEmployees = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return employees.filter(emp => {
+      const matchesSearch = emp.name.toLowerCase().includes(term);
+      if (!matchesSearch) return false;
+      if (filter === 'Todos') return true;
+      if (filter === 'En Progreso' && (emp.status === 'En Progreso' || emp.status === 'Progreso')) return true;
+      if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
+      return false;
+    });
+  }, [employees, searchTerm, filter]);
+
+  const totalFiltered = filteredEmployees.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pagedEmployees = useMemo(
+    () => filteredEmployees.slice(pageStart, pageStart + pageSize),
+    [filteredEmployees, pageStart, pageSize]
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, searchTerm, pageSize]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
+
   return (
     <div className="bg-surface border-2 border-border-color rounded-xl p-4 md:p-8 mb-8 animate-in" style={{ animationDelay: '0.2s' }}>
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-6">
@@ -507,14 +538,7 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.filter(emp => {
-                    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase());
-                    if (!matchesSearch) return false;
-                    if (filter === 'Todos') return true;
-                    if (filter === 'En Progreso' && (emp.status === 'En Progreso' || emp.status === 'Progreso')) return true;
-                    if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
-                    return false;
-                  }).map((emp, i) => (
+                  {pagedEmployees.map((emp, i) => (
                     <tr key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="transition-all duration-300 hover:bg-white hover:scale-[1.01] hover:shadow-lg border-b border-border-color group cursor-pointer">
                       <td className="p-5">
                         <strong className="group-hover:text-primary transition-colors">{emp.name}</strong><br />
@@ -550,14 +574,7 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
 
             {/* Mobile/Tablet Card View */}
             <div className="lg:hidden grid grid-cols-1 md:grid-cols-2 gap-4">
-              {employees.filter(emp => {
-                const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase());
-                if (!matchesSearch) return false;
-                if (filter === 'Todos') return true;
-                if (filter === 'En Progreso' && (emp.status === 'En Progreso' || emp.status === 'Progreso')) return true;
-                if (filter === 'En Riesgo' && emp.status === 'En Riesgo') return true;
-                return false;
-              }).map((emp, i) => (
+              {pagedEmployees.map((emp, i) => (
                 <div key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="bg-bg rounded-xl p-5 border border-border-color hover:border-primary/30 transition-all shadow-sm cursor-pointer active:scale-[0.98]">
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -605,6 +622,64 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                 </div>
               ))}
             </div>
+
+            {totalFiltered > 0 && (
+              <div className="mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm">
+                <div className="flex items-center gap-2 text-text-muted">
+                  <span>Mostrar</span>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="px-2 py-1 border-2 border-border-color rounded-md bg-surface focus:outline-none focus:border-primary font-semibold text-text-main"
+                  >
+                    {[10, 25, 50].map(n => (
+                      <option key={n} value={n}>{n}</option>
+                    ))}
+                  </select>
+                  <span>
+                    de <strong className="text-text-main">{totalFiltered}</strong> paciente{totalFiltered === 1 ? '' : 's'}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={safePage <= 1}
+                    className="px-3 py-1.5 border-2 border-border-color rounded-md font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                    aria-label="Primera página"
+                  >
+                    «
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={safePage <= 1}
+                    className="px-3 py-1.5 border-2 border-border-color rounded-md font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                    aria-label="Página anterior"
+                  >
+                    ‹
+                  </button>
+                  <span className="px-3 py-1.5 font-semibold text-text-main whitespace-nowrap">
+                    Página {safePage} de {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={safePage >= totalPages}
+                    className="px-3 py-1.5 border-2 border-border-color rounded-md font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                    aria-label="Página siguiente"
+                  >
+                    ›
+                  </button>
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={safePage >= totalPages}
+                    className="px-3 py-1.5 border-2 border-border-color rounded-md font-semibold disabled:opacity-40 disabled:cursor-not-allowed hover:border-primary hover:text-primary transition-all"
+                    aria-label="Última página"
+                  >
+                    »
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>

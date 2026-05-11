@@ -48,17 +48,32 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
   // Fires after React commits the portal to the DOM — safe to print
   useEffect(() => {
     if (!isPrinting) return;
-    document.title = pendingTitle.current;
-    document.body.classList.add('anthro-printing');
-    window.print();
+
+    let cleanedUp = false;
     const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
       document.title = prevTitle.current;
       document.body.classList.remove('anthro-printing');
       setIsPrinting(false);
       setLoading(false);
       window.removeEventListener('afterprint', cleanup);
     };
+
+    document.title = pendingTitle.current;
+    document.body.classList.add('anthro-printing');
     window.addEventListener('afterprint', cleanup);
+    try {
+      window.print();
+    } finally {
+      // Fallback por si `afterprint` no se dispara (cancelar diálogo o navegador sin soporte).
+      setTimeout(cleanup, 500);
+    }
+
+    return () => {
+      window.removeEventListener('afterprint', cleanup);
+      cleanup();
+    };
   }, [isPrinting]);
 
   // ── Compute results ────────────────────────────────────────────────────────

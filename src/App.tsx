@@ -69,19 +69,35 @@ export default function App() {
 
   useEffect(() => {
     if (!isPrintingDashboard) return;
+
+    let cleanedUp = false;
+    const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      document.title = prevTitleRef.current;
+      document.body.classList.remove('dashboard-printing');
+      setIsPrintingDashboard(false);
+      setDashboardDateFrom(undefined);
+      setDashboardDateTo(undefined);
+      window.removeEventListener('afterprint', cleanup);
+    };
+
     const timer = setTimeout(() => {
-      window.print();
-      const cleanup = () => {
-        document.title = prevTitleRef.current;
-        document.body.classList.remove('dashboard-printing');
-        setIsPrintingDashboard(false);
-        setDashboardDateFrom(undefined);
-        setDashboardDateTo(undefined);
-        window.removeEventListener('afterprint', cleanup);
-      };
       window.addEventListener('afterprint', cleanup);
+      try {
+        window.print();
+      } finally {
+        // Fallback por si `afterprint` no se dispara (cancelar diálogo, navegador sin soporte).
+        // `window.print()` bloquea hasta cerrar el diálogo, así que al llegar acá ya terminó.
+        setTimeout(cleanup, 500);
+      }
     }, 1500);
-    return () => clearTimeout(timer);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('afterprint', cleanup);
+      cleanup();
+    };
   }, [isPrintingDashboard]);
 
   function handleDashboardPrint(dateFrom: string, dateTo: string, company: string) {

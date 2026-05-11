@@ -418,15 +418,30 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
   useEffect(() => {
     if (!isPrinting) return;
-    document.body.classList.add('anthro-printing');
-    window.print();
+
+    let cleanedUp = false;
     const cleanup = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
       document.title = prevTitle.current;
       document.body.classList.remove('anthro-printing');
       setIsPrinting(false);
       window.removeEventListener('afterprint', cleanup);
     };
+
+    document.body.classList.add('anthro-printing');
     window.addEventListener('afterprint', cleanup);
+    try {
+      window.print();
+    } finally {
+      // Fallback por si `afterprint` no se dispara (cancelar diálogo o navegador sin soporte).
+      setTimeout(cleanup, 500);
+    }
+
+    return () => {
+      window.removeEventListener('afterprint', cleanup);
+      cleanup();
+    };
   }, [isPrinting]);
 
   // ── sub-components defined INSIDE (no inputs, so remount is harmless) ──────
