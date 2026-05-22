@@ -8,7 +8,8 @@ interface OmsPopulationMetricsProps {
 }
 
 export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulationMetricsProps = {}) {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getCompanyType } = useCompany();
+  const isFeria = getCompanyType(selectedCompany) === 'feria';
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
     imcNormal: 0,
@@ -23,32 +24,34 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
   });
 
   useEffect(() => {
-    fetchOmsMetrics();
+    // Guarda anti-race: si el usuario cambia de empresa antes de que termine el
+    // fetch, descartamos el resultado para que datos de la empresa anterior no
+    // pisen los de la nueva. También evita que datos vacíos de una empresa
+    // sin pacientes muestren los KPIs cacheados de la empresa anterior.
+    let cancelled = false;
+    fetchOmsMetrics(() => cancelled);
+    return () => { cancelled = true; };
   }, [selectedCompany, dateFrom, dateTo]);
 
-  async function fetchOmsMetrics() {
+  async function fetchOmsMetrics(isCancelled: () => boolean) {
     setLoading(true);
     try {
       // Fetch all patients with their sessions
-      let sessionsSelect = 'id, initial_weight, height, sessions(*)';
       if (dateFrom || dateTo) {
-        const dateFilter = [
-          dateFrom ? `session_date.gte.${dateFrom}` : null,
-          dateTo   ? `session_date.lte.${dateTo}`   : null,
-        ].filter(Boolean).join(',');
-        sessionsSelect = `id, initial_weight, height, sessions!inner(*)`;
         // Use a separate sessions query filtered by date
         const { data: patients, error } = await supabase
           .from('patients')
           .select('id, initial_weight, height')
           .eq('company', selectedCompany);
         if (error) throw error;
-        if (!patients || patients.length === 0) { setLoading(false); return; }
+        if (isCancelled()) return;
+        if (!patients || patients.length === 0) { processMetrics([], isCancelled); return; }
 
         let sessQ = supabase.from('sessions').select('*').in('patient_id', patients.map(p => p.id));
         if (dateFrom) sessQ = sessQ.gte('session_date', dateFrom);
         if (dateTo)   sessQ = sessQ.lte('session_date', dateTo);
         const { data: allSessions } = await sessQ;
+        if (isCancelled()) return;
 
         const sessionsByPatient: Record<string, any[]> = {};
         (allSessions || []).forEach((s: any) => {
@@ -56,7 +59,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
           sessionsByPatient[s.patient_id].push(s);
         });
 
-        processMetrics(patients.map(p => ({ ...p, sessions: sessionsByPatient[p.id] || [] })));
+        processMetrics(patients.map(p => ({ ...p, sessions: sessionsByPatient[p.id] || [] })), isCancelled);
         return;
       }
 
@@ -66,17 +69,23 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
         .eq('company', selectedCompany);
 
       if (error) throw error;
-      if (!patients || patients.length === 0) { setLoading(false); return; }
+      if (isCancelled()) return;
 
-      processMetrics(patients);
+      processMetrics(patients || [], isCancelled);
     } catch (err) {
       console.error('Error fetching OMS population metrics:', err);
+      if (!isCancelled()) {
+        // En caso de error, también reseteamos para no dejar datos cacheados de
+        // una empresa anterior visibles bajo el indicador de carga.
+        processMetrics([], isCancelled);
+      }
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
     }
   }
 
-  function processMetrics(patients: any[]) {
+  function processMetrics(patients: any[], isCancelled?: () => boolean) {
+    if (isCancelled?.()) return;
     // --- IMC Distribution ---
     let imcNormal = 0, imcSobrepeso = 0, imcBajoPeso = 0, totalWithImc = 0;
     const latestSessions: any[] = [];
@@ -133,6 +142,9 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
   const imcSobrepesoPct = metrics.totalWithImc > 0 ? Math.round((metrics.imcSobrepeso / metrics.totalWithImc) * 100) : 0;
   const imcBajoPesoPct = metrics.totalWithImc > 0 ? Math.round((metrics.imcBajoPeso / metrics.totalWithImc) * 100) : 0;
 
+  // En ferias/eventos ocultamos métricas que requieren múltiples sesiones
+  // (adherencia, índice de participación a 30 días). Las del formulario inicial
+  // (IMC, hidratación, frutas/verduras, actividad) se mantienen.
   const omsCards = [
     {
       label: 'IMC Poblacional',
@@ -144,7 +156,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
       barColor: 'from-primary to-accent-dark',
       target: 'Meta OMS: >60% normopeso',
     },
-    {
+    ...(isFeria ? [] : [{
       label: 'Adherencia Promedio',
       value: `${metrics.adherenceAvg.toFixed(1)}/5`,
       sublabel: '',
@@ -153,7 +165,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
       barPct: Math.round((metrics.adherenceAvg / 5) * 100),
       barColor: 'from-info to-[#60A5FA]',
       target: 'Meta OMS: ≥4/5',
-    },
+    }]),
     {
       label: 'Hidratación Adecuada',
       value: `${metrics.hydrationPct}%`,
@@ -164,7 +176,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
       barColor: 'from-[#06B6D4] to-[#22D3EE]',
       target: 'Meta: ≥80%',
     },
-    {
+    ...(isFeria ? [] : [{
       label: 'Índice Participación',
       value: `${metrics.participationPct}%`,
       sublabel: 'activos (30 días)',
@@ -173,7 +185,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
       barPct: metrics.participationPct,
       barColor: 'from-[#8B5CF6] to-[#A78BFA]',
       target: 'Meta: ≥80%',
-    },
+    }]),
     {
       label: 'Consumo Frutas/Verduras',
       value: `${metrics.fruitsPct}%`,
@@ -202,7 +214,11 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
         <div className="flex items-center justify-between mb-6">
           <div>
             <h3 className="text-xl font-bold mb-1">Parámetros OMS Poblacionales</h3>
-            <p className="text-sm text-text-muted">Indicadores de salud de la población general de la empresa</p>
+            <p className="text-sm text-text-muted">
+              {isFeria
+                ? 'Indicadores de salud de los pacientes atendidos en el evento'
+                : 'Indicadores de salud de la población general de la empresa'}
+            </p>
           </div>
           <div className="w-12 h-12 rounded-xl flex items-center justify-center bg-primary/10 text-primary">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

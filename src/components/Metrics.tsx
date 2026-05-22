@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { assessPatientRisk, deriveStatus } from '../lib/patientRisk';
+import { toNumOrNull } from '../lib/numberUtils';
 
 const UsersIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -39,7 +40,8 @@ interface MetricsProps {
 }
 
 export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getCompanyType } = useCompany();
+  const isFeria = getCompanyType(selectedCompany) === 'feria';
   const [stats, setStats] = useState({
     active: 0,
     adherence: 0,
@@ -50,10 +52,15 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStats();
+    // Guarda anti-race: si el usuario cambia de empresa/rango antes de que
+    // termine el fetch, descartamos el resultado para no pisar los datos de
+    // la empresa actual con los de la consulta anterior.
+    let cancelled = false;
+    fetchStats(() => cancelled);
+    return () => { cancelled = true; };
   }, [selectedCompany, dateFrom, dateTo]);
 
-  async function fetchStats() {
+  async function fetchStats(isCancelled: () => boolean) {
     try {
       const now = new Date();
       const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
@@ -64,6 +71,7 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
         .eq('company', selectedCompany);
 
       if (pError) throw pError;
+      if (isCancelled()) return;
 
       const newP = patients.filter(p => p.created_at >= firstDayOfMonth).length;
 
@@ -77,6 +85,7 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
 
       const { data: sessions, error: sError } = await sessionQuery;
       if (sError) throw sError;
+      if (isCancelled()) return;
 
       // Último laboratorio por paciente (sin filtro de fecha — el riesgo
       // metabólico no debería desaparecer del dashboard solo porque el rango
@@ -89,28 +98,37 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
             .in('patient_id', patientIds)
             .order('lab_date', { ascending: false })
         : { data: [] as any[] };
+      if (isCancelled()) return;
       const latestLabByPatient: Record<string, any> = {};
       (labs || []).forEach((l: any) => {
         if (!latestLabByPatient[l.patient_id]) latestLabByPatient[l.patient_id] = l;
       });
 
-      const sessionsWithAdherence = sessions.filter(s => s.adherence != null && s.adherence > 0);
+      const sessionsWithAdherence = sessions.filter(s => {
+        const a = toNumOrNull(s.adherence);
+        return a !== null && a > 0;
+      });
       const avgAdh = sessionsWithAdherence.length > 0
-        ? sessionsWithAdherence.reduce((acc, s) => acc + s.adherence, 0) / sessionsWithAdherence.length
+        ? sessionsWithAdherence.reduce((acc, s) => acc + (toNumOrNull(s.adherence) ?? 0), 0) / sessionsWithAdherence.length
         : 0;
 
-      // Latest measure por paciente: peso, talla y cintura (cada uno con su fecha)
+      // Latest measure por paciente: peso, talla y cintura (cada uno con su fecha).
+      // Sólo aceptamos valores numéricos finitos — datos corruptos (string vacío,
+      // NaN, tipeo inválido) contaminaban los promedios (bug 700kg).
       const latest: Record<string, { weight?: number; height?: number; waist?: number; weightDate?: string; heightDate?: string; waistDate?: string }> = {};
       sessions.forEach(s => {
         const ent = latest[s.patient_id] ||= {};
-        if (s.weight != null && (!ent.weightDate || s.session_date >= ent.weightDate)) {
-          ent.weight = s.weight; ent.weightDate = s.session_date;
+        const w = toNumOrNull(s.weight);
+        if (w !== null && (!ent.weightDate || s.session_date >= ent.weightDate)) {
+          ent.weight = w; ent.weightDate = s.session_date;
         }
-        if (s.height != null && (!ent.heightDate || s.session_date >= ent.heightDate)) {
-          ent.height = s.height; ent.heightDate = s.session_date;
+        const h = toNumOrNull(s.height);
+        if (h !== null && (!ent.heightDate || s.session_date >= ent.heightDate)) {
+          ent.height = h; ent.heightDate = s.session_date;
         }
-        if (s.girth_waist != null && (!ent.waistDate || s.session_date >= ent.waistDate)) {
-          ent.waist = s.girth_waist; ent.waistDate = s.session_date;
+        const gw = toNumOrNull(s.girth_waist);
+        if (gw !== null && (!ent.waistDate || s.session_date >= ent.waistDate)) {
+          ent.waist = gw; ent.waistDate = s.session_date;
         }
       });
 
@@ -119,14 +137,15 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
       let riskCount = 0;
       patients.forEach(p => {
         const m = latest[p.id] || {};
-        if (m.weight != null) {
-          totalLoss += (m.weight - p.initial_weight);
+        const initialW = toNumOrNull(p.initial_weight);
+        if (m.weight !== undefined && initialW !== null) {
+          totalLoss += (m.weight - initialW);
           countLoss++;
         }
         const assessment = assessPatientRisk({
           sex: p.sex,
-          height: m.height ?? p.height ?? null,
-          weight: m.weight ?? p.initial_weight ?? null,
+          height: m.height ?? toNumOrNull(p.height),
+          weight: m.weight ?? initialW,
           waist: m.waist ?? null,
           lab: latestLabByPatient[p.id] ?? null,
         });
@@ -146,20 +165,24 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
     } catch (err) {
       console.error('Error fetching stats:', err);
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
     }
   }
 
+  // En ferias/eventos no tiene sentido mostrar métricas temporales
+  // (adherencia y pérdida de peso requieren múltiples sesiones por paciente).
   const metrics = [
     {
-      label: 'Pacientes Activos',
+      label: isFeria ? 'Pacientes Atendidos' : 'Pacientes Activos',
       Icon: UsersIcon,
       iconBg: 'bg-primary/10 text-primary',
       value: stats.active.toString(),
-      change: `+${stats.newThisMonth} registrados este mes`,
+      change: isFeria
+        ? `${stats.active} consultas en el evento`
+        : `+${stats.newThisMonth} registrados este mes`,
       changeColor: stats.newThisMonth > 0 ? 'text-accent-dark' : 'text-text-muted',
     },
-    {
+    ...(isFeria ? [] : [{
       label: 'Adherencia Promedio',
       Icon: StarIcon,
       iconBg: 'bg-info/10 text-info',
@@ -182,7 +205,7 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
       ),
       change: 'Basado en últimas sesiones',
       changeColor: stats.weightLoss <= -2 ? 'text-accent-dark' : 'text-text-muted',
-    },
+    }]),
     {
       label: 'En Riesgo',
       Icon: AlertTriangleIcon,
@@ -193,8 +216,12 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
     },
   ];
 
+  const gridCols = isFeria
+    ? 'grid-cols-1 md:grid-cols-2'
+    : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-4';
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-in">
+    <div className={`grid ${gridCols} gap-6 mb-8 animate-in`}>
       {metrics.map((metric, i) => (
         <div
           key={i}

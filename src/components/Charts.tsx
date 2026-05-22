@@ -11,7 +11,8 @@ interface ChartsProps {
 }
 
 export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {}) {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getCompanyType } = useCompany();
+  const isFeria = getCompanyType(selectedCompany) === 'feria';
   const [sessionStats, setSessionStats] = useState<any[]>([]);
   const [statusStats, setStatusStats] = useState({
     objetivo: 0,
@@ -22,10 +23,14 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
+    // Guarda anti-race: descartamos resultados si el usuario cambia de
+    // empresa/rango antes de que termine el fetch.
+    let cancelled = false;
+    fetchData(() => cancelled);
+    return () => { cancelled = true; };
   }, [dateFrom, dateTo, selectedCompany]);
 
-  async function fetchData() {
+  async function fetchData(isCancelled: () => boolean) {
     try {
       // 1. Fetch sessions for the bar chart (filtered by company)
       let sessionQuery = supabase.from('sessions').select('session_date').eq('company', selectedCompany);
@@ -35,6 +40,7 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
       const { data: sessions, error: sError } = await sessionQuery;
 
       if (sError) throw sError;
+      if (isCancelled()) return;
 
       const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
       const monthlyCount: Record<string, number> = {};
@@ -58,6 +64,7 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
         .eq('company', selectedCompany);
 
       if (pError) throw pError;
+      if (isCancelled()) return;
 
       // Última medida de cintura/peso/talla por paciente (de TODAS las sesiones,
       // sin filtro de fecha — el riesgo metabólico no debe desaparecer del
@@ -85,6 +92,7 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
             .in('patient_id', ids)
             .order('lab_date', { ascending: false })
         : { data: [] as any[] };
+      if (isCancelled()) return;
       const latestLab: Record<string, any> = {};
       (labs || []).forEach((l: any) => { if (!latestLab[l.patient_id]) latestLab[l.patient_id] = l; });
 
@@ -108,7 +116,7 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
     } catch (err) {
       console.error('Error fetching chart data:', err);
     } finally {
-      setLoading(false);
+      if (!isCancelled()) setLoading(false);
     }
   }
 
@@ -117,7 +125,8 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 animate-in" style={{ animationDelay: '0.1s' }}>
+    <div className={`grid grid-cols-1 ${isFeria ? '' : 'lg:grid-cols-3'} gap-6 mb-8 animate-in`} style={{ animationDelay: '0.1s' }}>
+      {!isFeria && (
       <div className="lg:col-span-2 bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 hover-lift card-transition shadow-sm">
         <div className="mb-6">
           <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">Evolución Mensual Participación</h3>
@@ -154,11 +163,12 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
           )}
         </div>
       </div>
+      )}
 
       <div className="bg-surface border-2 border-border-color rounded-xl p-5 md:p-8 hover-lift card-transition shadow-sm">
         <div className="mb-6">
           <h3 className="text-xl font-bold mb-2">Distribución Estado</h3>
-          <p className="text-sm text-text-muted">Clasificación actual empleados</p>
+          <p className="text-sm text-text-muted">Clasificación actual pacientes</p>
         </div>
         <div className="grid gap-4">
           <div className="flex items-center gap-3 md:gap-4 p-3 md:p-4 bg-bg rounded-lg border border-transparent hover:border-accent group transition-all">
