@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
+import { BRAND } from '../lib/branding';
 
 const MenuIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -54,7 +55,7 @@ export default function Header({ profile, activeTab, onMenuClick }: HeaderProps)
           </button>
           <div className="min-w-0">
             <h1 className="text-base md:text-lg font-bold text-text-main truncate">
-              {TAB_LABELS[activeTab] ?? 'NuPlan'}
+              {TAB_LABELS[activeTab] ?? BRAND.name}
             </h1>
           </div>
         </div>
@@ -64,6 +65,7 @@ export default function Header({ profile, activeTab, onMenuClick }: HeaderProps)
 
           {/* Company dropdown */}
           <div className="relative">
+            {/* Desktop button: chip + name + pill + chevron */}
             <button
               onClick={() => setDropdownOpen(v => !v)}
               className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors text-sm font-semibold
@@ -81,10 +83,23 @@ export default function Header({ profile, activeTab, onMenuClick }: HeaderProps)
               <span className="opacity-60"><ChevronDownIcon /></span>
             </button>
 
+            {/* Mobile compact button: only colored chip + truncated name */}
+            <button
+              onClick={() => setDropdownOpen(v => !v)}
+              aria-label="Cambiar empresa"
+              className={`sm:hidden flex items-center gap-1.5 px-2 py-1 rounded-lg border transition-colors text-xs font-semibold
+                ${isFeria
+                  ? 'border-accent-dark/30 bg-accent/8 text-accent-dark'
+                  : 'border-primary/20 bg-primary/8 text-primary'}`}
+            >
+              <BuildingIcon />
+              <span className="max-w-[90px] truncate">{selectedCompany}</span>
+            </button>
+
             {dropdownOpen && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 z-50 bg-surface border-2 border-border-color rounded-2xl shadow-xl overflow-hidden min-w-[200px] max-h-80 overflow-y-auto">
+                <div className="absolute right-0 left-auto top-full mt-1.5 z-50 bg-surface border-2 border-border-color rounded-2xl shadow-xl overflow-hidden min-w-[200px] max-w-[calc(100vw-1rem)] max-h-80 overflow-y-auto">
                   {/* Empresas fijas */}
                   {companies.filter(c => c.type === 'fija').length > 0 && (
                     <div>

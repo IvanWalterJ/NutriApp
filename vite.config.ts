@@ -44,8 +44,18 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   // Make env vars available to API handlers running in Vite's SSR context
   Object.assign(process.env, env);
+
+  // Si VITE_PROD_API_URL está seteada, las llamadas /api/* se proxean a
+  // producción en vez de usar el plugin dev local. Útil cuando una env var
+  // sensible (ej. ANTHROPIC_API_KEY) solo vive en Vercel y no querés copiarla
+  // a .env.local. El resto de la app (Supabase, UI) sigue corriendo local.
+  const prodApiUrl = env.VITE_PROD_API_URL?.trim();
+  const useProxyToProd = !!prodApiUrl;
+
   return {
-    plugins: [react(), tailwindcss(), apiDevPlugin()],
+    plugins: useProxyToProd
+      ? [react(), tailwindcss()]              // sin apiDevPlugin: el proxy se encarga
+      : [react(), tailwindcss(), apiDevPlugin()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
@@ -55,9 +65,24 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      // HMR is disabled in AI Studio via DISABLE_HMR env var.
-      // Do not modify — file watching is disabled to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
+      ...(useProxyToProd && {
+        proxy: {
+          '/api': {
+            target: prodApiUrl,
+            changeOrigin: true,
+            secure: true,
+            configure: (proxy) => {
+              proxy.on('proxyReq', (_req, req) => {
+                console.log(`[proxy → prod] ${req.method} ${req.url}`);
+              });
+              proxy.on('error', (err) => {
+                console.error('[proxy error]', err.message);
+              });
+            },
+          },
+        },
+      }),
     },
   };
 });

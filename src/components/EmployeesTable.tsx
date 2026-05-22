@@ -10,14 +10,19 @@ import { Search, X, Activity, CalendarDays, Edit2, Save, Trash2, AlertTriangle, 
 import { createPortal } from 'react-dom';
 import { formatLocalDate } from '../lib/dateUtils';
 import { assessPatientRisk, deriveStatus, RiskFlag } from '../lib/patientRisk';
+import { toNumOrNull } from '../lib/numberUtils';
+import { classifyBMI } from '../lib/anthropometry';
+import { CONSULTATION_REASONS } from '../lib/nutritionConstants';
 
 interface EmployeesTableProps {
   /** Si se pasa, click en un paciente delega al padre (vista dedicada).
    *  Si no se pasa, fallback al modal de detalle interno. */
   onSelectPatient?: (id: string) => void;
+  /** Cambiar este número fuerza un refetch — útil tras un import masivo. */
+  refreshKey?: number;
 }
 
-export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps = {}) {
+export default function EmployeesTable({ onSelectPatient, refreshKey }: EmployeesTableProps = {}) {
   const { showToast } = useToast();
   const { selectedCompany } = useCompany();
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -47,6 +52,8 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
     consumo_frutas_verduras: '3',
     energy_level: '3',
     sleep_quality: '3',
+    consultation_reason: '',
+    consultation_notes: '',
   });
   const [isEditingPatient, setIsEditingPatient] = useState(false);
   const [editPatientData, setEditPatientData] = useState<any>({});
@@ -144,7 +151,7 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
 
   useEffect(() => {
     fetchEmployees();
-  }, [selectedCompany]);
+  }, [selectedCompany, refreshKey]);
 
   function processEmployeeRow(emp: any, latestLab?: any) {
     const lastSession = (emp.sessions as any[])?.reduce((best: any, current: any) => {
@@ -154,25 +161,29 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
     }, null) ?? null;
 
     const lastSessionWithWeight = (emp.sessions as any[])?.reduce((best: any, current: any) => {
-      if (current.weight == null) return best;
+      if (toNumOrNull(current.weight) === null) return best;
       if (!best) return current;
       const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
       return diff >= 0 ? current : best;
     }, null) ?? null;
 
     const lastSessionWithWaist = (emp.sessions as any[])?.reduce((best: any, current: any) => {
-      if (current.girth_waist == null) return best;
+      if (toNumOrNull(current.girth_waist) === null) return best;
       if (!best) return current;
       const diff = new Date(current.session_date).getTime() - new Date(best.session_date).getTime();
       return diff >= 0 ? current : best;
     }, null) ?? null;
 
-    const weightLossNum = lastSessionWithWeight
-      ? parseFloat((lastSessionWithWeight.weight - emp.initial_weight).toFixed(1))
+    const currentWeight = toNumOrNull(lastSessionWithWeight?.weight);
+    const initialWeightNum = toNumOrNull(emp.initial_weight);
+    const heightNum = toNumOrNull(lastSessionWithWeight?.height) ?? toNumOrNull(emp.height);
+
+    const weightLossNum = currentWeight !== null && initialWeightNum !== null
+      ? parseFloat((currentWeight - initialWeightNum).toFixed(1))
       : 0;
 
-    const lossPercentageNum = lastSessionWithWeight && emp.initial_weight
-      ? parseFloat((((lastSessionWithWeight.weight - emp.initial_weight) / emp.initial_weight) * 100).toFixed(1))
+    const lossPercentageNum = currentWeight !== null && initialWeightNum !== null && initialWeightNum !== 0
+      ? parseFloat((((currentWeight - initialWeightNum) / initialWeightNum) * 100).toFixed(1))
       : 0;
 
     const weightLoss = weightLossNum.toString();
@@ -187,24 +198,28 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
     // "Objetivo Alcanzado" o "Requiere Derivación".
     const assessment = assessPatientRisk({
       sex: emp.sex,
-      height: lastSessionWithWeight?.height ?? emp.height ?? null,
-      weight: lastSessionWithWeight?.weight ?? emp.initial_weight ?? null,
-      waist: lastSessionWithWaist?.girth_waist ?? null,
+      height: heightNum,
+      weight: currentWeight ?? initialWeightNum,
+      waist: toNumOrNull(lastSessionWithWaist?.girth_waist),
       lab: latestLab ?? null,
     });
     const derivedStatus = deriveStatus(emp.status, assessment);
 
+    const displayWeight = currentWeight ?? initialWeightNum;
+    const imcWeight = currentWeight ?? initialWeightNum;
+    const imcValue = imcWeight !== null && heightNum !== null && heightNum > 0
+      ? (imcWeight / Math.pow(heightNum / 100, 2)).toFixed(1)
+      : '—';
+
     return {
       ...emp,
       name: `${emp.first_name} ${emp.last_name}`,
-      weight: lastSessionWithWeight ? `${lastSessionWithWeight.weight} kg` : `${emp.initial_weight} kg`,
+      weight: displayWeight !== null ? `${displayWeight} kg` : '—',
       weightChange: `${weightLossNum > 0 ? '+' : ''}${weightLoss}kg`,
       weightChangeColor: weightLossNum <= 0 ? 'positive' : 'negative',
       loss: `${lossPercentageNum > 0 ? '+' : ''}${lossPercentage}%`,
-      adherence: lastSession?.adherence || 0,
-      imc: lastSessionWithWeight && emp.height
-        ? (lastSessionWithWeight.weight / Math.pow(emp.height / 100, 2)).toFixed(1)
-        : (emp.initial_weight / Math.pow(emp.height / 100, 2)).toFixed(1),
+      adherence: toNumOrNull(lastSession?.adherence) ?? 0,
+      imc: imcValue,
       lastSessionText: daysSinceLastSession !== null
         ? (daysSinceLastSession === 0 ? 'Hoy' : `Hace ${daysSinceLastSession} días`)
         : 'Sin sesiones',
@@ -316,6 +331,8 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
         consumo_frutas_verduras: parseInt(newEmployee.consumo_frutas_verduras),
         energy_level: parseInt(newEmployee.energy_level),
         sleep_quality: parseInt(newEmployee.sleep_quality),
+        consultation_reason: newEmployee.consultation_reason || null,
+        consultation_notes: newEmployee.consultation_notes || null,
       }]).select('id').single();
       if (sessionError) throw sessionError;
 
@@ -352,6 +369,8 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
         consumo_frutas_verduras: '3',
         energy_level: '3',
         sleep_quality: '3',
+        consultation_reason: '',
+        consultation_notes: '',
       });
       setNewPatientLab(EMPTY_LAB_VALUES);
       fetchEmployees();
@@ -541,7 +560,13 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                   {pagedEmployees.map((emp, i) => (
                     <tr key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="transition-all duration-300 hover:bg-white hover:scale-[1.01] hover:shadow-lg border-b border-border-color group cursor-pointer">
                       <td className="p-5">
-                        <strong className="group-hover:text-primary transition-colors">{emp.name}</strong><br />
+                        <strong className="group-hover:text-primary transition-colors">{emp.name}</strong>
+                        {emp.import_batch_id && (
+                          <span title="Paciente importado desde Excel — revisar en la primera consulta" className="ml-2 inline-block text-[9px] font-black uppercase tracking-widest bg-info/15 text-info border border-info/30 px-1.5 py-0.5 rounded">
+                            Importado
+                          </span>
+                        )}
+                        <br />
                         <span className="text-[0.85rem] text-text-muted">{emp.area}</span>
                       </td>
                       <td className="p-5">
@@ -578,7 +603,14 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                 <div key={i} onClick={() => { if (onSelectPatient) { onSelectPatient(emp.id); } else { setSelectedPatient(emp); } }} className="bg-bg rounded-xl p-5 border border-border-color hover:border-primary/30 transition-all shadow-sm cursor-pointer active:scale-[0.98]">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h4 className="font-bold text-lg leading-tight">{emp.name}</h4>
+                      <h4 className="font-bold text-lg leading-tight">
+                        {emp.name}
+                        {emp.import_batch_id && (
+                          <span title="Paciente importado — revisar en la primera consulta" className="ml-2 inline-block text-[9px] font-black uppercase tracking-widest bg-info/15 text-info border border-info/30 px-1.5 py-0.5 rounded align-middle">
+                            Importado
+                          </span>
+                        )}
+                      </h4>
                       <p className="text-xs text-text-muted uppercase tracking-wider mt-1">{emp.area}</p>
                     </div>
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[0.7rem] font-black tracking-tighter uppercase transition-all ${getStatusClasses(emp.statusColor)}`}>
@@ -813,6 +845,24 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                     />
                   </div>
                 </div>
+                {(() => {
+                  const w = toNumOrNull(newEmployee.initial_weight);
+                  const h = toNumOrNull(newEmployee.height);
+                  if (w === null || h === null || h < 50 || h > 250) return null;
+                  const bmi = w / Math.pow(h / 100, 2);
+                  if (!Number.isFinite(bmi) || bmi < 5 || bmi > 90) return null;
+                  const label = classifyBMI(bmi);
+                  const color =
+                    label === 'Normal' ? 'bg-accent/10 text-primary border-accent/30'
+                    : label === 'Bajo Peso' || label === 'Sobrepeso' ? 'bg-warning/10 text-[#92400e] border-warning/30'
+                    : 'bg-danger/10 text-danger border-danger/30';
+                  return (
+                    <div className={`mt-2 text-xs font-bold px-3 py-1.5 rounded-lg border flex items-center justify-between gap-3 ${color}`}>
+                      <span>IMC: <span className="font-mono text-sm">{bmi.toFixed(1)}</span></span>
+                      <span className="uppercase tracking-wider text-[10px]">{label}</span>
+                    </div>
+                  );
+                })()}
                 {newEmployee.girth_waist && (() => {
                   const val = parseFloat(newEmployee.girth_waist);
                   const threshold = newEmployee.sex === 'Masculino' ? 94 : 80;
@@ -907,6 +957,33 @@ export default function EmployeesTable({ onSelectPatient }: EmployeesTableProps 
                         <option value="4">4 - Buena</option>
                         <option value="5">5 - Excelente</option>
                       </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Motivo de consulta */}
+                <div className="mt-4 pt-4 border-t-2 border-border-color">
+                  <h4 className="text-sm font-bold text-primary mb-3 uppercase tracking-wider">Motivo de Consulta</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Motivo principal</label>
+                      <select
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none bg-surface"
+                        value={newEmployee.consultation_reason}
+                        onChange={e => setNewEmployee({ ...newEmployee, consultation_reason: e.target.value })}
+                      >
+                        <option value="">— Seleccionar —</option>
+                        {CONSULTATION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-text-muted mb-1">Notas adicionales</label>
+                      <textarea
+                        className="w-full p-3 border-2 border-border-color rounded-lg focus:border-primary focus:outline-none bg-surface min-h-[44px] resize-y"
+                        placeholder="Ej. SIBO, colesterol alto, celíaco"
+                        value={newEmployee.consultation_notes}
+                        onChange={e => setNewEmployee({ ...newEmployee, consultation_notes: e.target.value })}
+                      />
                     </div>
                   </div>
                 </div>

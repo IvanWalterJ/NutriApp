@@ -7,6 +7,7 @@ import CustomSelect from './ui/CustomSelect';
 import SuccessModal from './SuccessModal';
 import LabResultsForm, { EMPTY_LAB_VALUES, LabFormValues, labFormToPayload } from './LabResultsForm';
 import { History, X as IconX } from 'lucide-react';
+import { CONSULTATION_REASONS } from '../lib/nutritionConstants';
 
 function shiftISODate(iso: string, days: number): string {
   const d = parseLocalDate(iso);
@@ -53,6 +54,8 @@ export default function ConsultationForm({ onComplete, preselectedPatientId }: C
     energy_level: 4,
     sleep_quality: 4,
     overall_status: 'En Progreso',
+    consultation_reason: '',
+    consultation_notes: '',
     achievements: '',
     difficulties: ''
   });
@@ -171,6 +174,8 @@ export default function ConsultationForm({ onComplete, preselectedPatientId }: C
         hydration: formData.hydration,
         physical_activity: formData.physical_activity,
         overall_status: formData.overall_status,
+        consultation_reason: formData.consultation_reason || null,
+        consultation_notes: formData.consultation_notes || null,
         achievements: formData.achievements,
         difficulties: formData.difficulties,
         laboratorio_alterado: formData.laboratorio_alterado || null,
@@ -231,6 +236,8 @@ export default function ConsultationForm({ onComplete, preselectedPatientId }: C
           height: '',
           girth_waist: '',
           laboratorio_alterado: '',
+          consultation_reason: '',
+          consultation_notes: '',
           achievements: '',
           difficulties: ''
         }));
@@ -255,6 +262,8 @@ export default function ConsultationForm({ onComplete, preselectedPatientId }: C
           energy_level: 4,
           sleep_quality: 4,
           overall_status: 'En Progreso',
+          consultation_reason: '',
+          consultation_notes: '',
           achievements: '',
           difficulties: ''
         });
@@ -493,6 +502,27 @@ export default function ConsultationForm({ onComplete, preselectedPatientId }: C
             title="Laboratorio (opcional)"
             subtitle="Glucemia, lípidos, vitamina D, presión — para seguimiento metabólico"
           />
+        </div>
+
+        {/* Motivo de consulta */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Motivo de Consulta</label>
+            <CustomSelect
+              value={formData.consultation_reason}
+              onChange={v => setFormData({ ...formData, consultation_reason: v })}
+              options={[{ value: '', label: '— Seleccionar —' }, ...CONSULTATION_REASONS.map(r => ({ value: r, label: r }))]}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className={labelClass}>Notas del Motivo</label>
+            <textarea
+              className={inputClass + ' min-h-[60px] resize-y'}
+              placeholder="Detalle complementario (ej. SIBO, colesterol alto, celíaco)..."
+              value={formData.consultation_notes}
+              onChange={e => setFormData({ ...formData, consultation_notes: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* Logros y dificultades */}

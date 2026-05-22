@@ -6,6 +6,7 @@ import {
   calculateBodyComposition, generateValoracion
 } from '../lib/anthropometry';
 import { useCompany } from '../context/CompanyContext';
+import { BRAND } from '../lib/branding';
 
 interface Props {
   session: any;   // full session row from DB
@@ -95,21 +96,21 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     const p = (v: number) => Math.max(0, Math.min(1, (v - minV) / (maxV - minV))) * W;
     const zones = [{ min:14,max:18.5,color:'#bfdbfe'},{min:18.5,max:25,color:'#bbf7d0'},{min:25,max:30,color:'#fde68a'},{min:30,max:35,color:'#fdba74'},{min:35,max:42,color:'#fca5a5'}];
     const vx = p(bmi);
-    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill="#0A4D3C"/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
+    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary}/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
   };
   const ICCBar = (icc: number, s: string) => {
     const W=160,H=16,minV=0.6,maxV=1.15, p=(v:number)=>Math.max(0,Math.min(1,(v-minV)/(maxV-minV)))*W;
     const t1=s==='Masculino'?0.90:0.85, t2=s==='Masculino'?1.00:0.90;
     const zones=[{min:minV,max:t1,color:'#bbf7d0'},{min:t1,max:t2,color:'#fde68a'},{min:t2,max:maxV,color:'#fca5a5'}];
     const vx=p(icc);
-    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill="#0A4D3C"/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
+    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary}/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
   };
   const AbdBar = (cm: number, s: string) => {
     const W=160,H=16,minV=55,maxV=130, p=(v:number)=>Math.max(0,Math.min(1,(v-minV)/(maxV-minV)))*W;
     const t1=s==='Masculino'?94:80, t2=s==='Masculino'?102:88;
     const zones=[{min:minV,max:t1,color:'#bbf7d0'},{min:t1,max:t2,color:'#fde68a'},{min:t2,max:maxV,color:'#fca5a5'}];
     const vx=p(cm);
-    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill="#0A4D3C"/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
+    return <svg width={W} height={H} style={{display:'block'}}>{zones.map((z,i)=><rect key={i} x={p(z.min)} y={2} width={Math.max(0,p(z.max)-p(z.min))} height={H-4} fill={z.color}/>)}<circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary}/><circle cx={vx} cy={H/2} r={2} fill="white"/></svg>;
   };
   const CompBar = (value: number, mean: number, maxDiff: number) => {
     const W=140,H=12,cx=W/2, scale=(W/2)/maxDiff, vx=Math.max(4,Math.min(W-4,cx+(value-mean)*scale)), isHigh=value>mean;
@@ -141,7 +142,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
   const total = r ? r.fatMassKg + r.muscleMassKg + r.boneMassKg + r.residualMassKg : 1;
   const pieSlices = r ? [
     { pct: r.fatMassKg/total,      color: '#E05252', label: 'Adiposa',  pctVal: r.fatPct,      kg: r.fatMassKg      },
-    { pct: r.muscleMassKg/total,   color: '#0A4D3C', label: 'Muscular', pctVal: r.musclePct,   kg: r.muscleMassKg   },
+    { pct: r.muscleMassKg/total,   color: BRAND.colors.primary, label: 'Muscular', pctVal: r.musclePct,   kg: r.muscleMassKg   },
     { pct: r.boneMassKg/total,     color: '#7CB9A0', label: 'Ósea',     pctVal: r.bonePct,     kg: r.boneMassKg     },
     { pct: r.residualMassKg/total, color: '#B0B0B0', label: 'Residual', pctVal: r.residualPct, kg: r.residualMassKg },
   ] : [];
@@ -224,7 +225,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
           <div style={{background:'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)',color:'#fff',padding:'18px 24px',borderRadius:'10px',marginBottom:'4px'}}>
             <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
               <div>
-                <div style={{fontSize:'10px',fontWeight:'bold',letterSpacing:'3px',opacity:0.6,marginBottom:'4px'}}>NUPLAN · {selectedCompany.toUpperCase()}</div>
+                <div style={{fontSize:'10px',fontWeight:'bold',letterSpacing:'3px',opacity:0.6,marginBottom:'4px'}}>{BRAND.name.toUpperCase()} · {selectedCompany.toUpperCase()}</div>
                 <div style={{fontSize:'22px',fontWeight:'bold',lineHeight:1.1}}>EVALUACIÓN ANTROPOMÉTRICA</div>
                 <div style={{fontSize:'11px',marginTop:'5px',opacity:0.8}}>Valoración morfológica · Composición corporal</div>
               </div>
@@ -234,14 +235,14 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
               </div>
             </div>
           </div>
-          <div style={{background:'#e8f5f0',border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 8px 8px',padding:'6px 24px',marginBottom:'14px',display:'flex',justifyContent:'space-between',fontSize:'11px',color:'#0A4D3C'}}>
-            <span><strong>Lic. Rosana Roldán</strong> · Licenciada en Nutrición</span>
-            <span style={{fontWeight:'bold'}}>www.nuplan.com.ar</span>
+          <div style={{background:'#e8f5f0',border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 8px 8px',padding:'6px 24px',marginBottom:'14px',display:'flex',justifyContent:'space-between',fontSize:'11px',color:BRAND.colors.primary}}>
+            <span><strong>{BRAND.professional}</strong> · {BRAND.professionalRole}</span>
+            <span style={{fontWeight:'bold'}}>{BRAND.website}</span>
           </div>
 
           {/* Demographics */}
           <div style={{background:'#f4f9f7',border:'1px solid #c8e0d6',borderRadius:'8px',padding:'12px 16px',marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{fontSize:'9px',fontWeight:'bold',letterSpacing:'2px',color:'#0A4D3C',marginBottom:'8px',textTransform:'uppercase'}}>Datos del Evaluado</div>
+            <div style={{fontSize:'9px',fontWeight:'bold',letterSpacing:'2px',color:BRAND.colors.primary,marginBottom:'8px',textTransform:'uppercase'}}>Datos del Evaluado</div>
             <div style={{display:'grid',gridTemplateColumns:'repeat(4, 1fr)',gap:'8px',fontSize:'12px'}}>
               {[
                 {l:'Apellido y Nombre',v:`${patient.last_name}, ${patient.first_name}`},
@@ -264,7 +265,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
           {/* Body Composition + Pie */}
           <div style={{display:'grid',gridTemplateColumns:'1fr 175px',gap:'14px',marginBottom:'14px',pageBreakInside:'avoid'}}>
             <div>
-              <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>COMPOSICIÓN CORPORAL</div>
+              <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>COMPOSICIÓN CORPORAL</div>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <thead><tr style={{background:'#f4f9f7'}}>
                   <th style={tdL}>Componente</th><th style={tdV}>%</th><th style={tdV}>kg</th><th style={tdV}>Ref. (M ± DE)</th><th style={tdV}>Clasif.</th>
@@ -289,7 +290,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
               </table>
             </div>
             <div style={{border:'1px solid #c8e0d6',borderRadius:'8px',padding:'10px',display:'flex',flexDirection:'column',alignItems:'center',background:'#f4f9f7'}}>
-              <div style={{fontSize:'9px',fontWeight:'bold',letterSpacing:'1px',color:'#0A4D3C',marginBottom:'6px',textTransform:'uppercase' as const}}>Distribución</div>
+              <div style={{fontSize:'9px',fontWeight:'bold',letterSpacing:'1px',color:BRAND.colors.primary,marginBottom:'6px',textTransform:'uppercase' as const}}>Distribución</div>
               <svg width="100" height="100" viewBox="0 0 160 160">
                 {piePaths.map((p,i)=><path key={i} d={p.d} fill={p.color} stroke="#fff" strokeWidth="2"/>)}
               </svg>
@@ -307,7 +308,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
           {/* Adiposity Indices */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>ÍNDICES DE ADIPOSIDAD</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>ÍNDICES DE ADIPOSIDAD</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',overflow:'hidden'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <thead><tr style={{background:'#f4f9f7'}}>
@@ -334,7 +335,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
           {/* Regional fat — full width to avoid page cuts */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',padding:'10px 12px'}}>
               <div style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
                 <table style={{flex:1,borderCollapse:'collapse',fontSize:'11px'}}>
@@ -363,7 +364,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
           {/* Perimeters — full width */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>PERÍMETROS MUSCULARES</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>PERÍMETROS MUSCULARES</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',overflow:'hidden'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <thead><tr style={{background:'#f4f9f7'}}><th style={tdL}>Perímetro</th><th style={tdV}>Medido</th><th style={tdM}>Ref.</th><th style={tdV}>Dif.</th><th style={tdV}>Gráfico</th></tr></thead>
@@ -387,7 +388,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
 
           {/* Valoración */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 14px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>VALORACIÓN MORFOLÓGICA PERSONAL</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 14px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>VALORACIÓN MORFOLÓGICA PERSONAL</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',background:'#fafffe',padding:'14px 16px'}}>
               {valoracion.split('\n').map((line,i)=>(
                 line===''
@@ -400,7 +401,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
           {/* Last Consultation (if any) */}
           {consult && (
             <div style={{marginBottom:'14px'}}>
-              <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 14px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>
+              <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 14px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>
                 ÚLTIMA CONSULTA NUTRICIONAL · {consult.session_date}
               </div>
               <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',padding:'12px 16px'}}>
@@ -435,8 +436,8 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
           )}
 
           {/* Footer */}
-          <div style={{borderTop:'2px solid #0A4D3C',paddingTop:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'9px',color:'#555'}}>
-            <div><span style={{fontWeight:'bold',color:'#0A4D3C'}}>Lic. Rosana Roldán</span> · <span style={{fontWeight:'bold',color:'#0A4D3C'}}>www.nuplan.com.ar</span></div>
+          <div style={{borderTop:`2px solid ${BRAND.colors.primary}`,paddingTop:'8px',display:'flex',justifyContent:'space-between',alignItems:'center',fontSize:'9px',color:'#555'}}>
+            <div><span style={{fontWeight:'bold',color:BRAND.colors.primary}}>{BRAND.professional}</span> · <span style={{fontWeight:'bold',color:BRAND.colors.primary}}>{BRAND.website}</span></div>
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
         </div>

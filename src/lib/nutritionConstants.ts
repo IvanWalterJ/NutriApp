@@ -1,6 +1,18 @@
 // Constantes clínicas compartidas entre el generador de planes y el recetario.
 // Cualquier cambio en estas listas se refleja en ambas pantallas.
 
+export const CONSULTATION_REASONS = [
+  'Descenso de peso',
+  'Aumento de peso',
+  'Descenso de grasa corporal',
+  'Ganar masa muscular',
+  'Laboratorio',
+  'Educación alimentaria',
+  'Otro',
+] as const;
+
+export type ConsultationReason = typeof CONSULTATION_REASONS[number];
+
 export const INTOLERANCES_LIST = [
   'Lactosa',
   'Gluten (Celíaco / Sin TACC)',

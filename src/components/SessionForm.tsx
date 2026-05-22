@@ -5,6 +5,7 @@ import { Building2, Monitor } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
+import { CONSULTATION_REASONS } from '../lib/nutritionConstants';
 
 export default function SessionForm({ onComplete }: { onComplete?: () => void }) {
   const { showToast } = useToast();
@@ -74,6 +75,8 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
     hydration: true,
     physical_activity: '+150 min',
     overall_status: 'En Progreso',
+    consultation_reason: '',
+    consultation_notes: '',
     achievements: '',
     difficulties: ''
   });
@@ -151,6 +154,8 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
           hydration: formData.hydration,
           physical_activity: formData.physical_activity,
           overall_status: formData.overall_status,
+          consultation_reason: formData.consultation_reason || null,
+          consultation_notes: formData.consultation_notes || null,
           achievements: formData.achievements,
           difficulties: formData.difficulties
       };
@@ -191,6 +196,8 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
       setFormData({
         ...formData,
         patient_id: '',
+        consultation_reason: '',
+        consultation_notes: '',
         achievements: '',
         difficulties: '',
         // Reset all numerics
@@ -486,6 +493,30 @@ export default function SessionForm({ onComplete }: { onComplete?: () => void })
                 <option value="Requiere Derivación">Requiere Derivación</option>
               </select>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="flex flex-col gap-2">
+            <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Motivo de Consulta</label>
+            <select
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all"
+              value={formData.consultation_reason}
+              onChange={e => setFormData({ ...formData, consultation_reason: e.target.value })}
+            >
+              <option value="">— Seleccionar —</option>
+              {CONSULTATION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-[0.85rem] font-semibold uppercase tracking-widest">Notas del Motivo</label>
+            <textarea
+              className="p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all min-h-[60px] resize-y"
+              placeholder="Detalle complementario (ej. SIBO, colesterol alto, celíaco)..."
+              value={formData.consultation_notes}
+              onChange={e => setFormData({ ...formData, consultation_notes: e.target.value })}
+            ></textarea>
           </div>
         </div>
 

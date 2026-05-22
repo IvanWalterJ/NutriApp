@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from './lib/supabase';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
@@ -18,18 +18,46 @@ import RecipeGenerator from './components/RecipeGenerator';
 import EmpresasView from './components/EmpresasView';
 import OmsPopulationMetrics from './components/OmsPopulationMetrics';
 import ExcelExportButton from './components/ExcelExportButton';
+import ExcelImportButton from './components/ExcelImportButton';
 import DashboardPdfButton from './components/DashboardPdfButton';
 import PatientDetailView from './components/PatientDetailView';
 import Auth from './components/Auth';
 import ResetPassword from './components/ResetPassword';
 import { CompanyProvider } from './context/CompanyContext';
+import { BRAND } from './lib/branding';
+
+const ACTIVE_TAB_KEY = 'nutriapp.activeTab';
+const VALID_TABS = new Set([
+  'dashboard', 'empleados', 'antropometria', 'nueva-consulta',
+  'parametros', 'generador', 'recetario', 'empresas',
+]);
+
+function readStoredTab(): string {
+  if (typeof window === 'undefined') return 'dashboard';
+  try {
+    const stored = window.localStorage.getItem(ACTIVE_TAB_KEY);
+    return stored && VALID_TABS.has(stored) ? stored : 'dashboard';
+  } catch {
+    return 'dashboard';
+  }
+}
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isPasswordRecovery, setIsPasswordRecovery] = useState(false);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  // Lazy init: leemos de localStorage para que la sección sobreviva refreshes
+  // y nuevos logins en el mismo navegador. Whitelist evita estados zombies.
+  const [activeTab, setActiveTabState] = useState<string>(() => readStoredTab());
+  const setActiveTab = useCallback((tab: string) => {
+    setActiveTabState(tab);
+    try {
+      if (VALID_TABS.has(tab)) window.localStorage.setItem(ACTIVE_TAB_KEY, tab);
+    } catch {
+      // localStorage puede fallar en modo privado / cuota — ignoramos.
+    }
+  }, []);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
   // Cuando hay un paciente seleccionado, el área principal muestra la vista
@@ -41,7 +69,9 @@ export default function App() {
   const [dashboardDateFrom, setDashboardDateFrom] = useState<string | undefined>(undefined);
   const [dashboardDateTo, setDashboardDateTo]     = useState<string | undefined>(undefined);
   const [dashboardCompany, setDashboardCompany]   = useState<string>('');
+  const [dashboardCompanyType, setDashboardCompanyType] = useState<'fija' | 'feria' | undefined>(undefined);
   const [isPrintingDashboard, setIsPrintingDashboard] = useState(false);
+  const [patientsRefreshKey, setPatientsRefreshKey] = useState(0);
   const prevTitleRef = useRef('');
 
   useEffect(() => {
@@ -100,7 +130,7 @@ export default function App() {
     };
   }, [isPrintingDashboard]);
 
-  function handleDashboardPrint(dateFrom: string, dateTo: string, company: string) {
+  function handleDashboardPrint(dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined) {
     prevTitleRef.current = document.title;
     const from = new Date(dateFrom).toLocaleDateString('es-AR');
     const to   = new Date(dateTo).toLocaleDateString('es-AR');
@@ -109,6 +139,7 @@ export default function App() {
     setDashboardDateFrom(dateFrom);
     setDashboardDateTo(dateTo);
     setDashboardCompany(company);
+    setDashboardCompanyType(companyType);
     setIsPrintingDashboard(true);
   }
 
@@ -214,15 +245,27 @@ export default function App() {
               {activeTab === 'dashboard' && (
                 <>
                   <div className="flex justify-end mb-4 gap-2 print:hidden">
+                    <ExcelImportButton onImported={() => setPatientsRefreshKey(k => k + 1)} />
                     <ExcelExportButton />
                     <DashboardPdfButton onPrint={handleDashboardPrint} isPrinting={isPrintingDashboard} />
                   </div>
                   {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (
                     <div className="hidden print:block mb-6 bg-primary text-white p-6 rounded-2xl">
-                      <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">INFORME DE DASHBOARD</div>
-                      <h2 className="text-3xl font-black">{dashboardCompany}</h2>
-                      <div className="text-sm mt-1 text-white/80">
-                        NuPlan &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">
+                            {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
+                          </div>
+                          <h2 className="text-3xl font-black">{dashboardCompany}</h2>
+                          <div className="text-sm mt-1 text-white/80">
+                            {BRAND.name} &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                          </div>
+                        </div>
+                        {dashboardCompanyType === 'feria' && (
+                          <span className="text-[10px] font-black uppercase tracking-widest bg-accent/30 text-white border border-white/30 px-3 py-1.5 rounded-full whitespace-nowrap">
+                            Modo Feria · Sesión única
+                          </span>
+                        )}
                       </div>
                     </div>
                   )}
@@ -231,7 +274,7 @@ export default function App() {
                   <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   {/* La tabla de pacientes se oculta del informe PDF por confidencialidad. */}
                   <div className="print:hidden">
-                    <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} />
+                    <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} refreshKey={patientsRefreshKey} />
                   </div>
                 </>
               )}

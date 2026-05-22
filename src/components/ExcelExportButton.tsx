@@ -3,6 +3,13 @@ import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { FileSpreadsheet, Loader2 } from 'lucide-react';
+import { BRAND } from '../lib/branding';
+import {
+  CONSULTAS_HEADERS,
+  CONSULTAS_COL_WIDTHS,
+  PACIENTES_NUEVOS_HEADERS,
+  PACIENTES_NUEVOS_COL_WIDTHS,
+} from '../lib/excelSchemas';
 
 export default function ExcelExportButton() {
   const { selectedCompany } = useCompany();
@@ -22,25 +29,6 @@ export default function ExcelExportButton() {
       const wb = XLSX.utils.book_new();
 
       // ── Hoja 1: Consultas ──
-      const consultasHeaders = [
-        'ID Paciente',
-        'Nombre',
-        'Apellido',
-        'Fecha Consulta (dd/mm/aaaa)',
-        'Peso (kg)',
-        'Altura (cm)',
-        'Cintura (cm)',
-        'Adherencia (1-5)',
-        'Hidratación (Sí/No)',
-        'Actividad Física (≤150 min / +150 min)',
-        'Frutas y Verduras (1-5)',
-        'Energía (1-5)',
-        'Sueño (1-5)',
-        'Estado (En Progreso / Objetivo Alcanzado / En Riesgo)',
-        'Logros',
-        'Dificultades',
-      ];
-
       const consultasRows = (patients || []).map(p => [
         p.id,
         p.first_name,
@@ -60,48 +48,17 @@ export default function ExcelExportButton() {
         '',
       ]);
 
-      const wsConsultas = XLSX.utils.aoa_to_sheet([consultasHeaders, ...consultasRows]);
-
-      // Ancho de columnas
-      wsConsultas['!cols'] = [
-        { wch: 38 }, { wch: 14 }, { wch: 16 }, { wch: 26 }, { wch: 10 },
-        { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 }, { wch: 34 },
-        { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 42 }, { wch: 30 }, { wch: 30 },
-      ];
-
+      const wsConsultas = XLSX.utils.aoa_to_sheet([[...CONSULTAS_HEADERS], ...consultasRows]);
+      wsConsultas['!cols'] = CONSULTAS_COL_WIDTHS;
       XLSX.utils.book_append_sheet(wb, wsConsultas, 'Consultas');
 
       // ── Hoja 2: Pacientes Nuevos ──
-      const nuevosHeaders = [
-        'Nombre',
-        'Apellido',
-        'Email',
-        'WhatsApp',
-        'Fecha Nacimiento (dd/mm/aaaa)',
-        'Sexo (Femenino / Masculino)',
-        'Departamento',
-        'Peso Inicial (kg)',
-        'Altura (cm)',
-        'Adherencia (1-5)',
-        'Hidratación (Sí/No)',
-        'Actividad Física (≤150 min / +150 min)',
-        'Frutas y Verduras (1-5)',
-        'Energía (1-5)',
-        'Sueño (1-5)',
-      ];
-
-      const wsNuevos = XLSX.utils.aoa_to_sheet([nuevosHeaders]);
-
-      wsNuevos['!cols'] = [
-        { wch: 14 }, { wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 28 },
-        { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 16 },
-        { wch: 18 }, { wch: 34 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
-      ];
-
+      const wsNuevos = XLSX.utils.aoa_to_sheet([[...PACIENTES_NUEVOS_HEADERS]]);
+      wsNuevos['!cols'] = PACIENTES_NUEVOS_COL_WIDTHS;
       XLSX.utils.book_append_sheet(wb, wsNuevos, 'Pacientes Nuevos');
 
       const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g, '-');
-      XLSX.writeFile(wb, `NuPlan_Feria_${selectedCompany}_${fecha}.xlsx`);
+      XLSX.writeFile(wb, `${BRAND.name}_Feria_${selectedCompany}_${fecha}.xlsx`);
     } catch (err) {
       console.error('Error generando Excel:', err);
     } finally {

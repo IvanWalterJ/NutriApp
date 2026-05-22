@@ -1,0 +1,11 @@
+Nombre,Apellido,Email,WhatsApp,Fecha Nacimiento (dd/mm/aaaa),Sexo (Femenino / Masculino),Departamento,Peso Inicial (kg),Altura (cm),Adherencia (1-5),Hidratación (Sí/No),Actividad Física (≤150 min / +150 min),Frutas y Verduras (1-5),Energía (1-5),Sueño (1-5)
+María,Fernández,maria.fernandez@empresa.com.ar,+5491145678901,15/03/1985,Femenino,Marketing,68,165,4,Sí,+150 min,4,4,3
+Juan,Pérez,juan.perez@empresa.com.ar,+5491145678902,22/07/1978,Masculino,IT,82,178,3,Sí,≤150 min,3,3,4
+Lucía,García,lucia.garcia@empresa.com.ar,+5491145678903,08/11/1990,Femenino,RRHH,60,162,5,Sí,+150 min,5,4,4
+Carlos,Rodríguez,carlos.rodriguez@empresa.com.ar,+5491145678904,14/02/1972,Masculino,Operaciones,95,175,2,No,≤150 min,2,2,3
+Sofía,Martínez,sofia.martinez@empresa.com.ar,+5491145678905,30/09/1995,Femenino,Administración,55,168,4,Sí,+150 min,4,5,5
+Diego,López,diego.lopez@empresa.com.ar,+5491145678906,19/05/1983,Masculino,Ventas,88,180,3,Sí,+150 min,3,3,3
+Valentina,Gómez,valentina.gomez@empresa.com.ar,+5491145678907,03/12/1988,Femenino,Marketing,72,170,4,Sí,≤150 min,4,4,4
+Martín,Sánchez,martin.sanchez@empresa.com.ar,+5491145678908,25/04/1976,Masculino,IT,91,182,2,No,≤150 min,2,3,2
+Camila,Romero,camila.romero@empresa.com.ar,+5491145678909,11/08/1992,Femenino,Finanzas,63,167,5,Sí,+150 min,5,5,4
+Federico,Díaz,federico.diaz@empresa.com.ar,+5491145678910,07/06/1980,Masculino,Operaciones,78,174,3,Sí,≤150 min,3,4,3

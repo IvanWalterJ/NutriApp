@@ -12,6 +12,7 @@ import {
   getActivityLevel,
   getGmtFactor,
 } from '../lib/nutritionConstants';
+import { BRAND } from '../lib/branding';
 
 // -- ICONS --
 const CheckCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -851,7 +852,7 @@ export default function MealPlanGenerator() {
                 {patientData.firstName} {patientData.lastName}
               </h2>
               <div className="text-sm mt-1 text-white/90">
-                Índice de Bienestar Nutricional NuPlan · {reportCompanyName.toUpperCase()}
+                Índice de Bienestar Nutricional {BRAND.name} · {reportCompanyName.toUpperCase()}
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3 print:hidden">
@@ -880,7 +881,7 @@ export default function MealPlanGenerator() {
                 const isE = !!editingSections[sec];
                 const dp  = editedPlan || generatedPlan;
                 return (
-                  <div className={`border-2 rounded-2xl p-5 shadow-sm ${isE ? 'bg-amber-50 border-amber-400' : 'bg-[#f0fdf4] border-[#86efac]'}`}>
+                  <div className={`border-2 rounded-2xl p-5 shadow-sm break-inside-avoid ${isE ? 'bg-amber-50 border-amber-400' : 'bg-[#f0fdf4] border-[#86efac]'}`}>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-3">
                         <div className="text-3xl shrink-0">🎯</div>
@@ -892,7 +893,7 @@ export default function MealPlanGenerator() {
                     </div>
                     {isE
                       ? <textarea className="w-full border border-amber-300 bg-white rounded-lg p-3 text-[#14532d] text-sm font-semibold focus:outline-none focus:border-amber-500 resize-none" rows={3} value={dp.planObjective} onChange={e => mut(p => { p.planObjective = e.target.value; })} />
-                      : <p className="text-[#14532d] font-semibold text-base">{dp.planObjective}</p>
+                      : <p className="text-[#14532d] font-semibold text-base print:text-sm print:leading-snug">{dp.planObjective}</p>
                     }
                   </div>
                 );

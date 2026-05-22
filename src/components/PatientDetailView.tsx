@@ -14,6 +14,7 @@ import LabTimeline from './LabTimeline';
 import LabResultsForm, { EMPTY_LAB_VALUES, LabFormValues, labFormToPayload } from './LabResultsForm';
 import AnthroReportButton from './AnthroReportButton';
 import { assessPatientRisk, deriveStatus, RiskFlag } from '../lib/patientRisk';
+import { CONSULTATION_REASONS } from '../lib/nutritionConstants';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -274,6 +275,7 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
       const textKeys = [
         'session_date', 'modality', 'physical_activity', 'overall_status',
         'laboratorio_alterado', 'achievements', 'difficulties',
+        'consultation_reason', 'consultation_notes',
       ];
       const patch: Record<string, any> = {};
       for (const k of numericKeys) {
@@ -373,6 +375,11 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
         <TabHistorial
           patient={patient}
           onSelectSession={setSelectedSession}
+          onEditSession={(s) => {
+            setSelectedSession(s);
+            setSessionEditData({ ...s });
+            setEditingSession(true);
+          }}
           onNewConsultation={() => onNavigate?.('consulta', patient.id)}
           onNewAnthropometry={() => onNavigate?.('antropometria', patient.id)}
         />
@@ -1132,11 +1139,12 @@ function DetailedAnthropometryCard({ session: s }: { session: any }) {
 interface TabHistorialProps {
   patient: any;
   onSelectSession: (s: any) => void;
+  onEditSession: (s: any) => void;
   onNewConsultation: () => void;
   onNewAnthropometry: () => void;
 }
 
-function TabHistorial({ patient, onSelectSession, onNewConsultation, onNewAnthropometry }: TabHistorialProps) {
+function TabHistorial({ patient, onSelectSession, onEditSession, onNewConsultation, onNewAnthropometry }: TabHistorialProps) {
   const sessions = (patient.sessions as any[]) ?? [];
   const lastConsult = useMemo(() => {
     return [...sessions]
@@ -1230,11 +1238,29 @@ function TabHistorial({ patient, onSelectSession, onNewConsultation, onNewAnthro
                       {isAnthro && (
                         <AnthroReportButton session={session} patient={patient} latestConsult={lastConsult} />
                       )}
+                      <button
+                        type="button"
+                        onClick={() => onEditSession(session)}
+                        title="Editar sesión"
+                        className="p-2 rounded-lg bg-surface border border-border-color text-text-muted hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      >
+                        <Edit2 size={15} strokeWidth={2.5} />
+                      </button>
                     </div>
                   </div>
 
-                  {(session.achievements || session.difficulties || session.laboratorio_alterado) && (
+                  {(session.achievements || session.difficulties || session.laboratorio_alterado || session.consultation_reason || session.consultation_notes) && (
                     <div className="mt-4 pt-4 border-t border-border-color grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(session.consultation_reason || session.consultation_notes) && (
+                        <div className="md:col-span-2">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-1">Motivo de consulta</p>
+                          <p className="text-sm text-text-muted bg-primary/5 p-3 rounded-lg border border-primary/20">
+                            {session.consultation_reason && <span className="font-semibold text-text-main">{session.consultation_reason}</span>}
+                            {session.consultation_reason && session.consultation_notes && <span> · </span>}
+                            {session.consultation_notes}
+                          </p>
+                        </div>
+                      )}
                       {session.laboratorio_alterado && (
                         <div className="md:col-span-2">
                           <p className="text-[10px] font-black uppercase tracking-widest text-[#92400e] mb-1">Laboratorio Alterado</p>
@@ -1419,6 +1445,23 @@ function SessionDetailModal({ session, editing, editData, saving, onClose, onSta
                   {editSelect('overall_status', 'Estado general', [{ value: 'En Progreso', label: 'En Progreso' }, { value: 'Objetivo Alcanzado', label: 'Objetivo Alcanzado' }, { value: 'En Riesgo', label: 'En Riesgo' }, { value: 'Requiere Derivación', label: 'Requiere Derivación' }])}
                 </Section>
               )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-primary mb-2 border-b border-primary/20 pb-1">Motivo de consulta</label>
+                  <select
+                    value={editVal('consultation_reason')}
+                    onChange={(e) => onChangeEdit('consultation_reason', e.target.value)}
+                    className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm focus:outline-none focus:border-primary"
+                  >
+                    <option value="">— Seleccionar —</option>
+                    {CONSULTATION_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-black uppercase tracking-widest text-primary mb-2 border-b border-primary/20 pb-1">Notas del motivo</label>
+                  <textarea value={editVal('consultation_notes')} onChange={(e) => onChangeEdit('consultation_notes', e.target.value)} className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm min-h-[60px] focus:outline-none focus:border-primary" />
+                </div>
+              </div>
               <div>
                 <label className="block text-xs font-black uppercase tracking-widest text-[#92400e] mb-2 border-b border-warning/20 pb-1">Laboratorio Alterado</label>
                 <textarea value={editVal('laboratorio_alterado')} onChange={(e) => onChangeEdit('laboratorio_alterado', e.target.value)} className="w-full p-3 border border-border-color rounded-lg bg-surface text-sm min-h-[80px] focus:outline-none focus:border-primary" />
@@ -1460,6 +1503,16 @@ function SessionDetailModal({ session, editing, editData, saving, onClose, onSta
                   {has(session.consumo_frutas_verduras) && renderField('consumo_frutas_verduras', 'Frutas y verduras', rating(session.consumo_frutas_verduras))}
                   {has(session.overall_status) && renderField('overall_status', 'Estado general', session.overall_status)}
                 </Section>
+              )}
+              {(has(session.consultation_reason) || has(session.consultation_notes)) && (
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-widest text-primary mb-2 border-b border-primary/20 pb-1">Motivo de consulta</h4>
+                  <p className="text-sm text-text-main bg-primary/5 p-3 rounded-lg border border-primary/20 whitespace-pre-wrap">
+                    {has(session.consultation_reason) && <span className="font-semibold">{session.consultation_reason}</span>}
+                    {has(session.consultation_reason) && has(session.consultation_notes) && <span> · </span>}
+                    {has(session.consultation_notes) && <span>{session.consultation_notes}</span>}
+                  </p>
+                </div>
               )}
               {has(session.laboratorio_alterado) && (
                 <div>

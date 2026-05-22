@@ -86,18 +86,21 @@ CREATE TABLE IF NOT EXISTS public.companies (
 ALTER TABLE public.companies ENABLE ROW LEVEL SECURITY;
 
 -- Política: cualquier usuario autenticado puede leer
+DROP POLICY IF EXISTS "Authenticated users can read companies" ON public.companies;
 CREATE POLICY "Authenticated users can read companies"
   ON public.companies FOR SELECT
   TO authenticated
   USING (true);
 
 -- Política: cualquier usuario autenticado puede insertar
+DROP POLICY IF EXISTS "Authenticated users can insert companies" ON public.companies;
 CREATE POLICY "Authenticated users can insert companies"
   ON public.companies FOR INSERT
   TO authenticated
   WITH CHECK (true);
 
 -- Política: cualquier usuario autenticado puede eliminar (solo ferias)
+DROP POLICY IF EXISTS "Authenticated users can delete companies" ON public.companies;
 CREATE POLICY "Authenticated users can delete companies"
   ON public.companies FOR DELETE
   TO authenticated
@@ -223,3 +226,50 @@ CREATE POLICY "Authenticated users can delete lab_results"
   ON public.lab_results FOR DELETE
   TO authenticated
   USING (true);
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- Motivo de consulta + notas por sesión (Rosana, reunión 2026-05-22).
+-- Permite registrar por qué viene el paciente cada vez (no es fijo a nivel
+-- patient porque el objetivo cambia entre consultas).
+-- ───────────────────────────────────────────────────────────────────────────
+ALTER TABLE public.sessions
+  ADD COLUMN IF NOT EXISTS consultation_reason text,
+  ADD COLUMN IF NOT EXISTS consultation_notes  text;
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- Import masivo de pacientes desde Excel (Sprint 2 — Fase 3.1).
+-- Cada upload genera un import_batch_id; los pacientes resultantes quedan
+-- marcados para que las nutricionistas hagan una revisión en la primera
+-- consulta.
+-- ───────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.import_batches (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company         text NOT NULL,
+  nutritionist_id uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  filename        text,
+  rows_inserted   integer DEFAULT 0,
+  rows_skipped    integer DEFAULT 0,
+  created_at      timestamptz DEFAULT now()
+);
+
+ALTER TABLE public.patients
+  ADD COLUMN IF NOT EXISTS import_batch_id uuid REFERENCES public.import_batches(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS imported_at     timestamptz;
+
+CREATE INDEX IF NOT EXISTS idx_patients_import_batch ON public.patients(import_batch_id);
+
+-- RLS para import_batches: las nutricionistas autenticadas pueden leer y
+-- crear sus propios batches.
+ALTER TABLE public.import_batches ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Authenticated users can read import_batches" ON public.import_batches;
+CREATE POLICY "Authenticated users can read import_batches"
+  ON public.import_batches FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert import_batches" ON public.import_batches;
+CREATE POLICY "Authenticated users can insert import_batches"
+  ON public.import_batches FOR INSERT
+  TO authenticated
+  WITH CHECK (true);

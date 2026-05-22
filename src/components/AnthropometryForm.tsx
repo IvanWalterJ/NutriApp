@@ -6,6 +6,7 @@ import { todayLocalISODate } from '../lib/dateUtils';
 import { useToast } from '../context/ToastContext';
 import { useCompany } from '../context/CompanyContext';
 import SuccessModal from './SuccessModal';
+import { BRAND } from '../lib/branding';
 
 // ─── Reference Tables ───────────────────────────────────────────────────────
 type RefGroup = {
@@ -450,7 +451,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
     const total  = fat + muscle + bone + residual;
     const slices = [
       { pct: fat/total,      color: '#E05252', label: 'Adiposa',  value: fat      },
-      { pct: muscle/total,   color: '#0A4D3C', label: 'Muscular', value: muscle   },
+      { pct: muscle/total,   color: BRAND.colors.primary, label: 'Muscular', value: muscle   },
       { pct: bone/total,     color: '#7CB9A0', label: 'Ósea',     value: bone     },
       { pct: residual/total, color: '#C0C0C0', label: 'Residual', value: residual },
     ];
@@ -556,8 +557,8 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H} style={{ display: 'block' }}>
           {cols.map((c, i) => <rect key={i} x={xs[i]} y={2} width={Math.max(0, ws[i])} height={H-4} fill={c} />)}
-          <line x1={mx} y1={0} x2={mx} y2={H} stroke="#0A4D3C" strokeWidth={1.5} opacity={0.5} strokeDasharray="2,1" />
-          <circle cx={vx} cy={H/2} r={4} fill="#0A4D3C" />
+          <line x1={mx} y1={0} x2={mx} y2={H} stroke={BRAND.colors.primary} strokeWidth={1.5} opacity={0.5} strokeDasharray="2,1" />
+          <circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2} fill="white" />
         </svg>
       );
@@ -578,7 +579,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H} style={{ display: 'block' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={2} width={Math.max(0, p(z.max)-p(z.min))} height={H-4} fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={4} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2} fill="white" />
         </svg>
       );
@@ -600,7 +601,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H} style={{ display: 'block' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={2} width={Math.max(0, p(z.max)-p(z.min))} height={H-4} fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={4} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2} fill="white" />
         </svg>
       );
@@ -622,7 +623,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H} style={{ display: 'block' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={2} width={Math.max(0, p(z.max)-p(z.min))} height={H-4} fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={4} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={4} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2} fill="white" />
         </svg>
       );
@@ -675,7 +676,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
     const total = r.fatMassKg + r.muscleMassKg + r.boneMassKg + r.residualMassKg;
     const pieSlices = [
       { pct: r.fatMassKg/total,      color: '#E05252', label: 'Adiposa',  pctVal: r.fatPct,      kg: r.fatMassKg      },
-      { pct: r.muscleMassKg/total,   color: '#0A4D3C', label: 'Muscular', pctVal: r.musclePct,   kg: r.muscleMassKg   },
+      { pct: r.muscleMassKg/total,   color: BRAND.colors.primary, label: 'Muscular', pctVal: r.musclePct,   kg: r.muscleMassKg   },
       { pct: r.boneMassKg/total,     color: '#7CB9A0', label: 'Ósea',     pctVal: r.bonePct,     kg: r.boneMassKg     },
       { pct: r.residualMassKg/total, color: '#B0B0B0', label: 'Residual', pctVal: r.residualPct, kg: r.residualMassKg },
     ];
@@ -713,10 +714,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       }}>
 
         {/* ── Header ── */}
-        <div style={{ background: 'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)', color: '#fff', padding: '18px 24px', borderRadius: '10px', marginBottom: '4px' }}>
+        <div style={{ background: `linear-gradient(135deg, ${BRAND.colors.primary} 0%, ${BRAND.colors.primaryLight} 100%)`, color: '#fff', padding: '18px 24px', borderRadius: '10px', marginBottom: '4px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '3px', opacity: 0.6, marginBottom: '4px' }}>NUPLAN · {selectedCompany.toUpperCase()}</div>
+              <div style={{ fontSize: '10px', fontWeight: 'bold', letterSpacing: '3px', opacity: 0.6, marginBottom: '4px' }}>{BRAND.name.toUpperCase()} · {selectedCompany.toUpperCase()}</div>
               <div style={{ fontSize: '22px', fontWeight: 'bold', letterSpacing: '0.5px', lineHeight: 1.1 }}>EVALUACIÓN ANTROPOMÉTRICA</div>
               <div style={{ fontSize: '11px', marginTop: '5px', opacity: 0.8 }}>Valoración morfológica · Composición corporal</div>
             </div>
@@ -727,14 +728,14 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
           </div>
         </div>
         {/* Lic. sub-header */}
-        <div style={{ background: '#e8f5f0', border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '6px 24px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#0A4D3C' }}>
-          <span><strong>Lic. Rosana Roldán</strong> · Licenciada en Nutrición</span>
-          <span style={{ fontWeight: 'bold' }}>www.nuplan.com.ar</span>
+        <div style={{ background: '#e8f5f0', border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 8px 8px', padding: '6px 24px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: BRAND.colors.primary }}>
+          <span><strong>{BRAND.professional}</strong> · {BRAND.professionalRole}</span>
+          <span style={{ fontWeight: 'bold' }}>{BRAND.website}</span>
         </div>
 
         {/* ── Demographics ── */}
         <div style={{background:'#f4f9f7',border:'1px solid #c8e0d6',borderRadius:'8px',padding:'12px 16px',marginBottom:'14px',pageBreakInside:'avoid'}}>
-          <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '2px', color: '#0A4D3C', marginBottom: '8px', textTransform: 'uppercase' }}>Datos del Evaluado</div>
+          <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '2px', color: BRAND.colors.primary, marginBottom: '8px', textTransform: 'uppercase' }}>Datos del Evaluado</div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', fontSize: '12px' }}>
             {[
               { l: 'Apellido y Nombre',   v: `${patientInfo.last_name}, ${patientInfo.first_name}` },
@@ -756,14 +757,14 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
         {/* ── Raw Measurements ── */}
         <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-          <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
+          <div style={{ background: BRAND.colors.primary, color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
             MEDICIONES ANTROPOMÉTRICAS
           </div>
           <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', padding: '10px 12px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0' }}>
 
             {/* Col 1: Datos Básicos */}
             <div style={{ paddingRight: '10px', borderRight: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0A4D3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Datos Básicos</div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: BRAND.colors.primary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Datos Básicos</div>
               {[
                 ['Peso',             rd.weight,          'kg'],
                 ['Talla',            rd.height,          'cm'],
@@ -775,7 +776,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
                   <span style={{ fontWeight: 'bold' }}>{val} {unit}</span>
                 </div>
               ) : null)}
-              <div style={{ marginTop: '10px', fontSize: '9px', fontWeight: 'bold', color: '#0A4D3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Diámetros Óseos (cm)</div>
+              <div style={{ marginTop: '10px', fontSize: '9px', fontWeight: 'bold', color: BRAND.colors.primary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Diámetros Óseos (cm)</div>
               {[
                 ['Biacromial',       rd.diam_biacromial],
                 ['Bi-iliocrestídeo', rd.diam_biiliocristal],
@@ -795,7 +796,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
             {/* Col 2: Pliegues */}
             <div style={{ paddingLeft: '10px', paddingRight: '10px', borderRight: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0A4D3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Pliegues Cutáneos (mm)</div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: BRAND.colors.primary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Pliegues Cutáneos (mm)</div>
               {[
                 ['Tríceps',          rd.fold_triceps],
                 ['Subescapular',     rd.fold_subscapular],
@@ -815,7 +816,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
             {/* Col 3: Perímetros */}
             <div style={{ paddingLeft: '10px', paddingRight: '10px', borderRight: '1px solid #e5e7eb' }}>
-              <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0A4D3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Perímetros (cm)</div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: BRAND.colors.primary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Perímetros (cm)</div>
               {[
                 ['Cabeza',           rd.girth_head],
                 ['Cuello',           rd.girth_neck],
@@ -840,7 +841,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
             {/* Col 4: Longitudes */}
             <div style={{ paddingLeft: '10px' }}>
-              <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#0A4D3C', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Longitudes (cm)</div>
+              <div style={{ fontSize: '9px', fontWeight: 'bold', color: BRAND.colors.primary, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Longitudes (cm)</div>
               {[
                 ['Acromio-radial',     rd.len_acromiale_radiale],
                 ['Radial-estiloidea',  rd.len_radiale_stylion],
@@ -864,7 +865,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
         {/* ── Body Composition + Pie ── */}
         <div style={{display:'grid',gridTemplateColumns:'1fr 175px',gap:'14px',marginBottom:'14px',pageBreakInside:'avoid'}}>
           <div>
-            <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>COMPOSICIÓN CORPORAL</div>
+            <div style={{ background: BRAND.colors.primary, color: '#fff', padding: '7px 12px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>COMPOSICIÓN CORPORAL</div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
                 <tr style={{ background: '#f4f9f7' }}>
@@ -901,7 +902,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
           </div>
 
           <div style={{ border: '1px solid #c8e0d6', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', background: '#f4f9f7' }}>
-            <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '1px', color: '#0A4D3C', marginBottom: '6px', textAlign: 'center', textTransform: 'uppercase' }}>Distribución</div>
+            <div style={{ fontSize: '9px', fontWeight: 'bold', letterSpacing: '1px', color: BRAND.colors.primary, marginBottom: '6px', textAlign: 'center', textTransform: 'uppercase' }}>Distribución</div>
             <svg width="100" height="100" viewBox="0 0 160 160">
               {piePaths.map((p, i) => <path key={i} d={p.d} fill={p.color} stroke="#fff" strokeWidth="2" />)}
             </svg>
@@ -919,7 +920,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
         {/* ── Adiposity ── */}
         <div style={{ marginBottom: '22px', pageBreakInside: 'avoid' }}>
-          <div style={{ background: '#0A4D3C', color: '#fff', padding: '8px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>ÍNDICES DE ADIPOSIDAD</div>
+          <div style={{ background: BRAND.colors.primary, color: '#fff', padding: '8px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>ÍNDICES DE ADIPOSIDAD</div>
           <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
               <thead>
@@ -973,7 +974,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
         <div style={{ marginBottom: '22px' }}>
           {/* Regional fat — full width to avoid page cuts */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>DISTRIBUCIÓN REGIONAL DE GRASA</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',padding:'10px 12px'}}>
               <div style={{display:'flex',gap:'16px',alignItems:'flex-start'}}>
                 <table style={{flex:1,borderCollapse:'collapse',fontSize:'11px'}}>
@@ -1007,7 +1008,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
           {/* Perimeters — full width */}
           <div style={{marginBottom:'14px',pageBreakInside:'avoid'}}>
-            <div style={{background:'#0A4D3C',color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>PERÍMETROS MUSCULARES</div>
+            <div style={{background:BRAND.colors.primary,color:'#fff',padding:'7px 12px',borderRadius:'6px 6px 0 0',fontSize:'10px',fontWeight:'bold',letterSpacing:'1px'}}>PERÍMETROS MUSCULARES</div>
             <div style={{border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 6px 6px',overflow:'hidden'}}>
               <table style={{width:'100%',borderCollapse:'collapse',fontSize:'11px'}}>
                 <thead><tr style={{background:'#f4f9f7'}}><th style={tdL}>Perímetro</th><th style={tdV}>Medido</th><th style={tdM}>Ref.</th><th style={tdV}>Dif.</th><th style={tdV}>Gráfico</th></tr></thead>
@@ -1034,7 +1035,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
 
         {/* ── Valoración Morfológica ── */}
         <div style={{ marginBottom: '14px', pageBreakInside: 'avoid' }}>
-          <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
+          <div style={{ background: BRAND.colors.primary, color: '#fff', padding: '7px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
             VALORACIÓN MORFOLÓGICA PERSONAL
           </div>
           <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', background: '#fafffe', padding: '14px 16px' }}>
@@ -1051,7 +1052,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
         {/* ── Última Consulta Nutricional (si existe) ── */}
         {consult && (
           <div style={{ marginBottom: '14px', pageBreakInside: 'avoid' }}>
-            <div style={{ background: '#0A4D3C', color: '#fff', padding: '7px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
+            <div style={{ background: BRAND.colors.primary, color: '#fff', padding: '7px 14px', borderRadius: '6px 6px 0 0', fontSize: '10px', fontWeight: 'bold', letterSpacing: '1px' }}>
               ÚLTIMA CONSULTA NUTRICIONAL · {consult.session_date}
             </div>
             <div style={{ border: '1px solid #c8e0d6', borderTop: 'none', borderRadius: '0 0 6px 6px', padding: '12px 16px' }}>
@@ -1103,11 +1104,11 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
         )}
 
           {/* ── Footer ── */}
-          <div style={{ borderTop: '2px solid #0A4D3C', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#555' }}>
+          <div style={{ borderTop: `2px solid ${BRAND.colors.primary}`, paddingTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: '#555' }}>
             <div>
-              <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>Lic. Rosana Roldán</span>
+              <span style={{ fontWeight: 'bold', color: BRAND.colors.primary }}>{BRAND.professional}</span>
               {' · '}
-              <span style={{ fontWeight: 'bold', color: '#0A4D3C' }}>www.nuplan.com.ar</span>
+              <span style={{ fontWeight: 'bold', color: BRAND.colors.primary }}>{BRAND.website}</span>
             </div>
             <div>{selectedCompany} · Datos comparados con población argentina de referencia.</div>
           </div>
@@ -1387,10 +1388,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={5} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2.5} fill="white" />
-          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
-          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{bmi}</text>
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke={BRAND.colors.primary} strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill={BRAND.colors.primary} fontWeight="bold">{bmi}</text>
         </svg>
       );
     };
@@ -1409,10 +1410,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={5} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2.5} fill="white" />
-          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
-          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{icc}</text>
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke={BRAND.colors.primary} strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill={BRAND.colors.primary} fontWeight="bold">{icc}</text>
         </svg>
       );
     };
@@ -1431,10 +1432,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       return (
         <svg width={W} height={H + 14} style={{ display: 'block', overflow: 'visible' }}>
           {zones.map((z, i) => <rect key={i} x={p(z.min)} y={0} width={Math.max(0, p(z.max)-p(z.min))} height={H} rx="2" fill={z.color} />)}
-          <circle cx={vx} cy={H/2} r={5} fill="#0A4D3C" />
+          <circle cx={vx} cy={H/2} r={5} fill={BRAND.colors.primary} />
           <circle cx={vx} cy={H/2} r={2.5} fill="white" />
-          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke="#0A4D3C" strokeWidth={1} />
-          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill="#0A4D3C" fontWeight="bold">{cm}</text>
+          <line x1={vx} y1={H} x2={vx} y2={H+6} stroke={BRAND.colors.primary} strokeWidth={1} />
+          <text x={vx} y={H+14} textAnchor="middle" fontSize="9" fill={BRAND.colors.primary} fontWeight="bold">{cm}</text>
         </svg>
       );
     };

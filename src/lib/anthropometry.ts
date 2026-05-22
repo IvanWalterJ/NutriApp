@@ -84,49 +84,146 @@ export function classifyAbdominal(cm: number, sex: string): string {
   return 'Riesgo para la Salud Sustancialmente Incrementado';
 }
 
-export function calculateBodyComposition(data: any, sex: string, age: number) {
-  const { weight, fold_triceps, fold_subscapular, fold_iliac_crest, fold_abdominal,
-    fold_front_thigh, fold_medial_calf, fold_biceps,
-    girth_arm_relaxed, girth_thigh_mid, girth_calf, girth_waist, girth_hip, girth_chest,
-    diam_femur, diam_wrist, height } = data;
+/** Coerce a value to a finite number, or null if not numeric / NaN / Infinity. */
+function n(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : null;
+  }
+  return null;
+}
 
-  const sum4 = fold_triceps + fold_subscapular + fold_iliac_crest + fold_abdominal;
-  let fatPct = sex === 'Masculino'
-    ? 0.29288 * sum4 - 0.0005 * sum4 * sum4 + 0.15845 * age - 5.76377
-    : 0.29669 * sum4 - 0.00043 * sum4 * sum4 + 0.02963 * age + 1.4072;
-  fatPct = Math.max(5, Math.min(60, fatPct));
+/** Round to N decimals, or null if input not finite. */
+function r1(x: number | null, decimals = 1): number | null {
+  return x === null || !Number.isFinite(x) ? null : parseFloat(x.toFixed(decimals));
+}
 
-  const fatMassKg      = weight * fatPct / 100;
-  const boneMassKg     = 3.02 * Math.pow((height/100)**2 * (diam_femur/100) * (diam_wrist/100) * 400, 0.712);
-  const residualMassKg = sex === 'Masculino' ? weight * 0.241 : weight * 0.209;
-  const muscleMassKg   = (
-    0.00744 * Math.pow(girth_thigh_mid   - Math.PI * (fold_front_thigh / 10), 2) +
-    0.00088 * Math.pow(girth_arm_relaxed - Math.PI * (fold_triceps     / 10), 2) +
-    0.00441 * Math.pow(girth_calf        - Math.PI * (fold_medial_calf / 10), 2)
-  ) + (sex === 'Masculino' ? 2.4 : 0) - 0.048 * age + height * 0.048 + 7.8;
+export type BodyComposition = {
+  fatPct:         number | null;
+  fatMassKg:      number | null;
+  muscleMassKg:   number | null;
+  boneMassKg:     number | null;
+  residualMassKg: number | null;
+  musclePct:      number | null;
+  bonePct:        number | null;
+  residualPct:    number | null;
+  fatSuperior:    number | null;
+  fatMedia:       number | null;
+  fatInferior:    number | null;
+  bmi:            number | null;
+  waistHipRatio:  number | null;
+  girth_chest:    number | null;
+  girth_waist:    number | null;
+  girth_hip:      number | null;
+};
 
-  const sum6        = fold_triceps + fold_subscapular + fold_biceps + fold_iliac_crest + fold_abdominal + (fold_front_thigh + fold_medial_calf) / 2;
-  const fatSuperior = (fold_triceps + fold_subscapular) / sum6 * 100;
-  const fatMedia    = (fold_iliac_crest + fold_abdominal) / sum6 * 100;
-  const fatInferior = ((fold_front_thigh + fold_medial_calf) / 2) / sum6 * 100;
-  const bmi         = weight / Math.pow(height / 100, 2);
-  const waistHipRatio = girth_waist / girth_hip;
+/**
+ * Calcula la composición corporal a partir de mediciones antropométricas.
+ * Cada métrica se calcula sólo si sus inputs requeridos son números finitos;
+ * en caso contrario el campo retorna `null` y los consumidores deben mostrar "—".
+ *
+ * Esto permite que el formulario quede operativo aún cuando Rosana decida
+ * remover mediciones que no usa (ver Fase 2 del plan).
+ */
+export function calculateBodyComposition(data: any, sex: string, age: number): BodyComposition {
+  const weight             = n(data?.weight);
+  const height             = n(data?.height);
+  const fold_triceps       = n(data?.fold_triceps);
+  const fold_subscapular   = n(data?.fold_subscapular);
+  const fold_iliac_crest   = n(data?.fold_iliac_crest);
+  const fold_abdominal     = n(data?.fold_abdominal);
+  const fold_front_thigh   = n(data?.fold_front_thigh);
+  const fold_medial_calf   = n(data?.fold_medial_calf);
+  const fold_biceps        = n(data?.fold_biceps);
+  const girth_arm_relaxed  = n(data?.girth_arm_relaxed);
+  const girth_thigh_mid    = n(data?.girth_thigh_mid);
+  const girth_calf         = n(data?.girth_calf);
+  const girth_waist        = n(data?.girth_waist);
+  const girth_hip          = n(data?.girth_hip);
+  const girth_chest        = n(data?.girth_chest);
+  const diam_femur         = n(data?.diam_femur);
+  const diam_wrist         = n(data?.diam_wrist);
+
+  // % grasa Yuhasz necesita los 4 pliegues del tronco/abdomen.
+  let fatPct: number | null = null;
+  if (fold_triceps !== null && fold_subscapular !== null && fold_iliac_crest !== null && fold_abdominal !== null) {
+    const sum4 = fold_triceps + fold_subscapular + fold_iliac_crest + fold_abdominal;
+    const raw = sex === 'Masculino'
+      ? 0.29288 * sum4 - 0.0005 * sum4 * sum4 + 0.15845 * age - 5.76377
+      : 0.29669 * sum4 - 0.00043 * sum4 * sum4 + 0.02963 * age + 1.4072;
+    fatPct = Math.max(5, Math.min(60, raw));
+  }
+
+  const fatMassKg = weight !== null && fatPct !== null ? weight * fatPct / 100 : null;
+
+  const boneMassKg = height !== null && diam_femur !== null && diam_wrist !== null
+    ? 3.02 * Math.pow((height/100)**2 * (diam_femur/100) * (diam_wrist/100) * 400, 0.712)
+    : null;
+
+  const residualMassKg = weight !== null
+    ? (sex === 'Masculino' ? weight * 0.241 : weight * 0.209)
+    : null;
+
+  // Masa muscular requiere 3 perímetros + 3 pliegues + altura + edad.
+  let muscleMassKg: number | null = null;
+  if (
+    girth_thigh_mid !== null && fold_front_thigh !== null &&
+    girth_arm_relaxed !== null && fold_triceps !== null &&
+    girth_calf !== null && fold_medial_calf !== null &&
+    height !== null
+  ) {
+    muscleMassKg = (
+      0.00744 * Math.pow(girth_thigh_mid   - Math.PI * (fold_front_thigh / 10), 2) +
+      0.00088 * Math.pow(girth_arm_relaxed - Math.PI * (fold_triceps     / 10), 2) +
+      0.00441 * Math.pow(girth_calf        - Math.PI * (fold_medial_calf / 10), 2)
+    ) + (sex === 'Masculino' ? 2.4 : 0) - 0.048 * age + height * 0.048 + 7.8;
+    muscleMassKg = Math.max(5, muscleMassKg);
+  }
+
+  // Distribución de adiposidad por región: requiere todos los 6 pliegues.
+  let fatSuperior: number | null = null;
+  let fatMedia: number | null = null;
+  let fatInferior: number | null = null;
+  if (
+    fold_triceps !== null && fold_subscapular !== null && fold_biceps !== null &&
+    fold_iliac_crest !== null && fold_abdominal !== null &&
+    fold_front_thigh !== null && fold_medial_calf !== null
+  ) {
+    const sum6 = fold_triceps + fold_subscapular + fold_biceps + fold_iliac_crest + fold_abdominal + (fold_front_thigh + fold_medial_calf) / 2;
+    if (sum6 > 0) {
+      fatSuperior = (fold_triceps + fold_subscapular) / sum6 * 100;
+      fatMedia    = (fold_iliac_crest + fold_abdominal) / sum6 * 100;
+      fatInferior = ((fold_front_thigh + fold_medial_calf) / 2) / sum6 * 100;
+    }
+  }
+
+  const bmi = weight !== null && height !== null && height > 0
+    ? weight / Math.pow(height / 100, 2)
+    : null;
+
+  const waistHipRatio = girth_waist !== null && girth_hip !== null && girth_hip > 0
+    ? girth_waist / girth_hip
+    : null;
 
   return {
-    fatPct:           parseFloat(fatPct.toFixed(1)),
-    fatMassKg:        parseFloat(fatMassKg.toFixed(1)),
-    muscleMassKg:     parseFloat(Math.max(5, muscleMassKg).toFixed(1)),
-    boneMassKg:       parseFloat(boneMassKg.toFixed(1)),
-    residualMassKg:   parseFloat(residualMassKg.toFixed(1)),
-    musclePct:        parseFloat((Math.max(5, muscleMassKg) / weight * 100).toFixed(1)),
-    bonePct:          parseFloat((boneMassKg / weight * 100).toFixed(1)),
-    residualPct:      parseFloat((residualMassKg / weight * 100).toFixed(1)),
-    fatSuperior:      parseFloat(fatSuperior.toFixed(1)),
-    fatMedia:         parseFloat(fatMedia.toFixed(1)),
-    fatInferior:      parseFloat(fatInferior.toFixed(1)),
-    bmi:              parseFloat(bmi.toFixed(1)),
-    waistHipRatio:    parseFloat(waistHipRatio.toFixed(2)),
-    girth_chest, girth_waist, girth_hip,
+    fatPct:         r1(fatPct),
+    fatMassKg:      r1(fatMassKg),
+    muscleMassKg:   r1(muscleMassKg),
+    boneMassKg:     r1(boneMassKg),
+    residualMassKg: r1(residualMassKg),
+    musclePct:      r1(muscleMassKg !== null && weight !== null && weight > 0 ? muscleMassKg / weight * 100 : null),
+    bonePct:        r1(boneMassKg !== null && weight !== null && weight > 0 ? boneMassKg / weight * 100 : null),
+    residualPct:    r1(residualMassKg !== null && weight !== null && weight > 0 ? residualMassKg / weight * 100 : null),
+    fatSuperior:    r1(fatSuperior),
+    fatMedia:       r1(fatMedia),
+    fatInferior:    r1(fatInferior),
+    bmi:            r1(bmi),
+    waistHipRatio:  r1(waistHipRatio, 2),
+    girth_chest,
+    girth_waist,
+    girth_hip,
   };
 }
 

@@ -9,6 +9,7 @@ import {
   CONDITIONS_LIST,
   PREGNANCY_STAGES,
 } from '../lib/nutritionConstants';
+import { BRAND } from '../lib/branding';
 
 // -- ICONS --
 const ChefHat = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>;
@@ -192,7 +193,7 @@ export default function RecipeGenerator() {
     const originalTitle = document.title;
     const label = patientData ? `${patientData.firstName} ${patientData.lastName} - ` : '';
     const shortObj = objective ? (objective.length > 30 ? objective.substring(0, 30).trim() + '...' : objective) : 'Saludables';
-    document.title = `${label}Recetas ${shortObj} - NuPlan`;
+    document.title = `${label}Recetas ${shortObj} - ${BRAND.name}`;
 
     // Unlock flex/h-screen containers so all pages are captured
     const unlocked: { el: HTMLElement; overflow: string; height: string; maxHeight: string; flex: string }[] = [];
@@ -259,6 +260,27 @@ export default function RecipeGenerator() {
       }
       return { ...prev, [idx]: !wasEditing };
     });
+  }
+
+  function deleteRecipe(idx: number) {
+    if (!window.confirm('¿Eliminar esta receta? Esta acción no se puede deshacer.')) return;
+    const removeAt = (obj: any) => {
+      const next = JSON.parse(JSON.stringify(obj));
+      if (Array.isArray(next?.recipes)) next.recipes.splice(idx, 1);
+      return next;
+    };
+    setResult((prev: any) => prev ? removeAt(prev) : prev);
+    setEditedResult((prev: any) => prev ? removeAt(prev) : prev);
+    setEditingCards(prev => {
+      const next: Record<number, boolean> = {};
+      Object.entries(prev).forEach(([k, v]) => {
+        const i = Number(k);
+        if (i < idx) next[i] = !!v;
+        else if (i > idx) next[i - 1] = !!v;
+      });
+      return next;
+    });
+    showToast('Receta eliminada', 'success');
   }
 
   const anyEditing = Object.values(editingCards).some(Boolean);
@@ -661,6 +683,14 @@ export default function RecipeGenerator() {
                       >
                         {isE ? <><SaveIcon /> Guardar</> : <><Pencil /> Editar</>}
                       </button>
+                      {/* Delete recipe */}
+                      <button
+                        onClick={() => deleteRecipe(idx)}
+                        title="Eliminar receta"
+                        className="print:hidden flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-full border border-red-200 bg-white/60 text-red-500 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-colors"
+                      >
+                        <TrashIcon />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -801,7 +831,7 @@ export default function RecipeGenerator() {
 
         {/* Footer branding */}
         <div className="mt-8 pt-4 border-t border-border-color text-center text-xs text-text-muted print:mt-4">
-          NuPlan · {reportCompanyName.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
+          {BRAND.name} · {reportCompanyName.toUpperCase()} · {new Date().toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' })}
         </div>
       </div>
     </div>
