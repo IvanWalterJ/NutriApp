@@ -29,7 +29,7 @@ Para probar la carga de varias sesiones por paciente en distintas fechas:
 
 ## Formularios públicos pre-consulta
 
-Una vez aplicada la migración `forms + form_responses`:
+Una vez aplicada la migración [`supabase/migrations/010_forms_public.sql`](../supabase/migrations/010_forms_public.sql) (o el `apply_all.sql` consolidado):
 
 1. Sidebar → **Formularios** → tab "Crear / Listar" → "Nuevo formulario".
 2. Poné título (ej. "Feria Pampa - Junio 2026") y opcionalmente una fecha de vencimiento.
