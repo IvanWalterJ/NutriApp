@@ -13,12 +13,18 @@ import { useEffect, useState, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useCompany } from '../../context/CompanyContext';
 import { useToast } from '../../context/ToastContext';
-import { Inbox, CheckCircle2, Trash2, User, Calendar, Loader2, RefreshCw, AlertCircle, FileText } from 'lucide-react';
+import { Inbox, CheckCircle2, Trash2, User, Calendar, Loader2, RefreshCw, AlertCircle, FileText, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { FormRecord, FormResponseRecord } from '../../lib/formTypes';
 
 interface ResponseWithForm extends FormResponseRecord {
-  form: Pick<FormRecord, 'id' | 'title' | 'slug' | 'fields'>;
+  /**
+   * Snapshot del form que originó la respuesta. `company` viene de acá
+   * porque es el dato autoritativo de DÓNDE pertenece el paciente — no
+   * el switcher actual del sidebar, que puede haber cambiado entre que
+   * la respuesta entró y la nutri la confirma.
+   */
+  form: Pick<FormRecord, 'id' | 'title' | 'slug' | 'fields' | 'company'>;
 }
 
 export default function FormResponsesInbox() {
@@ -40,7 +46,7 @@ export default function FormResponsesInbox() {
     // Traemos solo forms del company seleccionado, y joinamos sus respuestas filtradas por status.
     const { data: forms, error: formsErr } = await supabase
       .from('forms')
-      .select('id, title, slug, fields')
+      .select('id, title, slug, fields, company')
       .eq('company', selectedCompany);
     if (formsErr) {
       console.error(formsErr);
@@ -48,7 +54,7 @@ export default function FormResponsesInbox() {
       setLoading(false);
       return;
     }
-    const formMap = new Map<string, Pick<FormRecord, 'id' | 'title' | 'slug' | 'fields'>>();
+    const formMap = new Map<string, Pick<FormRecord, 'id' | 'title' | 'slug' | 'fields' | 'company'>>();
     (forms || []).forEach(f => formMap.set(f.id, f as any));
     if (formMap.size === 0) {
       setResponses([]);
@@ -79,7 +85,10 @@ export default function FormResponsesInbox() {
 
   /**
    * Promoción: respuesta → paciente real + 1ra sesión OMS.
-   * - Si ya existe paciente con mismo email (mismo company), lo reusa.
+   * - El paciente se crea en la empresa del FORM (resp.form.company), NO
+   *   en la del switcher actual. Esto es lo correcto porque el form se
+   *   diseñó para una empresa/feria específica al momento de su creación.
+   * - Si ya existe paciente con mismo email (en esa misma empresa), lo reusa.
    * - Marca la respuesta como processed y la linkea por patient_id.
    */
   async function handlePromote(resp: ResponseWithForm) {
@@ -88,6 +97,7 @@ export default function FormResponsesInbox() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No autenticado');
 
+      const targetCompany = resp.form.company;
       const d = resp.data as Record<string, any>;
       const firstName = String(d.first_name || '').trim();
       const lastName  = String(d.last_name || '').trim();
@@ -100,19 +110,19 @@ export default function FormResponsesInbox() {
       const weight = numOrNull(d.weight);
       const height = numOrNull(d.height);
 
-      // Match por email
+      // Match por email DENTRO de la empresa del form
       let patientId: string | null = null;
       if (email) {
         const { data: match } = await supabase
           .from('patients')
           .select('id')
-          .eq('company', selectedCompany)
+          .eq('company', targetCompany)
           .ilike('email', email)
           .maybeSingle();
         if (match) patientId = match.id;
       }
 
-      // Sino, alta nueva
+      // Sino, alta nueva en la empresa del form
       if (!patientId) {
         const { data: created, error: insErr } = await supabase
           .from('patients')
@@ -126,7 +136,7 @@ export default function FormResponsesInbox() {
             initial_weight: weight,
             height,
             status: 'En Progreso',
-            company: selectedCompany,
+            company: targetCompany,
             created_by: user.id,
           })
           .select('id')
@@ -135,7 +145,7 @@ export default function FormResponsesInbox() {
         patientId = created.id;
       }
 
-      // Sesión inicial OMS si vinieron mediciones
+      // Sesión inicial OMS si vinieron mediciones (también en la empresa del form)
       const hasOmsData = weight !== null
         || d.hydration !== undefined
         || d.activity !== undefined
@@ -148,7 +158,7 @@ export default function FormResponsesInbox() {
           patient_id: patientId,
           nutritionist_id: user.id,
           session_date: today,
-          company: selectedCompany,
+          company: targetCompany,
           session_type: 'Consulta',
           weight,
           height,
@@ -173,7 +183,7 @@ export default function FormResponsesInbox() {
         })
         .eq('id', resp.id);
 
-      showToast('Paciente confirmado y respuesta procesada', 'success');
+      showToast(`Paciente creado en "${targetCompany}"`, 'success');
       setActiveResponse(null);
       await loadResponses();
     } catch (err: any) {
@@ -335,6 +345,14 @@ function ResponseDetailModal({ resp, onClose, onPromote, onDiscard, confirming, 
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-bg text-text-muted">✕</button>
         </div>
+
+        {!readOnly && (
+          <div className="px-6 py-3 bg-primary/5 border-b border-border-color flex items-center gap-2 text-sm">
+            <Building2 size={16} className="text-primary shrink-0" />
+            <span className="text-text-muted">Al confirmar, el paciente se crea en:</span>
+            <span className="font-bold text-primary">{resp.form.company}</span>
+          </div>
+        )}
 
         <div className="p-6 overflow-y-auto flex-1 space-y-3">
           {fields.length === 0 && (

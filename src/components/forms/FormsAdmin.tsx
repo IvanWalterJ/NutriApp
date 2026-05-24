@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useCompany } from '../../context/CompanyContext';
 import { useToast } from '../../context/ToastContext';
-import { Plus, Link2, QrCode, Trash2, Power, Eye, EyeOff, Loader2, Copy, X } from 'lucide-react';
+import { Plus, Link2, QrCode, Trash2, Eye, EyeOff, Loader2, Copy, X, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { DEFAULT_FAIR_FORM_FIELDS, slugify, type FormRecord } from '../../lib/formTypes';
 
@@ -199,8 +199,12 @@ export default function FormsAdmin() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <h3 className="font-bold text-text-main truncate">{form.title}</h3>
+                    <div className="flex items-center gap-1 text-[11px] text-text-muted mt-0.5">
+                      <Building2 size={11} />
+                      <span className="font-semibold">{form.company}</span>
+                    </div>
                     {form.description && (
-                      <p className="text-xs text-text-muted line-clamp-2 mt-0.5">{form.description}</p>
+                      <p className="text-xs text-text-muted line-clamp-2 mt-1">{form.description}</p>
                     )}
                   </div>
                   <div className="flex flex-col gap-1 items-end shrink-0">
@@ -275,6 +279,17 @@ export default function FormsAdmin() {
                 <X size={20} />
               </button>
             </div>
+
+            <div className="mb-4 p-3 bg-primary/5 border-2 border-primary/30 rounded-lg flex items-start gap-2.5">
+              <Building2 size={18} className="text-primary shrink-0 mt-0.5" />
+              <div className="text-sm">
+                <div>Este formulario se va a crear para <strong className="text-primary">{selectedCompany}</strong>.</div>
+                <div className="text-xs text-text-muted mt-1">
+                  Los pacientes que lo completen aparecen en la Bandeja de esta empresa y se crean acá al confirmarlos. Si querés crearlo para otra feria/evento, cancelá y cambiá la empresa en el switcher arriba a la derecha primero.
+                </div>
+              </div>
+            </div>
+
             <div className="space-y-3">
               <div>
                 <label className="block text-xs font-bold uppercase tracking-widest text-text-muted mb-1">Título</label>
