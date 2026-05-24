@@ -30,7 +30,10 @@ export const CONSULTAS_COL_WIDTHS = [
   { wch: 22 }, { wch: 12 }, { wch: 12 }, { wch: 42 }, { wch: 30 }, { wch: 30 },
 ];
 
-/** Hoja "Pacientes Nuevos" — para alta masiva. */
+/** Hoja "Pacientes Nuevos" — para alta masiva.
+ *  La columna "Fecha 1ra Consulta" es opcional: si está vacía, la sesión inicial
+ *  se crea con fecha de hoy. Permite backdatar el alta cuando se importa histórico.
+ */
 export const PACIENTES_NUEVOS_HEADERS = [
   'Nombre',
   'Apellido',
@@ -41,6 +44,7 @@ export const PACIENTES_NUEVOS_HEADERS = [
   'Departamento',
   'Peso Inicial (kg)',
   'Altura (cm)',
+  'Fecha 1ra Consulta (dd/mm/aaaa)',
   'Adherencia (1-5)',
   'Hidratación (Sí/No)',
   'Actividad Física (≤150 min / +150 min)',
@@ -51,8 +55,8 @@ export const PACIENTES_NUEVOS_HEADERS = [
 
 export const PACIENTES_NUEVOS_COL_WIDTHS = [
   { wch: 14 }, { wch: 16 }, { wch: 26 }, { wch: 18 }, { wch: 28 },
-  { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 16 },
-  { wch: 18 }, { wch: 34 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
+  { wch: 24 }, { wch: 16 }, { wch: 16 }, { wch: 12 }, { wch: 28 },
+  { wch: 16 }, { wch: 18 }, { wch: 34 }, { wch: 22 }, { wch: 12 }, { wch: 12 },
 ];
 
 /** Valores aceptados en columnas con dominio cerrado. */
@@ -77,12 +81,38 @@ export interface ParsedNewPatient {
   area: string | null;
   initial_weight: number | null;
   height: number | null;
+  /** Fecha de la 1ra consulta. Si es null se usa today() al insertar. */
+  first_session_date: string | null;  // ISO yyyy-mm-dd
   adherence: number | null;
   hydration: boolean | null;
   physical_activity: ActivityValue | null;
   consumo_frutas_verduras: number | null;
   energy_level: number | null;
   sleep_quality: number | null;
+}
+
+/**
+ * Fila parseada de la hoja "Consultas" — sesión histórica de un paciente.
+ * patient_id puede ser null cuando se importa por nombre (matcheamos en cliente).
+ * session_date es OBLIGATORIO (sin fecha, no se puede ubicar en la línea de tiempo).
+ */
+export interface ParsedConsulta {
+  patient_id: string | null;          // UUID si vino en la planilla
+  first_name: string;
+  last_name: string;
+  session_date: string;               // ISO yyyy-mm-dd (requerido)
+  weight: number | null;
+  height: number | null;
+  waist: number | null;
+  adherence: number | null;
+  hydration: boolean | null;
+  physical_activity: ActivityValue | null;
+  consumo_frutas_verduras: number | null;
+  energy_level: number | null;
+  sleep_quality: number | null;
+  status: StatusValue | null;
+  achievements: string | null;
+  difficulties: string | null;
 }
 
 export interface ParseRowResult<T> {

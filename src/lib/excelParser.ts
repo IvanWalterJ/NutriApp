@@ -7,13 +7,17 @@
 import * as XLSX from 'xlsx';
 import {
   PACIENTES_NUEVOS_HEADERS,
+  CONSULTAS_HEADERS,
   SEX_VALUES,
   HYDRATION_VALUES,
   ACTIVITY_VALUES,
+  STATUS_VALUES,
   type ParsedNewPatient,
+  type ParsedConsulta,
   type ParseRowResult,
   type SexValue,
   type ActivityValue,
+  type StatusValue,
 } from './excelSchemas';
 
 /** Coerce a cell value to trimmed non-empty string, or null. */
@@ -93,6 +97,16 @@ function asHydration(v: unknown): boolean | null {
   if (['sí', 'si', 'yes', 'y', '1', 'true', 'verdadero'].includes(s)) return true;
   if (['no', 'n', '0', 'false', 'falso'].includes(s)) return false;
   return null;
+}
+
+function asStatus(v: unknown): StatusValue | null {
+  const s = asString(v);
+  if (!s) return null;
+  const lower = s.toLowerCase();
+  if (lower.includes('progres')) return 'En Progreso';
+  if (lower.includes('alcanz') || lower.includes('logr')) return 'Objetivo Alcanzado';
+  if (lower.includes('riesg')) return 'En Riesgo';
+  return STATUS_VALUES.includes(s as StatusValue) ? (s as StatusValue) : null;
 }
 
 function asActivity(v: unknown): ActivityValue | null {
@@ -212,6 +226,7 @@ export function parseNewPatientsSheet(workbook: XLSX.WorkBook): {
       area:       asString(cell(row, 'Departamento')),
       initial_weight,
       height,
+      first_session_date:       asDate(cell(row, 'Fecha 1ra Consulta (dd/mm/aaaa)')),
       adherence:  asRating(cell(row, 'Adherencia (1-5)')),
       hydration:  asHydration(cell(row, 'Hidratación (Sí/No)')),
       physical_activity:        asActivity(cell(row, 'Actividad Física (≤150 min / +150 min)')),
@@ -264,6 +279,7 @@ export function parseNormalizedRows(rows: any[]): ParseRowResult<ParsedNewPatien
       area:       asString(r.area),
       initial_weight,
       height,
+      first_session_date:      asDate(r.first_session_date),
       adherence:               asRating(r.adherence),
       hydration:               asHydration(r.hydration),
       physical_activity:       asActivity(r.physical_activity),
@@ -275,6 +291,134 @@ export function parseNormalizedRows(rows: any[]): ParseRowResult<ParsedNewPatien
     out.push({ rowIndex: i, data, errors, isDuplicate: false });
   }
   return out;
+}
+
+/**
+ * Parsea la hoja "Consultas" del workbook — sesiones históricas por fecha,
+ * típicamente exportadas y devueltas por la nutricionista después de una feria.
+ * Cada fila se tipa con session_date (requerido) y el ID o nombre del paciente.
+ */
+export function parseConsultasSheet(workbook: XLSX.WorkBook): {
+  rows: ParseRowResult<ParsedConsulta>[];
+  sheetMissing: boolean;
+  headerErrors: string[];
+} {
+  const sheetName = workbook.SheetNames.find(n => n.toLowerCase().trim() === 'consultas');
+  if (!sheetName) return { rows: [], sheetMissing: true, headerErrors: [] };
+
+  const ws = workbook.Sheets[sheetName];
+  const aoa = XLSX.utils.sheet_to_json<unknown[]>(ws, { header: 1, raw: true, defval: null });
+  if (aoa.length === 0) return { rows: [], sheetMissing: false, headerErrors: ['Hoja vacía'] };
+
+  const headers = aoa[0] as unknown[];
+  const headerIdx = buildHeaderIndex(headers, CONSULTAS_HEADERS);
+  const headerErrors: string[] = [];
+  const required = ['Nombre', 'Apellido', 'Fecha Consulta (dd/mm/aaaa)'];
+  for (const r of required) {
+    if (!headerIdx.has(r)) headerErrors.push(`Falta columna requerida: "${r}"`);
+  }
+
+  const cell = (row: unknown[], header: string): unknown => {
+    const i = headerIdx.get(header);
+    return i === undefined ? null : row[i];
+  };
+
+  const rows: ParseRowResult<ParsedConsulta>[] = [];
+  for (let i = 1; i < aoa.length; i++) {
+    const row = aoa[i];
+    if (!row || row.every(c => c === null || c === undefined || c === '')) continue;
+
+    const errors: string[] = [];
+    const patient_id = asString(cell(row, 'ID Paciente'));
+    const first_name = asString(cell(row, 'Nombre'));
+    const last_name  = asString(cell(row, 'Apellido'));
+    const session_date = asDate(cell(row, 'Fecha Consulta (dd/mm/aaaa)'));
+
+    if (!first_name) errors.push('Nombre requerido');
+    if (!last_name)  errors.push('Apellido requerido');
+    if (!session_date) errors.push('Fecha de consulta inválida o vacía');
+
+    const weight = asNumber(cell(row, 'Peso (kg)'));
+    if (weight !== null && (weight < 20 || weight > 300)) {
+      errors.push(`Peso fuera de rango plausible (${weight} kg)`);
+    }
+    const height = asNumber(cell(row, 'Altura (cm)'));
+    if (height !== null && (height < 80 || height > 250)) {
+      errors.push(`Altura fuera de rango plausible (${height} cm)`);
+    }
+
+    const data: ParsedConsulta | null = (errors.length === 0 && first_name && last_name && session_date) ? {
+      patient_id,
+      first_name,
+      last_name,
+      session_date,
+      weight,
+      height,
+      waist:                   asNumber(cell(row, 'Cintura (cm)')),
+      adherence:               asRating(cell(row, 'Adherencia (1-5)')),
+      hydration:               asHydration(cell(row, 'Hidratación (Sí/No)')),
+      physical_activity:       asActivity(cell(row, 'Actividad Física (≤150 min / +150 min)')),
+      consumo_frutas_verduras: asRating(cell(row, 'Frutas y Verduras (1-5)')),
+      energy_level:            asRating(cell(row, 'Energía (1-5)')),
+      sleep_quality:           asRating(cell(row, 'Sueño (1-5)')),
+      status:                  asStatus(cell(row, 'Estado (En Progreso / Objetivo Alcanzado / En Riesgo)')),
+      achievements:            asString(cell(row, 'Logros')),
+      difficulties:            asString(cell(row, 'Dificultades')),
+    } : null;
+
+    rows.push({ rowIndex: i - 1, data, errors, isDuplicate: false });
+  }
+
+  return { rows, sheetMissing: false, headerErrors };
+}
+
+/**
+ * Resuelve el patient_id para cada fila de Consultas:
+ *   1. Si la planilla trae el UUID y matchea un paciente real → usa ese.
+ *   2. Si no, busca por (first_name + last_name) — case-insensitive.
+ *   3. Si hay múltiples matches con el mismo nombre, queda sin resolver
+ *      y se reporta como error (pidiendo desambiguación manual).
+ *
+ * El parámetro `extraCandidates` permite incluir pacientes recién importados
+ * (Pacientes Nuevos en la misma subida) que aún no están en DB.
+ */
+export interface PatientCandidate {
+  id: string;
+  first_name: string;
+  last_name: string;
+  birth_date: string | null;
+}
+
+export function resolveConsultaPatientIds(
+  rows: ParseRowResult<ParsedConsulta>[],
+  candidates: PatientCandidate[],
+): void {
+  const byId = new Map<string, PatientCandidate>();
+  const byName = new Map<string, PatientCandidate[]>();
+  for (const c of candidates) {
+    byId.set(c.id, c);
+    const key = `${c.first_name.toLowerCase().trim()}|${c.last_name.toLowerCase().trim()}`;
+    const list = byName.get(key) ?? [];
+    list.push(c);
+    byName.set(key, list);
+  }
+
+  for (const row of rows) {
+    if (!row.data) continue;
+    if (row.data.patient_id && byId.has(row.data.patient_id)) continue; // ya resuelto
+
+    const key = `${row.data.first_name.toLowerCase().trim()}|${row.data.last_name.toLowerCase().trim()}`;
+    const matches = byName.get(key) ?? [];
+    if (matches.length === 1) {
+      row.data.patient_id = matches[0].id;
+    } else if (matches.length === 0) {
+      row.errors.push('Paciente no encontrado (ni por ID ni por nombre)');
+      row.data = null;
+    } else {
+      row.errors.push(`Ambigüedad: ${matches.length} pacientes con nombre "${row.data.first_name} ${row.data.last_name}"`);
+      row.data = null;
+    }
+  }
 }
 
 /** Marca como duplicadas las filas que matchean un paciente ya existente. */

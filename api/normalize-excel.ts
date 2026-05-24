@@ -35,7 +35,8 @@ REGLAS CRÍTICAS (no negociables):
 7. Altura: el schema espera centímetros. Si ves valores como 1.62, 1.78 (en metros), MULTIPLICÁ por 100 para convertir a cm. Si ya está en cm (>80), dejá el valor literal.
 8. Si una fila no tiene nombre o apellido claros, devolvela igual con esos campos vacíos — el sistema la descartará.
 9. Mantené el ORDEN ORIGINAL de las filas.
-10. Devolvé EXCLUSIVAMENTE la llamada a la tool submit_normalized_patients. No expliques nada.`;
+10. Si la planilla tiene una fecha de consulta/atención asociada al alta, mapéala a first_session_date (ISO yyyy-mm-dd). Si no hay, omitilo — el sistema usará hoy por defecto.
+11. Devolvé EXCLUSIVAMENTE la llamada a la tool submit_normalized_patients. No expliques nada.`;
 
 const TOOL_SCHEMA = {
   name: 'submit_normalized_patients',
@@ -63,6 +64,7 @@ const TOOL_SCHEMA = {
             area:       { type: 'string' as const },
             initial_weight: { type: 'number' as const, description: 'kg' },
             height:         { type: 'number' as const, description: 'cm' },
+            first_session_date: { type: 'string' as const, description: 'ISO yyyy-mm-dd — fecha de la primera consulta si vino en la planilla' },
             adherence:               { type: 'integer' as const, minimum: 1, maximum: 5 },
             hydration:               { type: 'boolean' as const },
             physical_activity:       { type: 'string' as const, enum: ['≤150 min', '+150 min'] },

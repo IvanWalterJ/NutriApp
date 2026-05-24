@@ -5,11 +5,20 @@ import { supabase } from '../lib/supabase';
 import { useCompany } from '../context/CompanyContext';
 import { useToast } from '../context/ToastContext';
 import { FileUp, X, AlertTriangle, CheckCircle2, Loader2, Info, Sparkles } from 'lucide-react';
-import { parseNewPatientsSheet, parseNormalizedRows, markDuplicates, headersMatchSchema } from '../lib/excelParser';
+import {
+  parseNewPatientsSheet,
+  parseConsultasSheet,
+  parseNormalizedRows,
+  markDuplicates,
+  headersMatchSchema,
+  resolveConsultaPatientIds,
+  type PatientCandidate,
+} from '../lib/excelParser';
 import {
   PACIENTES_NUEVOS_HEADERS,
   type ParseRowResult,
   type ParsedNewPatient,
+  type ParsedConsulta,
 } from '../lib/excelSchemas';
 
 type DupePolicy = 'skip' | 'update';
@@ -33,6 +42,9 @@ export default function ExcelImportButton({ onImported }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [filename, setFilename] = useState<string>('');
   const [rows, setRows] = useState<ParseRowResult<ParsedNewPatient>[]>([]);
+  // Sesiones históricas (hoja "Consultas"). Se cargan en paralelo a los pacientes
+  // nuevos para permitir backdate de múltiples sesiones por paciente.
+  const [consultas, setConsultas] = useState<ParseRowResult<ParsedConsulta>[]>([]);
   const [headerErrors, setHeaderErrors] = useState<string[]>([]);
   const [sheetMissing, setSheetMissing] = useState(false);
   const [dupePolicy, setDupePolicy] = useState<DupePolicy>('skip');
@@ -47,6 +59,7 @@ export default function ExcelImportButton({ onImported }: Props) {
 
   function reset() {
     setRows([]);
+    setConsultas([]);
     setHeaderErrors([]);
     setSheetMissing(false);
     setFilename('');
@@ -72,10 +85,15 @@ export default function ExcelImportButton({ onImported }: Props) {
         : XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
 
       // Camino rápido: si los headers de "Pacientes Nuevos" matchean el schema oficial,
-      // usamos el parser determinístico (sin costo de IA).
+      // usamos el parser determinístico (sin costo de IA). Procesamos también la
+      // hoja "Consultas" si está presente — permite cargar histórico multi-fecha
+      // en una sola subida.
       const parsed = parseNewPatientsSheet(wb);
-      if (!parsed.sheetMissing && parsed.headerErrors.length === 0 && parsed.rows.length > 0) {
-        await applyDedupAndShow(parsed.rows, 'oficial');
+      const parsedConsultas = parseConsultasSheet(wb);
+      const hasNewPatients = !parsed.sheetMissing && parsed.headerErrors.length === 0 && parsed.rows.length > 0;
+      const hasConsultas   = !parsedConsultas.sheetMissing && parsedConsultas.headerErrors.length === 0 && parsedConsultas.rows.length > 0;
+      if (hasNewPatients || hasConsultas) {
+        await applyDedupAndShow(parsed.rows, parsedConsultas.rows, 'oficial');
         return;
       }
 
@@ -107,7 +125,7 @@ export default function ExcelImportButton({ onImported }: Props) {
         wb.Sheets['Pacientes Nuevos'] = ws;
         if (!wb.SheetNames.includes('Pacientes Nuevos')) wb.SheetNames.push('Pacientes Nuevos');
         const reparsed = parseNewPatientsSheet(wb);
-        await applyDedupAndShow(reparsed.rows, 'oficial');
+        await applyDedupAndShow(reparsed.rows, [], 'oficial');
         return;
       }
 
@@ -121,14 +139,42 @@ export default function ExcelImportButton({ onImported }: Props) {
     }
   }
 
-  async function applyDedupAndShow(parsedRows: ParseRowResult<ParsedNewPatient>[], src: Source) {
-    const { data: existing } = await supabase
+  async function applyDedupAndShow(
+    parsedRows: ParseRowResult<ParsedNewPatient>[],
+    parsedConsultas: ParseRowResult<ParsedConsulta>[],
+    src: Source,
+  ) {
+    // 1. Dedup de pacientes nuevos contra DB.
+    const { data: existingFull } = await supabase
       .from('patients')
-      .select('email, first_name, last_name, birth_date')
+      .select('id, email, first_name, last_name, birth_date')
       .eq('company', selectedCompany);
-    markDuplicates(parsedRows, existing || []);
+    const existing = existingFull || [];
+    markDuplicates(parsedRows, existing);
+
+    // 2. Resolver patient_id en cada consulta: matchea contra pacientes DB +
+    //    pacientes nuevos que vamos a importar (para que histórico funcione
+    //    en una sola subida).
+    const candidates: PatientCandidate[] = existing.map(e => ({
+      id: e.id, first_name: e.first_name, last_name: e.last_name, birth_date: e.birth_date,
+    }));
+    // Pacientes nuevos válidos que aún no están en DB: usamos un ID placeholder
+    // que reemplazaremos por el ID real después del insert.
+    for (let i = 0; i < parsedRows.length; i++) {
+      const r = parsedRows[i];
+      if (r.data && r.errors.length === 0 && !r.isDuplicate) {
+        candidates.push({
+          id: `__pending_${i}__`,
+          first_name: r.data.first_name,
+          last_name: r.data.last_name,
+          birth_date: r.data.birth_date,
+        });
+      }
+    }
+    resolveConsultaPatientIds(parsedConsultas, candidates);
 
     setRows(parsedRows);
+    setConsultas(parsedConsultas);
     setHeaderErrors([]);
     setSheetMissing(false);
     setSource(src);
@@ -156,7 +202,8 @@ export default function ExcelImportButton({ onImported }: Props) {
       // pueda haber generado mal (o inventado).
       const normalized = parseNormalizedRows(payload.rows || []);
       setColumnMapping(payload.column_mapping || {});
-      await applyDedupAndShow(normalized, 'ia');
+      // El camino IA no procesa hoja Consultas (sólo Pacientes Nuevos).
+      await applyDedupAndShow(normalized, [], 'ia');
     } catch (err: any) {
       console.error('Error normalizando con IA:', err);
       showToast(err?.message || 'No se pudo normalizar con IA', 'error');
@@ -183,7 +230,7 @@ export default function ExcelImportButton({ onImported }: Props) {
         .single();
       if (batchError) throw batchError;
 
-      // 2. Filtrar filas a insertar
+      // 2. Filtrar pacientes nuevos a insertar
       const toInsert = rows.filter(r => {
         if (!r.data || r.errors.length > 0) return false;
         if (r.isDuplicate && dupePolicy === 'skip') return false;
@@ -193,8 +240,16 @@ export default function ExcelImportButton({ onImported }: Props) {
       let inserted = 0;
       let skipped = rows.length - toInsert.length;
 
-      // 3. Insertar en lotes de 50
+      // Mapa __pending_<idx>__ → ID real del paciente recién creado.
+      // Lo usamos para reescribir patient_id en las consultas.
+      const pendingToReal = new Map<string, string>();
+
+      // 3. Insertar pacientes en lotes de 50
       const batches = chunk<ParseRowResult<ParsedNewPatient>>(toInsert, 50);
+      // Necesito el índice original (en `rows`) para reconstruir el placeholder.
+      const indexInRows = new Map<ParseRowResult<ParsedNewPatient>, number>();
+      rows.forEach((r, i) => indexInRows.set(r, i));
+
       for (const grupo of batches) {
         const payload = grupo.map(r => ({
           first_name:      r.data!.first_name,
@@ -223,15 +278,21 @@ export default function ExcelImportButton({ onImported }: Props) {
         }
         inserted += created?.length ?? 0;
 
-        // 4. Crear sesiones iniciales con la evaluación OMS de cada paciente
+        // 4. Crear sesión inicial por cada paciente recién creado.
+        //    Usamos first_session_date si vino en la planilla, sino hoy.
         if (created && created.length > 0) {
           const today = new Date().toISOString().slice(0, 10);
           const sessionsPayload = created.map((p, i) => {
             const src = grupo[i].data!;
+            // Registrar el mapeo placeholder → ID real
+            const originalIdx = indexInRows.get(grupo[i]);
+            if (originalIdx !== undefined) {
+              pendingToReal.set(`__pending_${originalIdx}__`, p.id);
+            }
             return {
               patient_id: p.id,
               nutritionist_id: user.id,
-              session_date: today,
+              session_date: src.first_session_date ?? today,
               company: selectedCompany,
               session_type: 'Consulta',
               weight: src.initial_weight,
@@ -251,13 +312,85 @@ export default function ExcelImportButton({ onImported }: Props) {
         }
       }
 
-      // 5. Actualizar el batch con conteos finales
+      // 5. Insertar sesiones históricas de la hoja "Consultas".
+      //    Si el patient_id es un placeholder __pending_*__, lo reemplazamos por
+      //    el ID real generado en el paso anterior. Si el paciente nuevo falló,
+      //    saltamos su consulta (no nos podemos vincular a un patient que no existe).
+      let consultasInserted = 0;
+      let consultasSkipped = 0;
+      type ConsultaToInsert = { row: ParseRowResult<ParsedConsulta>; patient_id: string };
+      const validConsultas: ConsultaToInsert[] = consultas
+        .filter(c => c.data && c.errors.length === 0)
+        .map(c => {
+          let pid: string | null = c.data!.patient_id;
+          if (pid && pid.startsWith('__pending_')) {
+            pid = pendingToReal.get(pid) ?? null;
+          }
+          return { row: c, patient_id: pid };
+        })
+        .filter((x): x is ConsultaToInsert => x.patient_id !== null);
+
+      consultasSkipped = consultas.length - validConsultas.length;
+
+      const consultaBatches = chunk<ConsultaToInsert>(validConsultas, 50);
+      for (const grupo of consultaBatches) {
+        const payload = grupo.map(({ row, patient_id }) => ({
+          patient_id,
+          nutritionist_id: user.id,
+          session_date: row.data!.session_date,
+          company: selectedCompany,
+          session_type: 'Consulta',
+          weight:                   row.data!.weight,
+          height:                   row.data!.height,
+          girth_waist:              row.data!.waist,
+          adherence:                row.data!.adherence,
+          hydration:                row.data!.hydration,
+          physical_activity:        row.data!.physical_activity,
+          consumo_frutas_verduras:  row.data!.consumo_frutas_verduras,
+          energy_level:             row.data!.energy_level,
+          sleep_quality:            row.data!.sleep_quality,
+          laboratorio_alterado:     null,
+          consultation_notes:       [row.data!.achievements, row.data!.difficulties]
+            .filter(Boolean).join('\n---\n') || null,
+        }));
+        const { data: insertedSessions, error: sErr } = await supabase
+          .from('sessions')
+          .insert(payload)
+          .select('id, patient_id');
+        if (sErr) {
+          console.error('Consultas insert error en batch:', sErr);
+          consultasSkipped += grupo.length;
+          continue;
+        }
+        consultasInserted += insertedSessions?.length ?? 0;
+
+        // Si la consulta trae un status (En Progreso / Objetivo Alcanzado / En Riesgo),
+        // lo aplicamos al paciente — la última consulta inserta gana porque vamos en orden.
+        for (const { row } of grupo) {
+          if (row.data!.status && row.data!.patient_id && !row.data!.patient_id.startsWith('__pending_')) {
+            await supabase
+              .from('patients')
+              .update({ status: row.data!.status })
+              .eq('id', row.data!.patient_id);
+          }
+        }
+      }
+
+      // 6. Actualizar el batch con conteos finales
+      const totalInserted = inserted + consultasInserted;
+      const totalSkipped  = skipped + consultasSkipped;
       await supabase
         .from('import_batches')
-        .update({ rows_inserted: inserted, rows_skipped: skipped })
+        .update({ rows_inserted: totalInserted, rows_skipped: totalSkipped })
         .eq('id', batch.id);
 
-      showToast(`Import completo: ${inserted} pacientes creados${skipped > 0 ? `, ${skipped} ignorados` : ''}`, 'success');
+      const parts: string[] = [];
+      if (inserted > 0)           parts.push(`${inserted} ${inserted === 1 ? 'paciente' : 'pacientes'}`);
+      if (consultasInserted > 0)  parts.push(`${consultasInserted} ${consultasInserted === 1 ? 'consulta' : 'consultas'}`);
+      const msg = parts.length > 0
+        ? `Import completo: ${parts.join(' + ')}${totalSkipped > 0 ? ` (${totalSkipped} ignorad${totalSkipped === 1 ? 'a' : 'as'})` : ''}`
+        : 'Nada se importó — revisá errores.';
+      showToast(msg, parts.length > 0 ? 'success' : 'info');
       setShowModal(false);
       reset();
       onImported?.();
@@ -269,12 +402,19 @@ export default function ExcelImportButton({ onImported }: Props) {
     }
   }
 
-  // Contadores para el preview
+  // Contadores para el preview — pacientes nuevos
   const total = rows.length;
   const validRows = rows.filter(r => r.data && r.errors.length === 0).length;
   const errorRows = rows.filter(r => r.errors.length > 0).length;
   const dupeRows  = rows.filter(r => r.isDuplicate).length;
   const willInsert = rows.filter(r => r.data && r.errors.length === 0 && !(r.isDuplicate && dupePolicy === 'skip')).length;
+
+  // Contadores para el preview — consultas históricas
+  const totalConsultas = consultas.length;
+  const validConsultas = consultas.filter(c => c.data && c.errors.length === 0).length;
+  const errorConsultas = consultas.filter(c => c.errors.length > 0).length;
+  const willInsertConsultas = validConsultas;
+  const hasAnyConsultas = totalConsultas > 0;
 
   return (
     <>
@@ -382,14 +522,37 @@ export default function ExcelImportButton({ onImported }: Props) {
                 </div>
               )}
 
-              {!needsAI && !sheetMissing && total > 0 && (
+              {!needsAI && !sheetMissing && (total > 0 || hasAnyConsultas) && (
                 <>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-                    <Stat label="Filas leídas" value={total} color="text-text-main" />
-                    <Stat label="Válidas" value={validRows} color="text-accent-dark" />
-                    <Stat label="Con errores" value={errorRows} color="text-danger" />
-                    <Stat label="Duplicadas" value={dupeRows} color="text-warning" />
-                  </div>
+                  {total > 0 && (
+                    <>
+                      <div className="text-xs font-bold uppercase tracking-widest text-text-muted mb-2">
+                        Pacientes nuevos
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                        <Stat label="Filas leídas" value={total} color="text-text-main" />
+                        <Stat label="Válidas" value={validRows} color="text-accent-dark" />
+                        <Stat label="Con errores" value={errorRows} color="text-danger" />
+                        <Stat label="Duplicadas" value={dupeRows} color="text-warning" />
+                      </div>
+                    </>
+                  )}
+
+                  {hasAnyConsultas && (
+                    <>
+                      <div className="text-xs font-bold uppercase tracking-widest text-text-muted mb-2 mt-2">
+                        Consultas históricas (hoja "Consultas")
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-5">
+                        <Stat label="Filas leídas" value={totalConsultas} color="text-text-main" />
+                        <Stat label="Válidas" value={validConsultas} color="text-accent-dark" />
+                        <Stat label="Con errores" value={errorConsultas} color="text-danger" />
+                      </div>
+                      <p className="text-[11px] text-text-muted -mt-3 mb-4">
+                        Cada fila se inserta como sesión separada con su fecha. Los pacientes se matchean por ID o Nombre + Apellido (incluye los nuevos de esta misma subida).
+                      </p>
+                    </>
+                  )}
 
                   {dupeRows > 0 && (
                     <div className="mb-4 p-3 bg-bg rounded-lg border border-border-color">
@@ -407,54 +570,107 @@ export default function ExcelImportButton({ onImported }: Props) {
                     </div>
                   )}
 
-                  <div className="border-2 border-border-color rounded-xl overflow-hidden">
-                    <div className="max-h-80 overflow-y-auto">
-                      <table className="w-full text-sm">
-                        <thead className="bg-bg sticky top-0">
-                          <tr>
-                            <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted w-20">Fila</th>
-                            <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Paciente</th>
-                            <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Estado</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map(r => {
-                            const isErr = r.errors.length > 0;
-                            const isDupe = r.isDuplicate;
-                            const willSkip = isErr || (isDupe && dupePolicy === 'skip');
-                            const rowClass = isErr
-                              ? 'bg-danger/5'
-                              : isDupe
-                                ? 'bg-warning/5'
-                                : 'bg-accent/5';
-                            return (
-                              <tr key={r.rowIndex} className={`border-t border-border-color ${rowClass}`}>
-                                <td className="p-2 font-mono text-xs">{r.rowIndex + 2}</td>
-                                <td className="p-2">
-                                  {r.data
-                                    ? <span className="font-semibold">{r.data.first_name} {r.data.last_name}</span>
-                                    : <span className="text-text-muted italic">Inválida</span>}
-                                  {isErr && (
-                                    <div className="text-xs text-danger mt-1">{r.errors.join(' · ')}</div>
-                                  )}
-                                </td>
-                                <td className="p-2">
-                                  {isErr && <Badge variant="danger" label="Error" />}
-                                  {!isErr && isDupe && <Badge variant="warning" label="Duplicada" />}
-                                  {!isErr && !isDupe && <Badge variant="success" label="Lista" />}
-                                  {willSkip && !isErr && <span className="ml-1 text-[10px] uppercase text-text-muted">se omite</span>}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                  {total > 0 && (
+                    <div className="border-2 border-border-color rounded-xl overflow-hidden mb-4">
+                      <div className="bg-bg px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-text-muted border-b border-border-color">
+                        Pacientes nuevos ({total})
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-bg sticky top-0">
+                            <tr>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted w-20">Fila</th>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Paciente</th>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map(r => {
+                              const isErr = r.errors.length > 0;
+                              const isDupe = r.isDuplicate;
+                              const willSkip = isErr || (isDupe && dupePolicy === 'skip');
+                              const rowClass = isErr
+                                ? 'bg-danger/5'
+                                : isDupe
+                                  ? 'bg-warning/5'
+                                  : 'bg-accent/5';
+                              return (
+                                <tr key={r.rowIndex} className={`border-t border-border-color ${rowClass}`}>
+                                  <td className="p-2 font-mono text-xs">{r.rowIndex + 2}</td>
+                                  <td className="p-2">
+                                    {r.data
+                                      ? <span className="font-semibold">{r.data.first_name} {r.data.last_name}</span>
+                                      : <span className="text-text-muted italic">Inválida</span>}
+                                    {isErr && (
+                                      <div className="text-xs text-danger mt-1">{r.errors.join(' · ')}</div>
+                                    )}
+                                  </td>
+                                  <td className="p-2">
+                                    {isErr && <Badge variant="danger" label="Error" />}
+                                    {!isErr && isDupe && <Badge variant="warning" label="Duplicada" />}
+                                    {!isErr && !isDupe && <Badge variant="success" label="Lista" />}
+                                    {willSkip && !isErr && <span className="ml-1 text-[10px] uppercase text-text-muted">se omite</span>}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  </div>
+                  )}
+
+                  {hasAnyConsultas && (
+                    <div className="border-2 border-border-color rounded-xl overflow-hidden">
+                      <div className="bg-bg px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-text-muted border-b border-border-color">
+                        Consultas históricas ({totalConsultas})
+                      </div>
+                      <div className="max-h-64 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-bg sticky top-0">
+                            <tr>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted w-20">Fila</th>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Paciente</th>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted w-32">Fecha</th>
+                              <th className="text-left p-2 text-xs font-bold uppercase tracking-wider text-text-muted">Estado</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {consultas.map(c => {
+                              const isErr = c.errors.length > 0;
+                              const rowClass = isErr ? 'bg-danger/5' : 'bg-accent/5';
+                              const displayName = c.data
+                                ? `${c.data.first_name} ${c.data.last_name}`
+                                : 'Inválida';
+                              return (
+                                <tr key={c.rowIndex} className={`border-t border-border-color ${rowClass}`}>
+                                  <td className="p-2 font-mono text-xs">{c.rowIndex + 2}</td>
+                                  <td className="p-2">
+                                    <span className={c.data ? 'font-semibold' : 'text-text-muted italic'}>{displayName}</span>
+                                    {isErr && (
+                                      <div className="text-xs text-danger mt-1">{c.errors.join(' · ')}</div>
+                                    )}
+                                  </td>
+                                  <td className="p-2 font-mono text-xs">
+                                    {c.data?.session_date ?? '—'}
+                                  </td>
+                                  <td className="p-2">
+                                    {isErr
+                                      ? <Badge variant="danger" label="Error" />
+                                      : <Badge variant="success" label="Lista" />}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
 
-              {!needsAI && !sheetMissing && total === 0 && headerErrors.length === 0 && (
+              {!needsAI && !sheetMissing && total === 0 && !hasAnyConsultas && headerErrors.length === 0 && (
                 <div className="text-center py-8 text-text-muted flex flex-col items-center gap-2">
                   <Info size={32} />
                   <span>No se encontraron filas válidas en la hoja.</span>
@@ -466,8 +682,14 @@ export default function ExcelImportButton({ onImported }: Props) {
               <div className="text-sm text-text-muted">
                 {needsAI
                   ? 'Confirmá el mapeo con IA para ver el preview.'
-                  : willInsert > 0
-                    ? <>Se importarán <strong className="text-text-main font-bold">{willInsert}</strong> {willInsert === 1 ? 'paciente' : 'pacientes'} a <strong className="text-text-main">{selectedCompany}</strong>.</>
+                  : (willInsert + willInsertConsultas) > 0
+                    ? <>
+                        Se importarán a <strong className="text-text-main">{selectedCompany}</strong>:
+                        {willInsert > 0 && <> <strong className="text-text-main font-bold">{willInsert}</strong> {willInsert === 1 ? 'paciente' : 'pacientes'}</>}
+                        {willInsert > 0 && willInsertConsultas > 0 && <> +</>}
+                        {willInsertConsultas > 0 && <> <strong className="text-text-main font-bold">{willInsertConsultas}</strong> {willInsertConsultas === 1 ? 'consulta' : 'consultas'}</>}
+                        .
+                      </>
                     : 'Nada para importar — corregí los errores o cambiá la política.'}
               </div>
               <div className="flex gap-3">
@@ -481,11 +703,11 @@ export default function ExcelImportButton({ onImported }: Props) {
                 {!needsAI && (
                   <button
                     onClick={handleConfirm}
-                    disabled={importing || willInsert === 0}
+                    disabled={importing || (willInsert + willInsertConsultas) === 0}
                     className="px-5 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {importing && <Loader2 size={16} className="animate-spin" />}
-                    <CheckCircle2 size={16} /> Importar {willInsert > 0 ? `(${willInsert})` : ''}
+                    <CheckCircle2 size={16} /> Importar {(willInsert + willInsertConsultas) > 0 ? `(${willInsert + willInsertConsultas})` : ''}
                   </button>
                 )}
               </div>

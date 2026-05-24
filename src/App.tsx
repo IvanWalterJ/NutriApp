@@ -16,6 +16,7 @@ import Parameters from './components/Parameters';
 import MealPlanGenerator from './components/MealPlanGenerator';
 import RecipeGenerator from './components/RecipeGenerator';
 import EmpresasView from './components/EmpresasView';
+import FormsSection from './components/forms/FormsSection';
 import OmsPopulationMetrics from './components/OmsPopulationMetrics';
 import ExcelExportButton from './components/ExcelExportButton';
 import ExcelImportButton from './components/ExcelImportButton';
@@ -29,7 +30,7 @@ import { BRAND } from './lib/branding';
 const ACTIVE_TAB_KEY = 'nutriapp.activeTab';
 const VALID_TABS = new Set([
   'dashboard', 'empleados', 'antropometria', 'nueva-consulta',
-  'parametros', 'generador', 'recetario', 'empresas',
+  'parametros', 'generador', 'recetario', 'formularios', 'empresas',
 ]);
 
 function readStoredTab(): string {
@@ -307,6 +308,10 @@ export default function App() {
 
               {activeTab === 'recetario' && (
                 <RecipeGenerator />
+              )}
+
+              {activeTab === 'formularios' && (
+                <FormsSection />
               )}
 
               {activeTab === 'empresas' && (
