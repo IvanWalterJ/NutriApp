@@ -258,7 +258,7 @@ export default function ExcelImportButton({ onImported }: Props) {
           phone:           r.data!.phone,
           birth_date:      r.data!.birth_date,
           sex:             r.data!.sex,
-          area:            r.data!.area,
+          area:            r.data!.area || 'Sin especificar',
           initial_weight:  r.data!.initial_weight,
           height:          r.data!.height,
           status:          'En Progreso',

@@ -122,7 +122,10 @@ export default function FormResponsesInbox() {
         if (match) patientId = match.id;
       }
 
-      // Sino, alta nueva en la empresa del form
+      // Sino, alta nueva en la empresa del form.
+      // `area` es NOT NULL en patients (departamento dentro de la empresa).
+      // El form público no lo pide por default, así que lo defaulteamos a
+      // 'Sin especificar' — Rosana lo edita después desde el detalle del paciente.
       if (!patientId) {
         const { data: created, error: insErr } = await supabase
           .from('patients')
@@ -135,6 +138,7 @@ export default function FormResponsesInbox() {
             sex,
             initial_weight: weight,
             height,
+            area: (d.area as string) || 'Sin especificar',
             status: 'En Progreso',
             company: targetCompany,
             created_by: user.id,
