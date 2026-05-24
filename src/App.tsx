@@ -26,6 +26,7 @@ import Auth from './components/Auth';
 import ResetPassword from './components/ResetPassword';
 import { CompanyProvider } from './context/CompanyContext';
 import { BRAND } from './lib/branding';
+import { getBrandTemplate } from './lib/brandTemplates';
 
 const ACTIVE_TAB_KEY = 'nutriapp.activeTab';
 const VALID_TABS = new Set([
@@ -71,6 +72,7 @@ export default function App() {
   const [dashboardDateTo, setDashboardDateTo]     = useState<string | undefined>(undefined);
   const [dashboardCompany, setDashboardCompany]   = useState<string>('');
   const [dashboardCompanyType, setDashboardCompanyType] = useState<'fija' | 'feria' | undefined>(undefined);
+  const [dashboardBrandKey, setDashboardBrandKey] = useState<string>('default');
   const [isPrintingDashboard, setIsPrintingDashboard] = useState(false);
   const [patientsRefreshKey, setPatientsRefreshKey] = useState(0);
   const prevTitleRef = useRef('');
@@ -131,7 +133,7 @@ export default function App() {
     };
   }, [isPrintingDashboard]);
 
-  function handleDashboardPrint(dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined) {
+  function handleDashboardPrint(dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined, brandTemplateKey: string) {
     prevTitleRef.current = document.title;
     const from = new Date(dateFrom).toLocaleDateString('es-AR');
     const to   = new Date(dateTo).toLocaleDateString('es-AR');
@@ -141,6 +143,7 @@ export default function App() {
     setDashboardDateTo(dateTo);
     setDashboardCompany(company);
     setDashboardCompanyType(companyType);
+    setDashboardBrandKey(brandTemplateKey);
     setIsPrintingDashboard(true);
   }
 
@@ -250,26 +253,54 @@ export default function App() {
                     <ExcelExportButton />
                     <DashboardPdfButton onPrint={handleDashboardPrint} isPrinting={isPrintingDashboard} />
                   </div>
-                  {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (
-                    <div className="hidden print:block mb-6 bg-primary text-white p-6 rounded-2xl">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">
-                            {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
+                  {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (() => {
+                    const tpl = getBrandTemplate(dashboardBrandKey);
+                    const isSM = tpl.key === 'swiss_medical';
+                    return isSM ? (
+                      <div className="hidden print:block mb-6 bg-white border-2 p-6 rounded-2xl" style={{ borderColor: tpl.colors.primary }}>
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-4 min-w-0">
+                            {tpl.logoUrl && (
+                              <img src={tpl.logoUrl} alt="Swiss Medical" style={{ height: `${tpl.logoHeightPx ?? 52}px`, width: 'auto' }} />
+                            )}
+                            <div className="pl-4 border-l-2" style={{ borderColor: tpl.colors.primary }}>
+                              <div className="text-xs font-bold tracking-[3px] text-text-muted mb-1">
+                                {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
+                              </div>
+                              <h2 className="text-3xl font-black text-text-main">{dashboardCompany}</h2>
+                              <div className="text-sm mt-1 text-text-muted">
+                                <strong style={{ color: tpl.colors.primary }}>{tpl.professionalName}</strong> · {tpl.professionalRole} · Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                              </div>
+                            </div>
                           </div>
-                          <h2 className="text-3xl font-black">{dashboardCompany}</h2>
-                          <div className="text-sm mt-1 text-white/80">
-                            {BRAND.name} &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
-                          </div>
+                          {dashboardCompanyType === 'feria' && (
+                            <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full whitespace-nowrap" style={{ background: `${tpl.colors.primary}15`, color: tpl.colors.primary, border: `1px solid ${tpl.colors.primary}30` }}>
+                              Modo Feria · Sesión única
+                            </span>
+                          )}
                         </div>
-                        {dashboardCompanyType === 'feria' && (
-                          <span className="text-[10px] font-black uppercase tracking-widest bg-accent/30 text-white border border-white/30 px-3 py-1.5 rounded-full whitespace-nowrap">
-                            Modo Feria · Sesión única
-                          </span>
-                        )}
                       </div>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="hidden print:block mb-6 bg-primary text-white p-6 rounded-2xl">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">
+                              {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
+                            </div>
+                            <h2 className="text-3xl font-black">{dashboardCompany}</h2>
+                            <div className="text-sm mt-1 text-white/80">
+                              {BRAND.name} &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                            </div>
+                          </div>
+                          {dashboardCompanyType === 'feria' && (
+                            <span className="text-[10px] font-black uppercase tracking-widest bg-accent/30 text-white border border-white/30 px-3 py-1.5 rounded-full whitespace-nowrap">
+                              Modo Feria · Sesión única
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
                   <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />

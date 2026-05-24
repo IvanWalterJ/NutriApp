@@ -7,6 +7,7 @@ import {
 } from '../lib/anthropometry';
 import { useCompany } from '../context/CompanyContext';
 import { BRAND } from '../lib/branding';
+import { getBrandTemplate } from '../lib/brandTemplates';
 
 interface Props {
   session: any;   // full session row from DB
@@ -24,7 +25,8 @@ function getAge(birthDate: string): number {
 }
 
 export default function AnthroReportButton({ session, patient, latestConsult }: Props) {
-  const { selectedCompany } = useCompany();
+  const { selectedCompany, getBrandTemplateKey } = useCompany();
+  const tpl = getBrandTemplate(getBrandTemplateKey(selectedCompany));
   const [loading, setLoading] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [chosenGroup, setChosenGroup] = useState('');
@@ -221,24 +223,53 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
           width: '190mm', fontFamily: 'Arial, sans-serif', color: '#111',
           padding: '8mm 10mm', background: '#fff',
         }}>
-          {/* Header */}
-          <div style={{background:'linear-gradient(135deg, #0A4D3C 0%, #0d6b52 100%)',color:'#fff',padding:'18px 24px',borderRadius:'10px',marginBottom:'4px'}}>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
-              <div>
-                <div style={{fontSize:'10px',fontWeight:'bold',letterSpacing:'3px',opacity:0.6,marginBottom:'4px'}}>{BRAND.name.toUpperCase()} · {selectedCompany.toUpperCase()}</div>
-                <div style={{fontSize:'22px',fontWeight:'bold',lineHeight:1.1}}>EVALUACIÓN ANTROPOMÉTRICA</div>
-                <div style={{fontSize:'11px',marginTop:'5px',opacity:0.8}}>Valoración morfológica · Composición corporal</div>
+          {/* Header — varía según la plantilla de marca asignada a la empresa */}
+          {tpl.key === 'swiss_medical' ? (
+            <>
+              <div style={{background:'#fff',border:`2px solid ${tpl.colors.primary}`,borderRadius:'10px',padding:'14px 22px',marginBottom:'4px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:'16px'}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'14px',minWidth:0}}>
+                    {tpl.logoUrl && (
+                      <img src={tpl.logoUrl} alt="Swiss Medical" style={{height:`${tpl.logoHeightPx ?? 44}px`,width:'auto',display:'block'}} />
+                    )}
+                    <div style={{borderLeft:`2px solid ${tpl.colors.primary}`,paddingLeft:'14px'}}>
+                      <div style={{fontSize:'10px',fontWeight:'bold',letterSpacing:'3px',color:'#666',marginBottom:'3px'}}>{selectedCompany.toUpperCase()}</div>
+                      <div style={{fontSize:'20px',fontWeight:'bold',lineHeight:1.1,color:'#111'}}>EVALUACIÓN ANTROPOMÉTRICA</div>
+                      <div style={{fontSize:'10px',marginTop:'4px',color:'#666'}}>Valoración morfológica · Composición corporal</div>
+                    </div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:'11px',color:'#111'}}>
+                    <div style={{fontWeight:'bold',fontSize:'13px'}}>Obs. N° {session.observation_number || 1}</div>
+                    <div style={{marginTop:'3px',color:'#666'}}>{session.session_date}</div>
+                  </div>
+                </div>
               </div>
-              <div style={{textAlign:'right',fontSize:'11px'}}>
-                <div style={{fontWeight:'bold',fontSize:'13px'}}>Obs. N° {session.observation_number || 1}</div>
-                <div style={{marginTop:'3px',opacity:0.85}}>{session.session_date}</div>
+              <div style={{background:`${tpl.colors.primary}10`,border:`1px solid ${tpl.colors.primary}30`,borderTop:'none',borderRadius:'0 0 8px 8px',padding:'6px 24px',marginBottom:'14px',display:'flex',justifyContent:'space-between',fontSize:'11px',color:tpl.colors.primary}}>
+                <span><strong>{tpl.professionalName}</strong> · {tpl.professionalRole}</span>
+                <span style={{fontWeight:'bold'}}>{tpl.website}</span>
               </div>
-            </div>
-          </div>
-          <div style={{background:'#e8f5f0',border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 8px 8px',padding:'6px 24px',marginBottom:'14px',display:'flex',justifyContent:'space-between',fontSize:'11px',color:BRAND.colors.primary}}>
-            <span><strong>{BRAND.professional}</strong> · {BRAND.professionalRole}</span>
-            <span style={{fontWeight:'bold'}}>{BRAND.website}</span>
-          </div>
+            </>
+          ) : (
+            <>
+              <div style={{background:`linear-gradient(135deg, ${tpl.colors.primary} 0%, ${tpl.colors.primaryLight} 100%)`,color:'#fff',padding:'18px 24px',borderRadius:'10px',marginBottom:'4px'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start'}}>
+                  <div>
+                    <div style={{fontSize:'10px',fontWeight:'bold',letterSpacing:'3px',opacity:0.6,marginBottom:'4px'}}>{BRAND.name.toUpperCase()} · {selectedCompany.toUpperCase()}</div>
+                    <div style={{fontSize:'22px',fontWeight:'bold',lineHeight:1.1}}>EVALUACIÓN ANTROPOMÉTRICA</div>
+                    <div style={{fontSize:'11px',marginTop:'5px',opacity:0.8}}>Valoración morfológica · Composición corporal</div>
+                  </div>
+                  <div style={{textAlign:'right',fontSize:'11px'}}>
+                    <div style={{fontWeight:'bold',fontSize:'13px'}}>Obs. N° {session.observation_number || 1}</div>
+                    <div style={{marginTop:'3px',opacity:0.85}}>{session.session_date}</div>
+                  </div>
+                </div>
+              </div>
+              <div style={{background:'#e8f5f0',border:'1px solid #c8e0d6',borderTop:'none',borderRadius:'0 0 8px 8px',padding:'6px 24px',marginBottom:'14px',display:'flex',justifyContent:'space-between',fontSize:'11px',color:tpl.colors.primary}}>
+                <span><strong>{tpl.professionalName}</strong> · {tpl.professionalRole}</span>
+                <span style={{fontWeight:'bold'}}>{tpl.website}</span>
+              </div>
+            </>
+          )}
 
           {/* Demographics */}
           <div style={{background:'#f4f9f7',border:'1px solid #c8e0d6',borderRadius:'8px',padding:'12px 16px',marginBottom:'14px',pageBreakInside:'avoid'}}>

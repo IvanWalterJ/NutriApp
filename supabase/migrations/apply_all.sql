@@ -1,7 +1,7 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 -- NUTRIAPP — Migraciones consolidadas (auto-generado)
 -- ═══════════════════════════════════════════════════════════════════════════
--- Este archivo concatena 001..010 para poder pegarlo de una sola vez en el
+-- Este archivo concatena 001..011 para poder pegarlo de una sola vez en el
 -- SQL Editor de Supabase. Para entender qué hace cada bloque, ver el archivo
 -- numerado correspondiente y el README.md de esta carpeta.
 --
@@ -487,3 +487,24 @@ CREATE POLICY "Authenticated users can delete form_responses"
   ON public.form_responses FOR DELETE
   TO authenticated
   USING (true);
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- ▼  011_company_brand_template.sql
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- ───────────────────────────────────────────────────────────────────────────
+-- 011 — Plantilla de marca por empresa (Sprint 4 — Fase 2.3).
+--
+-- Permite que cada empresa elija qué branding usar en sus informes PDF.
+-- Empezamos con dos templates registrados en código (default | swiss_medical),
+-- pero `brand_config` jsonb queda abierta para overrides puntuales (logo URL,
+-- colores, footer) sin necesidad de crear columnas nuevas por cliente.
+--
+-- - default:       NuPlan (header verde corporativo + nombre de la Lic.)
+-- - swiss_medical: logo SM + paleta SM (rojo) en lugar del verde NuPlan
+-- ───────────────────────────────────────────────────────────────────────────
+
+ALTER TABLE public.companies
+  ADD COLUMN IF NOT EXISTS brand_template text DEFAULT 'default'
+    CHECK (brand_template IN ('default', 'swiss_medical')),
+  ADD COLUMN IF NOT EXISTS brand_config   jsonb;

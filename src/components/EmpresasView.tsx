@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { supabase } from '../lib/supabase';
 import { useCompany, CompanyEntry } from '../context/CompanyContext';
+import { BRAND_TEMPLATE_OPTIONS } from '../lib/brandTemplates';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const PlusIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
@@ -172,7 +173,7 @@ function AddModal({
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function EmpresasView() {
-  const { companies, addCompany, removeCompany, selectedCompany, setSelectedCompany } = useCompany();
+  const { companies, addCompany, removeCompany, updateBrandTemplate, selectedCompany, setSelectedCompany } = useCompany();
   const [patientCounts, setPatientCounts] = useState<Record<string, number>>({});
   const [loadingCounts, setLoadingCounts] = useState(true);
   const [confirmDelete, setConfirmDelete] = useState<CompanyWithStats | null>(null);
@@ -308,6 +309,7 @@ export default function EmpresasView() {
                   <th className="text-left text-xs font-black uppercase tracking-wider text-text-muted px-5 py-3.5">
                     <span className="flex items-center gap-1.5"><UsersIcon /> Pacientes</span>
                   </th>
+                  <th className="text-left text-xs font-black uppercase tracking-wider text-text-muted px-5 py-3.5">Plantilla PDF</th>
                   <th className="text-left text-xs font-black uppercase tracking-wider text-text-muted px-5 py-3.5">Estado</th>
                   <th className="px-5 py-3.5" />
                 </tr>
@@ -359,6 +361,28 @@ export default function EmpresasView() {
                             {c.patient_count}
                           </span>
                         )}
+                      </td>
+
+                      {/* Plantilla PDF */}
+                      <td className="px-5 py-4">
+                        <select
+                          value={c.brand_template || 'default'}
+                          onChange={async (e) => {
+                            try {
+                              await updateBrandTemplate(c.id, e.target.value);
+                            } catch (err) {
+                              console.error('Error updating brand_template:', err);
+                            }
+                          }}
+                          className="bg-bg border-2 border-border-color rounded-lg px-2.5 py-1.5 text-xs font-semibold text-text-main focus:outline-none focus:border-primary cursor-pointer hover:border-primary/50 transition-colors"
+                          title="Plantilla de branding para informes PDF"
+                        >
+                          {BRAND_TEMPLATE_OPTIONS.map(opt => (
+                            <option key={opt.value} value={opt.value} title={opt.description}>
+                              {opt.label}
+                            </option>
+                          ))}
+                        </select>
                       </td>
 
                       {/* Estado */}

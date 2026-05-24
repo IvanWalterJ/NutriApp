@@ -6,6 +6,8 @@ export interface CompanyEntry {
   name: string;
   type: 'fija' | 'feria';
   created_at: string;
+  /** Branding del informe PDF: 'default' | 'swiss_medical'. Si null/undefined se asume 'default'. */
+  brand_template?: string | null;
 }
 
 interface CompanyContextType {
@@ -17,7 +19,9 @@ interface CompanyContextType {
   loadingCompanies: boolean;
   addCompany: (name: string, type: 'fija' | 'feria') => Promise<void>;
   removeCompany: (id: string) => Promise<void>;
+  updateBrandTemplate: (id: string, brand_template: string) => Promise<void>;
   getCompanyType: (name: string) => 'fija' | 'feria' | undefined;
+  getBrandTemplateKey: (name: string) => string;
 }
 
 const CompanyContext = createContext<CompanyContextType | undefined>(undefined);
@@ -63,7 +67,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     try {
       const { data, error } = await supabase
         .from('companies')
-        .select('id, name, type, created_at')
+        .select('id, name, type, created_at, brand_template')
         .order('type', { ascending: true })
         .order('name', { ascending: true });
       if (error) throw error;
@@ -88,10 +92,19 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     const { data, error } = await supabase
       .from('companies')
       .insert({ name: trimmed, type })
-      .select('id, name, type, created_at')
+      .select('id, name, type, created_at, brand_template')
       .single();
     if (error) throw error;
     setCompanies(prev => [...prev, data as CompanyEntry]);
+  }
+
+  async function updateBrandTemplate(id: string, brand_template: string) {
+    const { error } = await supabase
+      .from('companies')
+      .update({ brand_template })
+      .eq('id', id);
+    if (error) throw error;
+    setCompanies(prev => prev.map(c => c.id === id ? { ...c, brand_template } : c));
   }
 
   async function removeCompany(id: string) {
@@ -113,6 +126,10 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     return companies.find(c => c.name === name)?.type;
   }
 
+  function getBrandTemplateKey(name: string): string {
+    return companies.find(c => c.name === name)?.brand_template || 'default';
+  }
+
   const fixedCompanies = companies.filter(c => c.type === 'fija');
   const feriaCompanies = companies.filter(c => c.type === 'feria');
 
@@ -126,7 +143,9 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       loadingCompanies,
       addCompany,
       removeCompany,
+      updateBrandTemplate,
       getCompanyType,
+      getBrandTemplateKey,
     }}>
       {children}
     </CompanyContext.Provider>

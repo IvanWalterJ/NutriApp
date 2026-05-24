@@ -4,12 +4,12 @@ import { FileDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 interface DashboardPdfButtonProps {
-  onPrint: (dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined) => void;
+  onPrint: (dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined, brandTemplateKey: string) => void;
   isPrinting: boolean;
 }
 
 export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdfButtonProps) {
-  const { selectedCompany, getCompanyType } = useCompany();
+  const { selectedCompany, getCompanyType, getBrandTemplateKey } = useCompany();
   const [showModal, setShowModal] = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
@@ -21,7 +21,7 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
 
   function handleConfirm() {
     setShowModal(false);
-    onPrint(dateFrom, dateTo, selectedCompany, getCompanyType(selectedCompany));
+    onPrint(dateFrom, dateTo, selectedCompany, getCompanyType(selectedCompany), getBrandTemplateKey(selectedCompany));
   }
 
   return (
