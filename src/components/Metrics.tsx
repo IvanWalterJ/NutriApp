@@ -37,9 +37,10 @@ const AlertTriangleIcon = () => (
 interface MetricsProps {
   dateFrom?: string;
   dateTo?: string;
+  isPrinting?: boolean;
 }
 
-export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
+export default function Metrics({ dateFrom, dateTo, isPrinting }: MetricsProps = {}) {
   const { selectedCompany, getCompanyType } = useCompany();
   const isFeria = getCompanyType(selectedCompany) === 'feria';
   const [stats, setStats] = useState({
@@ -50,6 +51,10 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
     newThisMonth: 0
   });
   const [loading, setLoading] = useState(true);
+  // hasLoaded: true después del primer fetch (aunque venga vacío). Permite
+  // mostrar el último valor durante refetches en lugar del skeleton — fix
+  // del bug donde el PDF capturaba el estado loading.
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   useEffect(() => {
     // Guarda anti-race: si el usuario cambia de empresa/rango antes de que
@@ -162,6 +167,7 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
         atRisk: riskCount,
         newThisMonth: newP
       });
+      setHasLoaded(true);
     } catch (err) {
       console.error('Error fetching stats:', err);
     } finally {
@@ -236,12 +242,12 @@ export default function Metrics({ dateFrom, dateTo }: MetricsProps = {}) {
             </div>
           </div>
           <div className="text-[2.5rem] font-bold leading-none mb-2 font-mono group-hover:scale-105 transition-transform origin-left">
-            {loading ? (
+            {loading && !hasLoaded && !isPrinting ? (
               <div className="h-10 w-20 bg-border-color animate-pulse rounded-lg" />
             ) : metric.value}
           </div>
           <div className={`text-sm font-semibold flex items-center gap-2 ${metric.changeColor}`}>
-            {loading ? 'Cargando...' : metric.change}
+            {loading && !hasLoaded && !isPrinting ? 'Cargando...' : metric.change}
           </div>
         </div>
       ))}

@@ -124,7 +124,11 @@ export default function App() {
         // `window.print()` bloquea hasta cerrar el diálogo, así que al llegar acá ya terminó.
         setTimeout(cleanup, 500);
       }
-    }, 1500);
+      // 2500ms le da tiempo a los refetches disparados por el cambio de
+      // dateFrom/dateTo (Metrics + Charts + OmsPopulationMetrics queries en
+      // paralelo) a completarse antes de capturar el PDF. Si lo dejábamos en
+      // 1500ms, el PDF mostraba skeletons grises en lugar de los valores.
+    }, 2500);
 
     return () => {
       clearTimeout(timer);
@@ -301,9 +305,9 @@ export default function App() {
                       </div>
                     );
                   })()}
-                  <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
+                  <Metrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   <Charts dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
-                  <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} />
+                  <OmsPopulationMetrics dateFrom={dashboardDateFrom} dateTo={dashboardDateTo} isPrinting={isPrintingDashboard} />
                   {/* La tabla de pacientes se oculta del informe PDF por confidencialidad. */}
                   <div className="print:hidden">
                     <EmployeesTable onSelectPatient={(id) => setSelectedPatientId(id)} refreshKey={patientsRefreshKey} />

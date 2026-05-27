@@ -5,12 +5,18 @@ import { useCompany } from '../context/CompanyContext';
 interface OmsPopulationMetricsProps {
   dateFrom?: string;
   dateTo?: string;
+  isPrinting?: boolean;
 }
 
-export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulationMetricsProps = {}) {
+export default function OmsPopulationMetrics({ dateFrom, dateTo, isPrinting }: OmsPopulationMetricsProps = {}) {
   const { selectedCompany, getCompanyType } = useCompany();
   const isFeria = getCompanyType(selectedCompany) === 'feria';
   const [loading, setLoading] = useState(true);
+  // hasLoaded: true después del primer fetch (aunque venga vacío). Permite
+  // mostrar el último valor durante refetches (ej: cuando se inicia un print
+  // y cambian dateFrom/dateTo) en lugar del skeleton — que en el PDF salía
+  // como cuadros grises vacíos.
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [metrics, setMetrics] = useState({
     imcNormal: 0,
     imcSobrepeso: 0,
@@ -136,6 +142,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
       ? Math.round((activityGood.length / activityValues.length) * 100) : 0;
 
     setMetrics({ imcNormal, imcSobrepeso, imcBajoPeso, totalWithImc, adherenceAvg, hydrationPct, participationPct, fruitsPct, activityPct });
+    setHasLoaded(true);
   }
 
   const imcNormalPct = metrics.totalWithImc > 0 ? Math.round((metrics.imcNormal / metrics.totalWithImc) * 100) : 0;
@@ -236,7 +243,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
                 </span>
               </div>
               <div className="flex items-baseline gap-2 mb-1">
-                {loading ? (
+                {loading && !hasLoaded && !isPrinting ? (
                   <div className="h-8 w-16 bg-border-color animate-pulse rounded" />
                 ) : (
                   <>
@@ -248,7 +255,7 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo }: OmsPopulation
               <div className="h-2 rounded-full bg-border-color overflow-hidden mb-2">
                 <div
                   className={`h-full rounded-full transition-all duration-1000 bg-gradient-to-r ${card.barColor}`}
-                  style={{ width: loading ? '0%' : `${card.barPct}%` }}
+                  style={{ width: (loading && !hasLoaded && !isPrinting) ? '0%' : `${card.barPct}%` }}
                 />
               </div>
               <div className="flex justify-between items-center">
