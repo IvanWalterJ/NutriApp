@@ -382,6 +382,7 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
           }}
           onNewConsultation={() => onNavigate?.('consulta', patient.id)}
           onNewAnthropometry={() => onNavigate?.('antropometria', patient.id)}
+          onPatientUpdated={fetchPatient}
         />
       )}
 
@@ -1142,15 +1143,59 @@ interface TabHistorialProps {
   onEditSession: (s: any) => void;
   onNewConsultation: () => void;
   onNewAnthropometry: () => void;
+  onPatientUpdated: () => void;
 }
 
-function TabHistorial({ patient, onSelectSession, onEditSession, onNewConsultation, onNewAnthropometry }: TabHistorialProps) {
+function TabHistorial({ patient, onSelectSession, onEditSession, onNewConsultation, onNewAnthropometry, onPatientUpdated }: TabHistorialProps) {
   const sessions = (patient.sessions as any[]) ?? [];
   const lastConsult = useMemo(() => {
     return [...sessions]
       .filter(s => s.session_type === 'Consulta')
       .sort((a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime())[0] ?? null;
   }, [sessions]);
+
+  const { showToast } = useToast();
+  const [editingInitial, setEditingInitial] = useState(false);
+  const [initialDraft, setInitialDraft] = useState<{ weight: string; height: string }>({ weight: '', height: '' });
+  const [savingInitial, setSavingInitial] = useState(false);
+
+  function openInitialEditor() {
+    setInitialDraft({
+      weight: patient.initial_weight != null ? String(patient.initial_weight) : '',
+      height: patient.height != null ? String(patient.height) : '',
+    });
+    setEditingInitial(true);
+  }
+
+  async function saveInitial() {
+    if (savingInitial) return;
+    const weightNum = initialDraft.weight === '' ? null : Number(initialDraft.weight.replace(',', '.'));
+    const heightNum = initialDraft.height === '' ? null : Number(initialDraft.height.replace(',', '.'));
+    if (weightNum !== null && (!Number.isFinite(weightNum) || weightNum < 20 || weightNum > 300)) {
+      showToast('Peso inicial fuera de rango plausible (20-300 kg)', 'error');
+      return;
+    }
+    if (heightNum !== null && (!Number.isFinite(heightNum) || heightNum < 80 || heightNum > 250)) {
+      showToast('Altura fuera de rango plausible (80-250 cm)', 'error');
+      return;
+    }
+    setSavingInitial(true);
+    try {
+      const { error } = await supabase
+        .from('patients')
+        .update({ initial_weight: weightNum, height: heightNum })
+        .eq('id', patient.id);
+      if (error) throw error;
+      showToast('Datos iniciales actualizados', 'success');
+      setEditingInitial(false);
+      onPatientUpdated();
+    } catch (err: any) {
+      console.error('saveInitial error:', err);
+      showToast(err?.message || 'No se pudo actualizar', 'error');
+    } finally {
+      setSavingInitial(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -1179,6 +1224,108 @@ function TabHistorial({ patient, onSelectSession, onEditSession, onNewConsultati
           </button>
         </div>
       </div>
+
+      {/* Datos iniciales del paciente — editables inline porque a veces se
+          cargan mal en el alta (ej. peso 854 cuando era 85.4) y eso rompía
+          la variación de peso sin forma fácil de corregirlo desde la UI. */}
+      <div className="bg-bg border-2 border-dashed border-primary/30 rounded-xl p-4 md:p-5">
+        <div className="flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="bg-primary/10 text-primary font-mono font-bold px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-widest shadow-sm whitespace-nowrap">
+              Datos iniciales
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-text-muted uppercase tracking-widest text-[9px] font-bold">Peso inicial:</span>
+                <span className="font-mono font-bold">{patient.initial_weight != null ? `${patient.initial_weight} kg` : '—'}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-text-muted uppercase tracking-widest text-[9px] font-bold">Altura:</span>
+                <span className="font-mono font-bold">{patient.height != null ? `${patient.height} cm` : '—'}</span>
+              </div>
+              {patient.created_at && (
+                <div className="flex items-center gap-2">
+                  <span className="text-text-muted uppercase tracking-widest text-[9px] font-bold">Alta:</span>
+                  <span className="font-mono text-text-muted">{formatLocalDate(patient.created_at, { year: 'numeric', month: 'short', day: 'numeric' })}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          <button
+            onClick={openInitialEditor}
+            title="Corregir peso inicial o altura"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/10 rounded-lg transition-colors"
+          >
+            <Edit2 size={13} /> Editar
+          </button>
+        </div>
+      </div>
+
+      {/* Modal: editar datos iniciales */}
+      {editingInitial && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200] p-4 animate-fade-in">
+          <div className="bg-surface rounded-2xl shadow-2xl border-2 border-border-color max-w-md w-full p-6 animate-scale-in">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-text-main">Editar datos iniciales</h3>
+              <button onClick={() => { if (!savingInitial) setEditingInitial(false); }} className="p-2 rounded-lg hover:bg-bg text-text-muted">
+                <X size={20} />
+              </button>
+            </div>
+            <p className="text-sm text-text-muted mb-4">
+              Estos valores se cargan al dar de alta al paciente. Si se cargaron mal, podés corregirlos acá y las métricas de variación de peso se recalculan automáticamente.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-text-muted mb-1.5">Peso inicial (kg)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="20"
+                  max="300"
+                  value={initialDraft.weight}
+                  onChange={e => setInitialDraft(prev => ({ ...prev, weight: e.target.value }))}
+                  placeholder="Ej: 85.4"
+                  className="w-full p-2.5 border-2 border-border-color rounded-lg bg-bg text-text-main focus:outline-none focus:border-primary"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-widest text-text-muted mb-1.5">Altura (cm)</label>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  step="0.1"
+                  min="80"
+                  max="250"
+                  value={initialDraft.height}
+                  onChange={e => setInitialDraft(prev => ({ ...prev, height: e.target.value }))}
+                  placeholder="Ej: 170"
+                  className="w-full p-2.5 border-2 border-border-color rounded-lg bg-bg text-text-main focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                onClick={() => setEditingInitial(false)}
+                disabled={savingInitial}
+                className="px-4 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:border-primary disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveInitial}
+                disabled={savingInitial}
+                className="px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light disabled:opacity-50 flex items-center gap-2"
+              >
+                {savingInitial ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {sessions.length > 0 ? (
         <div className="space-y-3">
