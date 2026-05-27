@@ -13,6 +13,7 @@ import { useToast } from '../../context/ToastContext';
 import { Plus, Link2, QrCode, Trash2, Eye, EyeOff, Loader2, Copy, X, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { DEFAULT_FAIR_FORM_FIELDS, slugify, type FormRecord } from '../../lib/formTypes';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 export default function FormsAdmin() {
   const { selectedCompany } = useCompany();
@@ -23,6 +24,7 @@ export default function FormsAdmin() {
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showQrFor, setShowQrFor] = useState<FormRecord | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<FormRecord | null>(null);
   const [responseCounts, setResponseCounts] = useState<Record<string, number>>({});
 
   // Form fields del modal de creación
@@ -127,11 +129,6 @@ export default function FormsAdmin() {
   }
 
   async function handleDelete(form: FormRecord) {
-    const pending = responseCounts[form.id] || 0;
-    const msg = pending > 0
-      ? `Este formulario tiene ${pending} respuesta(s) sin revisar. Borrarlo elimina TODO. ¿Continuar?`
-      : '¿Borrar este formulario? Es permanente.';
-    if (!window.confirm(msg)) return;
     const { error } = await supabase.from('forms').delete().eq('id', form.id);
     if (error) {
       showToast('No se pudo borrar', 'error');
@@ -261,8 +258,9 @@ export default function FormsAdmin() {
                     {form.is_active ? <><EyeOff size={12} /> Desactivar</> : <><Eye size={12} /> Activar</>}
                   </button>
                   <button
-                    onClick={() => handleDelete(form)}
+                    onClick={() => setConfirmDelete(form)}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-bg border border-border-color rounded-lg text-xs font-semibold text-danger hover:border-danger transition-colors ml-auto"
+                    title="Borrar formulario"
                   >
                     <Trash2 size={12} />
                   </button>
@@ -393,6 +391,36 @@ export default function FormsAdmin() {
         </div>,
         document.body,
       )}
+
+      {/* Confirmación de borrado */}
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        variant="danger"
+        title="Borrar formulario"
+        message={
+          confirmDelete ? (
+            <>
+              ¿Borrar <strong className="text-text-main">"{confirmDelete.title}"</strong>?
+            </>
+          ) : ''
+        }
+        detail={
+          confirmDelete && (responseCounts[confirmDelete.id] || 0) > 0 ? (
+            <span className="text-danger font-semibold">
+              Atención: este formulario tiene {responseCounts[confirmDelete.id]} respuesta(s) sin revisar. Al borrarlo se eliminan también esas respuestas. Esta acción no se puede deshacer.
+            </span>
+          ) : (
+            'Esta acción es permanente.'
+          )
+        }
+        confirmLabel="Borrar formulario"
+        onConfirm={async () => {
+          if (!confirmDelete) return;
+          await handleDelete(confirmDelete);
+          setConfirmDelete(null);
+        }}
+        onCancel={() => setConfirmDelete(null)}
+      />
     </div>
   );
 }

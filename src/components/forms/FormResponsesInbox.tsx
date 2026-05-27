@@ -16,6 +16,7 @@ import { useToast } from '../../context/ToastContext';
 import { Inbox, CheckCircle2, Trash2, User, Calendar, Loader2, RefreshCw, AlertCircle, FileText, Building2 } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import type { FormRecord, FormResponseRecord } from '../../lib/formTypes';
+import ConfirmDialog from '../ui/ConfirmDialog';
 
 interface ResponseWithForm extends FormResponseRecord {
   /**
@@ -42,6 +43,7 @@ export default function FormResponsesInbox({ onMutated }: InboxProps = {}) {
   const [filter, setFilter] = useState<'pending' | 'processed' | 'discarded'>('pending');
   const [activeResponse, setActiveResponse] = useState<ResponseWithForm | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState<ResponseWithForm | null>(null);
 
   useEffect(() => {
     void loadResponses();
@@ -206,7 +208,6 @@ export default function FormResponsesInbox({ onMutated }: InboxProps = {}) {
   }
 
   async function handleDiscard(resp: ResponseWithForm) {
-    if (!window.confirm('¿Descartar esta respuesta? Podés recuperarla con el filtro "Descartadas".')) return;
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from('form_responses')
@@ -323,12 +324,39 @@ export default function FormResponsesInbox({ onMutated }: InboxProps = {}) {
           resp={activeResponse}
           onClose={() => setActiveResponse(null)}
           onPromote={() => handlePromote(activeResponse)}
-          onDiscard={() => handleDiscard(activeResponse)}
+          onDiscard={() => { setConfirmDiscard(activeResponse); }}
           confirming={confirming}
           readOnly={filter !== 'pending'}
         />,
         document.body,
       )}
+
+      {/* Confirmación de descarte */}
+      <ConfirmDialog
+        open={confirmDiscard !== null}
+        variant="warning"
+        title="Descartar respuesta"
+        message={
+          confirmDiscard ? (
+            <>
+              ¿Marcar como descartada la respuesta de{' '}
+              <strong className="text-text-main">
+                {`${(confirmDiscard.data as any).first_name || ''} ${(confirmDiscard.data as any).last_name || ''}`.trim() || '(sin nombre)'}
+              </strong>
+              ?
+            </>
+          ) : ''
+        }
+        detail='Podés recuperarla más tarde desde el filtro "Descartadas".'
+        confirmLabel="Descartar"
+        onConfirm={async () => {
+          if (!confirmDiscard) return;
+          await handleDiscard(confirmDiscard);
+          setConfirmDiscard(null);
+          setActiveResponse(null);
+        }}
+        onCancel={() => setConfirmDiscard(null)}
+      />
     </div>
   );
 }
