@@ -13,7 +13,7 @@ import {
   getGmtFactor,
 } from '../lib/nutritionConstants';
 import { BRAND } from '../lib/branding';
-import { saveGeneratedDoc, getGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
+import { saveGeneratedDoc, getGeneratedDoc, updateGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
 
 // -- ICONS --
 const CheckCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -173,6 +173,11 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
   // editedPlan is always the working copy; sections independently toggle editing
   const [editedPlan, setEditedPlan] = useState<any>(null);
   const [editingSections, setEditingSections] = useState<Record<string, boolean>>({});
+  // ID del doc actual en historial — lo seteamos al cargar uno existente o al
+  // auto-guardar tras generar. Sirve para persistir ediciones manuales en la
+  // misma fila en lugar de crear duplicados.
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+  const [savingEdits, setSavingEdits] = useState(false);
 
   const pdfRef = useRef<HTMLDivElement>(null);
 
@@ -199,6 +204,7 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
         setGeneratedPlan(doc.output);
         setEditedPlan(JSON.parse(JSON.stringify(doc.output)));
         setEditingSections({});
+        setCurrentDocId(doc.id);
       } catch (err: any) {
         console.error('Load saved plan error:', err);
         showToast(err?.message || 'No se pudo cargar el plan guardado', 'error');
@@ -361,7 +367,7 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
       try {
         const patientFullName = `${patientData.firstName} ${patientData.lastName}`.trim();
         const dietHint = preferences.dietType && preferences.dietType !== 'Normal' ? preferences.dietType : undefined;
-        await saveGeneratedDoc({
+        const newId = await saveGeneratedDoc({
           type: 'meal_plan',
           title: defaultDocTitle({
             type: 'meal_plan',
@@ -374,6 +380,7 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
           input: { selectedPatientId, patientData, metrics, preferences },
           output: planJson,
         });
+        setCurrentDocId(newId);
         onSaved?.();
       } catch (saveErr: any) {
         console.error('Auto-save plan error:', saveErr);
@@ -477,13 +484,53 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
     });
   }
 
-  function saveEdits() {
-    setGeneratedPlan(JSON.parse(JSON.stringify(editedPlan)));
+  async function saveEdits() {
+    const snapshot = JSON.parse(JSON.stringify(editedPlan));
+    setGeneratedPlan(snapshot);
     setEditingSections({});
+    if (!currentDocId) {
+      showToast('Cambios guardados (no se persiste en historial sin guardado previo)', 'info');
+      return;
+    }
+    setSavingEdits(true);
+    try {
+      await updateGeneratedDoc(currentDocId, { output: snapshot });
+      showToast('Cambios guardados en el historial', 'success');
+      onSaved?.();
+    } catch (err: any) {
+      console.error('Save plan edits error:', err);
+      showToast(err?.message || 'No se pudieron guardar los cambios en el historial', 'error');
+    } finally {
+      setSavingEdits(false);
+    }
   }
 
   function toggleSection(section: string) {
-    setEditingSections(prev => ({ ...prev, [section]: !prev[section] }));
+    setEditingSections(prev => {
+      const wasEditing = !!prev[section];
+      // Al cerrar una sección (terminar de editar), persistimos los cambios
+      // al historial sin esperar a que el usuario toque el botón flotante.
+      if (wasEditing) {
+        void persistEditsToDb();
+      }
+      return { ...prev, [section]: !wasEditing };
+    });
+  }
+
+  async function persistEditsToDb() {
+    if (!currentDocId || !editedPlan) return;
+    const snapshot = JSON.parse(JSON.stringify(editedPlan));
+    setGeneratedPlan(snapshot);
+    setSavingEdits(true);
+    try {
+      await updateGeneratedDoc(currentDocId, { output: snapshot });
+      onSaved?.();
+    } catch (err: any) {
+      console.error('Persist plan edits error:', err);
+      showToast(err?.message || 'No se pudieron guardar los cambios en el historial', 'error');
+    } finally {
+      setSavingEdits(false);
+    }
   }
 
   const anyEditing = Object.values(editingSections).some(Boolean);
@@ -501,6 +548,7 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
     setGeneratedPlan(null);
     setEditedPlan(null);
     setEditingSections({});
+    setCurrentDocId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1394,9 +1442,10 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
             <div className="print:hidden fixed bottom-6 right-6 z-50 animate-in fade-in">
               <button
                 onClick={saveEdits}
-                className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white font-bold px-5 py-3 rounded-full shadow-2xl transition-all hover:-translate-y-0.5 text-sm"
+                disabled={savingEdits}
+                className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-full shadow-2xl transition-all hover:-translate-y-0.5 text-sm"
               >
-                <SaveIcon /> Guardar todos los cambios
+                <SaveIcon /> {savingEdits ? 'Guardando...' : 'Guardar todos los cambios'}
               </button>
             </div>
           )}

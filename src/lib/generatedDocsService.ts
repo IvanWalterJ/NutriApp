@@ -130,6 +130,28 @@ export async function deleteGeneratedDoc(id: string): Promise<void> {
 }
 
 /**
+ * Actualiza el output (y opcionalmente input) de un documento ya guardado.
+ * Se usa cuando la nutri edita manualmente un plan/recetario cargado del
+ * historial — los cambios persisten sobre la misma fila en lugar de crear
+ * una versión nueva.
+ */
+export async function updateGeneratedDoc<TOutput, TInput = unknown>(
+  id: string,
+  patch: { output: TOutput; input?: TInput | null },
+): Promise<void> {
+  const payload: Record<string, unknown> = {
+    output: patch.output,
+    updated_at: new Date().toISOString(),
+  };
+  if (patch.input !== undefined) payload.input = patch.input;
+  const { error } = await supabase
+    .from('generated_documents')
+    .update(payload)
+    .eq('id', id);
+  if (error) throw error;
+}
+
+/**
  * Helper de título: arma algo legible que la nutri reconozca de un vistazo
  * en el historial. Si tiene paciente lo incluye; sino usa la fecha.
  */

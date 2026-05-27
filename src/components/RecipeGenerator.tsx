@@ -10,7 +10,7 @@ import {
   PREGNANCY_STAGES,
 } from '../lib/nutritionConstants';
 import { BRAND } from '../lib/branding';
-import { saveGeneratedDoc, getGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
+import { saveGeneratedDoc, getGeneratedDoc, updateGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
 
 // -- ICONS --
 const ChefHat = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>;
@@ -78,6 +78,10 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
   // editedResult is the working copy; editingCards tracks which recipe cards are in edit mode
   const [editedResult, setEditedResult] = useState<any>(null);
   const [editingCards, setEditingCards] = useState<Record<number, boolean>>({});
+  // ID del doc actual en historial — para persistir ediciones manuales sobre
+  // la misma fila en lugar de duplicar.
+  const [currentDocId, setCurrentDocId] = useState<string | null>(null);
+  const [savingEdits, setSavingEdits] = useState(false);
 
   useEffect(() => {
     fetchPatients();
@@ -106,6 +110,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
         setResult(doc.output);
         setEditedResult(JSON.parse(JSON.stringify(doc.output)));
         setEditingCards({});
+        setCurrentDocId(doc.id);
       } catch (err: any) {
         console.error('Load saved recipes error:', err);
         showToast(err?.message || 'No se pudo cargar el recetario guardado', 'error');
@@ -220,7 +225,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
       try {
         const patientFullName = patientData ? `${patientData.firstName} ${patientData.lastName}`.trim() : null;
         const mealTypeHint = mealTypes.length === 1 ? mealTypes[0] : `${mealTypes.length} tipos`;
-        await saveGeneratedDoc({
+        const newId = await saveGeneratedDoc({
           type: 'recipes',
           title: defaultDocTitle({
             type: 'recipes',
@@ -233,6 +238,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
           input: { selectedPatientId, patientData, mealTypes, objective, dietType, intolerances, pregnancyStage, hideCalories, foodRestrictions, count: effectiveCount },
           output: data,
         });
+        setCurrentDocId(newId);
         onSaved?.();
       } catch (saveErr: any) {
         console.error('Auto-save recipes error:', saveErr);
@@ -300,7 +306,29 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
     setResult(null);
     setEditedResult(null);
     setEditingCards({});
+    setCurrentDocId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function saveEdits() {
+    const snapshot = JSON.parse(JSON.stringify(editedResult));
+    setResult(snapshot);
+    setEditingCards({});
+    if (!currentDocId) {
+      showToast('Cambios guardados (no se persiste en historial sin guardado previo)', 'info');
+      return;
+    }
+    setSavingEdits(true);
+    try {
+      await updateGeneratedDoc(currentDocId, { output: snapshot });
+      showToast('Cambios guardados en el historial', 'success');
+      onSaved?.();
+    } catch (err: any) {
+      console.error('Save recipe edits error:', err);
+      showToast(err?.message || 'No se pudieron guardar los cambios en el historial', 'error');
+    } finally {
+      setSavingEdits(false);
+    }
   }
 
   // Mutate editedResult immutably
@@ -318,6 +346,8 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
       if (wasEditing) {
         // Save: commit editedResult to result
         setResult(JSON.parse(JSON.stringify(editedResult)));
+        // Persistir al historial cuando se cierra la edición de una card
+        void persistEditsToDb(editedResult);
       }
       return { ...prev, [idx]: !wasEditing };
     });
@@ -330,6 +360,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
       if (Array.isArray(next?.recipes)) next.recipes.splice(idx, 1);
       return next;
     };
+    const nextResult = editedResult ? removeAt(editedResult) : null;
     setResult((prev: any) => prev ? removeAt(prev) : prev);
     setEditedResult((prev: any) => prev ? removeAt(prev) : prev);
     setEditingCards(prev => {
@@ -341,7 +372,22 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
       });
       return next;
     });
+    if (nextResult) void persistEditsToDb(nextResult);
     showToast('Receta eliminada', 'success');
+  }
+
+  async function persistEditsToDb(snapshot: any) {
+    if (!currentDocId || !snapshot) return;
+    setSavingEdits(true);
+    try {
+      await updateGeneratedDoc(currentDocId, { output: JSON.parse(JSON.stringify(snapshot)) });
+      onSaved?.();
+    } catch (err: any) {
+      console.error('Persist recipe edits error:', err);
+      showToast(err?.message || 'No se pudieron guardar los cambios en el historial', 'error');
+    } finally {
+      setSavingEdits(false);
+    }
   }
 
   const anyEditing = Object.values(editingCards).some(Boolean);
@@ -665,14 +711,11 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
       {anyEditing && (
         <div className="print:hidden fixed bottom-6 right-6 z-50">
           <button
-            onClick={() => {
-              setResult(JSON.parse(JSON.stringify(editedResult)));
-              setEditingCards({});
-              showToast('Cambios guardados', 'success');
-            }}
-            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 text-white px-5 py-3 rounded-xl font-bold shadow-xl transition-all hover:-translate-y-0.5"
+            onClick={saveEdits}
+            disabled={savingEdits}
+            className="flex items-center gap-2 bg-green-500 hover:bg-green-600 disabled:opacity-60 disabled:cursor-not-allowed text-white px-5 py-3 rounded-xl font-bold shadow-xl transition-all hover:-translate-y-0.5"
           >
-            <SaveIcon /> Guardar todos los cambios
+            <SaveIcon /> {savingEdits ? 'Guardando...' : 'Guardar todos los cambios'}
           </button>
         </div>
       )}
