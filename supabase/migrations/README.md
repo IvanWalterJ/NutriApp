@@ -19,6 +19,7 @@ Aplicar en orden numérico (las posteriores asumen tablas/columnas creadas en la
 | 009 | [`009_import_batches.sql`](009_import_batches.sql) | Tabla `import_batches` + `patients.import_batch_id/imported_at` + RLS |
 | 010 | [`010_forms_public.sql`](010_forms_public.sql) | Tablas `forms` + `form_responses` con RLS para INSERT público anónimo |
 | 011 | [`011_company_brand_template.sql`](011_company_brand_template.sql) | `companies.brand_template` (default \| swiss_medical) + `brand_config` jsonb |
+| 012 | [`012_generated_documents.sql`](012_generated_documents.sql) | Tabla `generated_documents` (planes y recetarios generados por IA, persistidos) + RLS |
 
 ## Cómo aplicar
 

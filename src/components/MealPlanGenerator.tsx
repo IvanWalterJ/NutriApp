@@ -13,6 +13,7 @@ import {
   getGmtFactor,
 } from '../lib/nutritionConstants';
 import { BRAND } from '../lib/branding';
+import { saveGeneratedDoc, getGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
 
 // -- ICONS --
 const CheckCircle = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>;
@@ -123,7 +124,16 @@ function calculateMetrics(
 }
 
 
-export default function MealPlanGenerator() {
+interface MealPlanGeneratorProps {
+  /** Si viene, al mount se carga este documento guardado en lugar de mostrar el form. */
+  loadedDocId?: string | null;
+  /** Si está definido, muestra un botón "Volver al historial" arriba del header. */
+  onBackToList?: () => void;
+  /** Callback opcional cuando se guarda exitosamente — útil para que el wrapper refresque la lista. */
+  onSaved?: () => void;
+}
+
+export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }: MealPlanGeneratorProps = {}) {
   const { selectedCompany, getCompanyType } = useCompany();
   const { showToast } = useToast();
 
@@ -170,6 +180,33 @@ export default function MealPlanGenerator() {
     fetchPatients();
     setReportCompanyName(selectedCompany);
   }, [selectedCompany]);
+
+  // Carga un documento del historial cuando el wrapper pasa loadedDocId.
+  // Reusamos input + output para que el render sea idéntico al de la
+  // generación original (incluyendo edición posterior si la hubo).
+  useEffect(() => {
+    if (!loadedDocId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const doc = await getGeneratedDoc<{ preferences?: any; patientData?: any; metrics?: any; selectedPatientId?: string }, any>(loadedDocId);
+        if (cancelled) return;
+        const inp = doc.input || {};
+        if (inp.selectedPatientId) setSelectedPatientId(inp.selectedPatientId);
+        if (inp.patientData) setPatientData(inp.patientData);
+        if (inp.metrics) setMetrics(inp.metrics);
+        if (inp.preferences) setPreferences(inp.preferences);
+        setGeneratedPlan(doc.output);
+        setEditedPlan(JSON.parse(JSON.stringify(doc.output)));
+        setEditingSections({});
+      } catch (err: any) {
+        console.error('Load saved plan error:', err);
+        showToast(err?.message || 'No se pudo cargar el plan guardado', 'error');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedDocId]);
 
   async function fetchPatients() {
     try {
@@ -319,6 +356,29 @@ export default function MealPlanGenerator() {
       setEditedPlan(JSON.parse(JSON.stringify(planJson)));
       setEditingSections({});
       showToast('¡Plan generado con éxito!', 'success');
+
+      // Auto-guardar en historial (no bloquea el render si falla)
+      try {
+        const patientFullName = `${patientData.firstName} ${patientData.lastName}`.trim();
+        const dietHint = preferences.dietType && preferences.dietType !== 'Normal' ? preferences.dietType : undefined;
+        await saveGeneratedDoc({
+          type: 'meal_plan',
+          title: defaultDocTitle({
+            type: 'meal_plan',
+            patientName: patientFullName,
+            hint: dietHint,
+          }),
+          company: selectedCompany,
+          patient_id: selectedPatientId || null,
+          patient_name: patientFullName || null,
+          input: { selectedPatientId, patientData, metrics, preferences },
+          output: planJson,
+        });
+        onSaved?.();
+      } catch (saveErr: any) {
+        console.error('Auto-save plan error:', saveErr);
+        showToast('El plan se generó pero no pudo guardarse en el historial', 'info');
+      }
       
       setTimeout(() => {
         window.scrollTo({ top: document.getElementById('generated-plan-view')?.offsetTop || 0, behavior: 'smooth' });
@@ -524,6 +584,17 @@ export default function MealPlanGenerator() {
           'Finalizando lista de compras y recomendaciones...',
         ]}
       />
+      {/* Botón volver al historial — sólo visible cuando el wrapper lo pasa */}
+      {onBackToList && (
+        <div className="max-w-4xl mx-auto mb-3 print:hidden">
+          <button
+            onClick={onBackToList}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted hover:text-primary transition-colors"
+          >
+            ← Volver al historial
+          </button>
+        </div>
+      )}
       {!generatedPlan ? (
         <div className="max-w-4xl mx-auto">
           <div className="bg-surface border-2 border-border-color rounded-xl p-6 md:p-8 shadow-sm">

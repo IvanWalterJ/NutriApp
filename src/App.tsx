@@ -13,8 +13,8 @@ import EmployeesTable from './components/EmployeesTable';
 import ConsultationForm from './components/ConsultationForm';
 import AnthropometryForm from './components/AnthropometryForm';
 import Parameters from './components/Parameters';
-import MealPlanGenerator from './components/MealPlanGenerator';
-import RecipeGenerator from './components/RecipeGenerator';
+import MealPlansSection from './components/generated/MealPlansSection';
+import RecipesSection from './components/generated/RecipesSection';
 import EmpresasView from './components/EmpresasView';
 import FormsSection from './components/forms/FormsSection';
 import OmsPopulationMetrics from './components/OmsPopulationMetrics';
@@ -365,11 +365,11 @@ export default function App() {
               )}
 
               {activeTab === 'generador' && (
-                <MealPlanGenerator />
+                <MealPlansSection />
               )}
 
               {activeTab === 'recetario' && (
-                <RecipeGenerator />
+                <RecipesSection />
               )}
 
               {activeTab === 'formularios' && (

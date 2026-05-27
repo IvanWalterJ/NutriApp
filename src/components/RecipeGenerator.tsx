@@ -10,6 +10,7 @@ import {
   PREGNANCY_STAGES,
 } from '../lib/nutritionConstants';
 import { BRAND } from '../lib/branding';
+import { saveGeneratedDoc, getGeneratedDoc, defaultDocTitle } from '../lib/generatedDocsService';
 
 // -- ICONS --
 const ChefHat = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 1.05-1.54 5 5 0 0 1 7.08 0A5.11 5.11 0 0 1 16.59 6 4 4 0 0 1 18 13.87V21H6Z"/><line x1="6" y1="17" x2="18" y2="17"/></svg>;
@@ -39,7 +40,13 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   'Difícil': 'bg-red-100 text-red-700 border-red-200',
 };
 
-export default function RecipeGenerator() {
+interface RecipeGeneratorProps {
+  loadedDocId?: string | null;
+  onBackToList?: () => void;
+  onSaved?: () => void;
+}
+
+export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: RecipeGeneratorProps = {}) {
   const { selectedCompany, getCompanyType } = useCompany();
   const { showToast } = useToast();
 
@@ -76,6 +83,37 @@ export default function RecipeGenerator() {
     fetchPatients();
     setReportCompanyName(selectedCompany);
   }, [selectedCompany]);
+
+  // Carga un recetario del historial cuando el wrapper pasa loadedDocId.
+  useEffect(() => {
+    if (!loadedDocId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const doc = await getGeneratedDoc<any, any>(loadedDocId);
+        if (cancelled) return;
+        const inp = doc.input || {};
+        if (inp.selectedPatientId) setSelectedPatientId(inp.selectedPatientId);
+        if (inp.patientData) setPatientData(inp.patientData);
+        if (inp.mealTypes) setMealTypes(inp.mealTypes);
+        if (inp.objective !== undefined) setObjective(inp.objective);
+        if (inp.dietType) setDietType(inp.dietType);
+        if (inp.intolerances) setIntolerances(inp.intolerances);
+        if (inp.pregnancyStage !== undefined) setPregnancyStage(inp.pregnancyStage);
+        if (inp.hideCalories !== undefined) setHideCalories(inp.hideCalories);
+        if (inp.foodRestrictions !== undefined) setFoodRestrictions(inp.foodRestrictions);
+        if (inp.count !== undefined) setCount(inp.count);
+        setResult(doc.output);
+        setEditedResult(JSON.parse(JSON.stringify(doc.output)));
+        setEditingCards({});
+      } catch (err: any) {
+        console.error('Load saved recipes error:', err);
+        showToast(err?.message || 'No se pudo cargar el recetario guardado', 'error');
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loadedDocId]);
 
   async function fetchPatients() {
     try {
@@ -177,6 +215,29 @@ export default function RecipeGenerator() {
       setEditedResult(JSON.parse(JSON.stringify(data)));
       setEditingCards({});
       showToast(`¡${data.recipes?.length || effectiveCount} recetas generadas!`, 'success');
+
+      // Auto-guardar en historial
+      try {
+        const patientFullName = patientData ? `${patientData.firstName} ${patientData.lastName}`.trim() : null;
+        const mealTypeHint = mealTypes.length === 1 ? mealTypes[0] : `${mealTypes.length} tipos`;
+        await saveGeneratedDoc({
+          type: 'recipes',
+          title: defaultDocTitle({
+            type: 'recipes',
+            patientName: patientFullName,
+            hint: mealTypeHint,
+          }),
+          company: selectedCompany,
+          patient_id: selectedPatientId || null,
+          patient_name: patientFullName,
+          input: { selectedPatientId, patientData, mealTypes, objective, dietType, intolerances, pregnancyStage, hideCalories, foodRestrictions, count: effectiveCount },
+          output: data,
+        });
+        onSaved?.();
+      } catch (saveErr: any) {
+        console.error('Auto-save recipes error:', saveErr);
+        showToast('Las recetas se generaron pero no pudieron guardarse en el historial', 'info');
+      }
       setTimeout(() => {
         window.scrollTo({ top: document.getElementById('recipes-result')?.offsetTop || 0, behavior: 'smooth' });
       }, 100);
@@ -306,6 +367,16 @@ export default function RecipeGenerator() {
             'Finalizando destacados nutricionales...',
           ]}
         />
+        {onBackToList && (
+          <div className="mb-3 print:hidden">
+            <button
+              onClick={onBackToList}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted hover:text-primary transition-colors"
+            >
+              ← Volver al historial
+            </button>
+          </div>
+        )}
         <div className="bg-surface border-2 border-border-color rounded-xl p-6 md:p-8 shadow-sm">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary mb-4">
@@ -524,6 +595,16 @@ export default function RecipeGenerator() {
 
   return (
     <div id="recipes-result" className="max-w-[1000px] mx-auto fade-in">
+      {onBackToList && (
+        <div className="mb-3 print:hidden">
+          <button
+            onClick={onBackToList}
+            className="inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted hover:text-primary transition-colors"
+          >
+            ← Volver al historial
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-center gap-4">
         <div>
