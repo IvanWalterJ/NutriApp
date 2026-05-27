@@ -198,7 +198,23 @@ select {
     /* Make accent-based gradients visible (5% of solid accent → explicit light green) */
     --color-accent: #16a34a;
   }
+
+  /* Swiss Medical brand override — al combinarse con dashboard-printing,
+     reescribe la paleta entera del informe para que KPIs, charts, OMS y
+     toda la app hereden el rojo corporativo SM sin tocar componentes.
+     La clase la agrega/quita App.tsx según companies.brand_template. */
+  body.dashboard-printing.brand-swiss-medical {
+    --color-primary: #D32027;
+    --color-primary-light: #E5404D;
+    --color-accent: #D32027;
+    --color-accent-dark: #B01C22;
+    --color-info: #D32027;
+  }
 }
+
+/* Las reglas SM no-print siguen aplicando en pantalla cuando estamos en
+   modo print con preview. No las hacemos visibles fuera del @media print
+   porque la app sigue usando los colores NuPlan para el resto del uso. */
 
 /* Anthropometry print mode — triggered by body.anthro-printing */
 @media print {

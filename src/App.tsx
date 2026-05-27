@@ -109,6 +109,7 @@ export default function App() {
       cleanedUp = true;
       document.title = prevTitleRef.current;
       document.body.classList.remove('dashboard-printing');
+      document.body.classList.remove('brand-swiss-medical');
       setIsPrintingDashboard(false);
       setDashboardDateFrom(undefined);
       setDashboardDateTo(undefined);
@@ -141,8 +142,17 @@ export default function App() {
     prevTitleRef.current = document.title;
     const from = new Date(dateFrom).toLocaleDateString('es-AR');
     const to   = new Date(dateTo).toLocaleDateString('es-AR');
-    document.title = `Informe Dashboard ${company} ${from} – ${to}`;
+    document.title = `Informe ${company} ${from} – ${to}`;
     document.body.classList.add('dashboard-printing');
+    // El branding global del informe se aplica vía clase en <body>. CSS
+    // sobreescribe los tokens --color-primary/accent/etc, así todos los
+    // componentes hijos (KPIs, charts, OMS) heredan la paleta sin tener
+    // que pasarles props ni hacer refactors.
+    if (brandTemplateKey === 'swiss_medical') {
+      document.body.classList.add('brand-swiss-medical');
+    } else {
+      document.body.classList.remove('brand-swiss-medical');
+    }
     setDashboardDateFrom(dateFrom);
     setDashboardDateTo(dateTo);
     setDashboardCompany(company);
@@ -260,40 +270,57 @@ export default function App() {
                   {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (() => {
                     const tpl = getBrandTemplate(dashboardBrandKey);
                     const isSM = tpl.key === 'swiss_medical';
+                    const reportTitle = dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO' : 'INFORME';
+                    const periodText = `${new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — ${new Date(dashboardDateTo).toLocaleDateString('es-AR')}`;
                     return isSM ? (
-                      <div className="hidden print:block mb-6 bg-white border-2 p-6 rounded-2xl" style={{ borderColor: tpl.colors.primary }}>
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-4 min-w-0">
-                            {tpl.logoUrl && (
-                              <img src={tpl.logoUrl} alt="Swiss Medical" style={{ height: `${tpl.logoHeightPx ?? 52}px`, width: 'auto' }} />
-                            )}
-                            <div className="pl-4 border-l-2" style={{ borderColor: tpl.colors.primary }}>
-                              <div className="text-xs font-bold tracking-[3px] text-text-muted mb-1">
-                                {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
-                              </div>
-                              <h2 className="text-3xl font-black text-text-main">{dashboardCompany}</h2>
-                              <div className="text-sm mt-1 text-text-muted">
-                                <strong style={{ color: tpl.colors.primary }}>{tpl.professionalName}</strong> · {tpl.professionalRole} · Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
-                              </div>
+                      <div className="hidden print:block mb-6">
+                        {/* Banda superior corporativa — sin marco, todo el ancho */}
+                        <div className="flex items-center justify-between gap-4 px-1 pb-3 border-b-2" style={{ borderColor: tpl.colors.primary }}>
+                          {tpl.logoUrl && (
+                            <img src={tpl.logoUrl} alt="Swiss Medical" style={{ height: `${(tpl.logoHeightPx ?? 52) + 6}px`, width: 'auto' }} />
+                          )}
+                          <div className="text-right">
+                            <div className="text-[10px] font-bold tracking-[4px]" style={{ color: tpl.colors.primary }}>
+                              MEDICINA PRIVADA · NUTRICIÓN
+                            </div>
+                            <div className="text-[9px] text-text-muted mt-0.5 tracking-wide">
+                              {tpl.professionalName} · {tpl.professionalRole}
                             </div>
                           </div>
-                          {dashboardCompanyType === 'feria' && (
-                            <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full whitespace-nowrap" style={{ background: `${tpl.colors.primary}15`, color: tpl.colors.primary, border: `1px solid ${tpl.colors.primary}30` }}>
-                              Modo Feria · Sesión única
-                            </span>
-                          )}
                         </div>
+
+                        {/* Título principal */}
+                        <div className="flex items-end justify-between gap-3 mt-5 mb-2">
+                          <div>
+                            <div className="text-[10px] font-bold tracking-[3px] text-text-muted mb-1">
+                              {reportTitle}
+                            </div>
+                            <h2 className="text-[28px] font-black leading-none text-text-main">{dashboardCompany}</h2>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-[9px] font-bold uppercase tracking-widest text-text-muted">Período</div>
+                            <div className="text-sm font-mono font-bold" style={{ color: tpl.colors.primary }}>{periodText}</div>
+                          </div>
+                        </div>
+
+                        {dashboardCompanyType === 'feria' && (
+                          <div className="mt-2">
+                            <span className="inline-block text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md" style={{ background: `${tpl.colors.primary}12`, color: tpl.colors.primary }}>
+                              Sesión única · Modo evento
+                            </span>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="hidden print:block mb-6 bg-primary text-white p-6 rounded-2xl">
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="text-xs font-bold tracking-[3px] text-white/70 mb-1">
-                              {dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO / FERIA' : 'INFORME DE DASHBOARD'}
+                              {reportTitle === 'INFORME DE EVENTO' ? 'INFORME DE EVENTO / FERIA' : reportTitle}
                             </div>
                             <h2 className="text-3xl font-black">{dashboardCompany}</h2>
                             <div className="text-sm mt-1 text-white/80">
-                              {BRAND.name} &nbsp;·&nbsp; Período: {new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — {new Date(dashboardDateTo).toLocaleDateString('es-AR')}
+                              {BRAND.name} &nbsp;·&nbsp; Período: {periodText}
                             </div>
                           </div>
                           {dashboardCompanyType === 'feria' && (
