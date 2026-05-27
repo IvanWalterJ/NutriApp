@@ -29,6 +29,14 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo, isPrinting }: O
     activityPct: 0,
   });
 
+  // En ferias/eventos ignoramos el filtro de fechas porque la feria es por
+  // definición una sesión única — el "rango de fechas" no aplica y, si el
+  // rango por defecto del modal del PDF (1 del mes a hoy) no cubre la fecha
+  // exacta de la feria, las sesiones se descartan y hidratación/frutas/
+  // actividad colapsan a 0% (IMC sobrevive porque viene de patients.initial_weight).
+  const effectiveDateFrom = isFeria ? undefined : dateFrom;
+  const effectiveDateTo   = isFeria ? undefined : dateTo;
+
   useEffect(() => {
     // Guarda anti-race: si el usuario cambia de empresa antes de que termine el
     // fetch, descartamos el resultado para que datos de la empresa anterior no
@@ -37,13 +45,13 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo, isPrinting }: O
     let cancelled = false;
     fetchOmsMetrics(() => cancelled);
     return () => { cancelled = true; };
-  }, [selectedCompany, dateFrom, dateTo]);
+  }, [selectedCompany, effectiveDateFrom, effectiveDateTo]);
 
   async function fetchOmsMetrics(isCancelled: () => boolean) {
     setLoading(true);
     try {
       // Fetch all patients with their sessions
-      if (dateFrom || dateTo) {
+      if (effectiveDateFrom || effectiveDateTo) {
         // Use a separate sessions query filtered by date
         const { data: patients, error } = await supabase
           .from('patients')
@@ -54,8 +62,8 @@ export default function OmsPopulationMetrics({ dateFrom, dateTo, isPrinting }: O
         if (!patients || patients.length === 0) { processMetrics([], isCancelled); return; }
 
         let sessQ = supabase.from('sessions').select('*').in('patient_id', patients.map(p => p.id));
-        if (dateFrom) sessQ = sessQ.gte('session_date', dateFrom);
-        if (dateTo)   sessQ = sessQ.lte('session_date', dateTo);
+        if (effectiveDateFrom) sessQ = sessQ.gte('session_date', effectiveDateFrom);
+        if (effectiveDateTo)   sessQ = sessQ.lte('session_date', effectiveDateTo);
         const { data: allSessions } = await sessQ;
         if (isCancelled()) return;
 

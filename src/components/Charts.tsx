@@ -22,20 +22,25 @@ export default function Charts({ dateFrom, dateTo, isPrinting }: ChartsProps = {
   });
   const [loading, setLoading] = useState(true);
 
+  // En ferias/eventos el filtro de fechas no aplica — la feria es una sesión
+  // única; la evolución mensual ni se muestra en feria (oculta más abajo).
+  const effectiveDateFrom = isFeria ? undefined : dateFrom;
+  const effectiveDateTo   = isFeria ? undefined : dateTo;
+
   useEffect(() => {
     // Guarda anti-race: descartamos resultados si el usuario cambia de
     // empresa/rango antes de que termine el fetch.
     let cancelled = false;
     fetchData(() => cancelled);
     return () => { cancelled = true; };
-  }, [dateFrom, dateTo, selectedCompany]);
+  }, [effectiveDateFrom, effectiveDateTo, selectedCompany]);
 
   async function fetchData(isCancelled: () => boolean) {
     try {
       // 1. Fetch sessions for the bar chart (filtered by company)
       let sessionQuery = supabase.from('sessions').select('session_date').eq('company', selectedCompany);
-      if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
-      if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
+      if (effectiveDateFrom) sessionQuery = sessionQuery.gte('session_date', effectiveDateFrom);
+      if (effectiveDateTo)   sessionQuery = sessionQuery.lte('session_date', effectiveDateTo);
 
       const { data: sessions, error: sError } = await sessionQuery;
 

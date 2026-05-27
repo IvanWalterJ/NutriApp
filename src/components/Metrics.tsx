@@ -56,6 +56,11 @@ export default function Metrics({ dateFrom, dateTo, isPrinting }: MetricsProps =
   // del bug donde el PDF capturaba el estado loading.
   const [hasLoaded, setHasLoaded] = useState(false);
 
+  // En ferias/eventos el filtro de fechas no aplica — la feria es una sesión
+  // única, no tiene "período de evolución" para acotar.
+  const effectiveDateFrom = isFeria ? undefined : dateFrom;
+  const effectiveDateTo   = isFeria ? undefined : dateTo;
+
   useEffect(() => {
     // Guarda anti-race: si el usuario cambia de empresa/rango antes de que
     // termine el fetch, descartamos el resultado para no pisar los datos de
@@ -63,7 +68,7 @@ export default function Metrics({ dateFrom, dateTo, isPrinting }: MetricsProps =
     let cancelled = false;
     fetchStats(() => cancelled);
     return () => { cancelled = true; };
-  }, [selectedCompany, dateFrom, dateTo]);
+  }, [selectedCompany, effectiveDateFrom, effectiveDateTo]);
 
   async function fetchStats(isCancelled: () => boolean) {
     try {
@@ -85,8 +90,8 @@ export default function Metrics({ dateFrom, dateTo, isPrinting }: MetricsProps =
         .select('patient_id, weight, height, girth_waist, adherence, session_date')
         .eq('company', selectedCompany);
 
-      if (dateFrom) sessionQuery = sessionQuery.gte('session_date', dateFrom);
-      if (dateTo)   sessionQuery = sessionQuery.lte('session_date', dateTo);
+      if (effectiveDateFrom) sessionQuery = sessionQuery.gte('session_date', effectiveDateFrom);
+      if (effectiveDateTo)   sessionQuery = sessionQuery.lte('session_date', effectiveDateTo);
 
       const { data: sessions, error: sError } = await sessionQuery;
       if (sError) throw sError;
