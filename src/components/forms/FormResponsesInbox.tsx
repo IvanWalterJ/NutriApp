@@ -27,7 +27,13 @@ interface ResponseWithForm extends FormResponseRecord {
   form: Pick<FormRecord, 'id' | 'title' | 'slug' | 'fields' | 'company'>;
 }
 
-export default function FormResponsesInbox() {
+interface InboxProps {
+  /** Callback opcional para que el padre refresque su contador de pending
+   *  cuando se procesa o descarta una respuesta desde acá. */
+  onMutated?: () => void;
+}
+
+export default function FormResponsesInbox({ onMutated }: InboxProps = {}) {
   const { selectedCompany } = useCompany();
   const { showToast } = useToast();
 
@@ -190,6 +196,7 @@ export default function FormResponsesInbox() {
       showToast(`Paciente creado en "${targetCompany}"`, 'success');
       setActiveResponse(null);
       await loadResponses();
+      onMutated?.();
     } catch (err: any) {
       console.error('Promote error:', err);
       showToast(err?.message || 'No se pudo promover a paciente', 'error');
@@ -211,6 +218,7 @@ export default function FormResponsesInbox() {
     }
     showToast('Respuesta descartada', 'success');
     await loadResponses();
+    onMutated?.();
   }
 
   const counts = useMemo(() => responses.length, [responses]);

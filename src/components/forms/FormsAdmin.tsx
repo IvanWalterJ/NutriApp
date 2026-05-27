@@ -219,7 +219,11 @@ export default function FormsAdmin() {
                       </span>
                     )}
                     {pending > 0 && (
-                      <span className="text-[10px] font-bold uppercase tracking-widest bg-accent/15 text-accent-dark px-2 py-0.5 rounded-full">
+                      <span
+                        className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest bg-danger/15 text-danger border border-danger/30 px-2 py-0.5 rounded-full animate-pulse"
+                        title={`${pending} respuesta(s) sin revisar — ir a la Bandeja`}
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-danger"></span>
                         {pending} pendiente{pending === 1 ? '' : 's'}
                       </span>
                     )}
