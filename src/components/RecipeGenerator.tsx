@@ -78,6 +78,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
   // editedResult is the working copy; editingCards tracks which recipe cards are in edit mode
   const [editedResult, setEditedResult] = useState<any>(null);
   const [editingCards, setEditingCards] = useState<Record<number, boolean>>({});
+  const [editingHeader, setEditingHeader] = useState(false);
   // ID del doc actual en historial — para persistir ediciones manuales sobre
   // la misma fila en lugar de duplicar.
   const [currentDocId, setCurrentDocId] = useState<string | null>(null);
@@ -314,6 +315,7 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
     const snapshot = JSON.parse(JSON.stringify(editedResult));
     setResult(snapshot);
     setEditingCards({});
+    setEditingHeader(false);
     if (!currentDocId) {
       showToast('Cambios guardados (no se persiste en historial sin guardado previo)', 'info');
       return;
@@ -390,7 +392,29 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
     }
   }
 
-  const anyEditing = Object.values(editingCards).some(Boolean);
+  // Título por defecto del encabezado (derivado del objetivo). El usuario puede
+  // sobreescribirlo editando el encabezado; el override se guarda en headerTitle.
+  const defaultHeaderTitle = objective
+    ? `Recetas para ${objective.length > 40 ? objective.substring(0, 40).trim() + '...' : objective.toLowerCase()}`
+    : 'Recetas Saludables';
+
+  function toggleHeader() {
+    if (editingHeader) {
+      // Guardar: commit del encabezado a result + historial
+      setResult(JSON.parse(JSON.stringify(editedResult)));
+      void persistEditsToDb(editedResult);
+      setEditingHeader(false);
+    } else {
+      // Entrar a edición: sembrar valores actuales para que los inputs sean controlados
+      mut(r => {
+        if (r.headerTitle == null) r.headerTitle = defaultHeaderTitle;
+        if (r.headerNote == null) r.headerNote = '';
+      });
+      setEditingHeader(true);
+    }
+  }
+
+  const anyEditing = Object.values(editingCards).some(Boolean) || editingHeader;
 
   const inputCls = "w-full p-3 border-2 border-border-color rounded-lg text-base bg-surface focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all";
   const labelCls = "block text-[0.85rem] font-semibold uppercase tracking-widest mb-1.5";
@@ -651,23 +675,47 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
           </button>
         </div>
       )}
-      {/* Header */}
-      <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-center gap-4">
-        <div>
+      {/* Header — editable */}
+      {(() => {
+        const dp = editedResult || result;
+        const headerTitle = (dp?.headerTitle ?? '') !== '' ? dp.headerTitle : defaultHeaderTitle;
+        const headerNote = dp?.headerNote ?? '';
+        return (
+      <div className="bg-primary text-white p-6 rounded-t-2xl flex flex-col md:flex-row justify-between items-start gap-4">
+        <div className="flex-1 min-w-0 w-full">
           <div className="text-xs font-bold tracking-[3px] text-white/70">RECETARIO PERSONALIZADO</div>
-          <h2 className="text-3xl font-black mt-1">
-            {objective
-              ? `Recetas para ${objective.length > 40 ? objective.substring(0, 40).trim() + '...' : objective.toLowerCase()}`
-              : `Recetas Saludables`}
-          </h2>
+          {editingHeader ? (
+            <input
+              className="mt-1 w-full bg-white/15 border border-white/30 rounded-lg px-3 py-2 text-2xl font-black text-white placeholder-white/50 focus:outline-none focus:border-white/70"
+              value={headerTitle}
+              onChange={e => mut(r => { r.headerTitle = e.target.value; })}
+              placeholder="Título del recetario"
+            />
+          ) : (
+            <h2 className="text-3xl font-black mt-1">{headerTitle}</h2>
+          )}
           <div className="text-sm mt-1 text-white/90">
             {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{reportCompanyName.toUpperCase()}
           </div>
-          {objective && (
-            <div className="mt-2 text-sm text-white/80 italic max-w-lg">{objective}</div>
+          {editingHeader ? (
+            <textarea
+              className="mt-2 w-full bg-white/15 border border-white/30 rounded-lg px-3 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:border-white/70 resize-none"
+              rows={2}
+              value={headerNote}
+              onChange={e => mut(r => { r.headerNote = e.target.value; })}
+              placeholder="Nota o subtítulo opcional (se deja vacío si no querés mostrar nada)"
+            />
+          ) : (
+            headerNote && <div className="mt-2 text-sm text-white/80 italic max-w-lg whitespace-pre-wrap">{headerNote}</div>
           )}
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 print:hidden">
+        <div className="flex flex-col sm:flex-row gap-3 print:hidden shrink-0">
+          <button
+            onClick={toggleHeader}
+            className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
+          >
+            {editingHeader ? <><SaveIcon /> Guardar</> : <><Pencil /> Editar encabezado</>}
+          </button>
           <button
             onClick={downloadPDF}
             className="bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg px-4 py-2 font-semibold text-sm transition-colors flex items-center justify-center gap-2"
@@ -682,6 +730,8 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
           </button>
         </div>
       </div>
+        );
+      })()}
 
       {/* Patient banner */}
       {patientData && (
