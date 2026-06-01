@@ -22,10 +22,10 @@ export const BRAND = {
    *  donde no se puede leer la variable CSS. En clases Tailwind usá los
    *  tokens (--color-primary, etc.) que también se actualizan desde index.css. */
   colors: {
-    primary:      '#D6395E',
-    primaryLight: '#F2547D',
-    accent:       '#FF8FA8',
-    accentDark:   '#C42A52',
+    primary:      '#E8472A',
+    primaryLight: '#F47A62',
+    accent:       '#F6A29A',
+    accentDark:   '#C53A1E',
   },
 } as const;
 

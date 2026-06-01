@@ -2,15 +2,15 @@
 @import "tailwindcss";
 
 @theme {
-  /* Paleta de marca de Rosana — "rosado pomelo" (degradé cálido).
-     primary/primaryLight forman el degradé de sidebar/header; accent es el rosa
-     claro para acentos/fondos suaves; accent-dark es la versión legible como texto
-     sobre fondos claros. Si cambia la marca, basta editar estos 4 valores + branding.ts. */
-  --color-primary: #D6395E;
-  --color-primary-light: #F2547D;
-  --color-accent: #FF8FA8;
-  --color-accent-dark: #C42A52;
-  --color-bg: #FFF7F9;
+  /* Paleta de marca NuPlan (tomada de nuplan.com.ar): coral / rojo-tomate con
+     acentos salmón. primary/primaryLight forman el degradé de sidebar/header;
+     accent es el salmón para fondos suaves; accent-dark es la versión legible
+     como texto sobre fondos claros. Si cambia la marca, editar estos 4 + branding.ts. */
+  --color-primary: #E8472A;
+  --color-primary-light: #F47A62;
+  --color-accent: #F6A29A;
+  --color-accent-dark: #C53A1E;
+  --color-bg: #FFF6F3;
   --color-surface: #FFFFFF;
   --color-text-main: #1A1A1A;
   --color-text-muted: #6B7280;
@@ -89,11 +89,11 @@ body {
 
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px -6px rgba(214, 57, 94, 0.18);
+  box-shadow: 0 8px 20px -6px rgba(232, 71, 42, 0.18);
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(255, 143, 168, 0.45);
+  box-shadow: 0 0 20px rgba(246, 162, 154, 0.45);
 }
 
 .card-transition {
@@ -113,8 +113,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-radius: 4px;
   padding: 2px;
   opacity: 0.65;
-  /* Tint the calendar icon to match --color-primary (rosado pomelo #D6395E) */
-  filter: invert(28%) sepia(64%) saturate(2400%) hue-rotate(316deg) brightness(92%) contrast(92%);
+  /* Tint the calendar icon to match --color-primary (coral NuPlan #E8472A) */
+  filter: invert(36%) sepia(72%) saturate(2600%) hue-rotate(343deg) brightness(96%) contrast(90%);
   transition: opacity 0.2s;
 }
 
@@ -199,8 +199,8 @@ select {
     --color-surface: #f1f5f9;
     --color-bg: #e2e8f0;
     --color-border-color: #94a3b8;
-    /* Make accent-based gradients visible (5% of solid accent → rosado pomelo sólido) */
-    --color-accent: #D6395E;
+    /* Make accent-based gradients visible (5% of solid accent → coral NuPlan sólido) */
+    --color-accent: #E8472A;
   }
 
   /* Swiss Medical brand override — al combinarse con dashboard-printing,

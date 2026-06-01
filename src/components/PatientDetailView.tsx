@@ -775,7 +775,7 @@ function TabResumen({ patient }: { patient: any }) {
                   }}
                   formatter={(v: any) => [`${v} kg`, 'Peso']}
                 />
-                <Line type="monotone" dataKey="weight" stroke="#D6395E" strokeWidth={2.5} dot={{ r: 4, fill: '#D6395E' }} activeDot={{ r: 6 }} isAnimationActive={false} />
+                <Line type="monotone" dataKey="weight" stroke="#E8472A" strokeWidth={2.5} dot={{ r: 4, fill: '#E8472A' }} activeDot={{ r: 6 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -1018,7 +1018,7 @@ function MeasureMiniChart({ def, series }: { def: MeasureKpiDef; series: { date:
                 labelFormatter={(v) => formatLocalDate(v as string, { day: '2-digit', month: 'short', year: 'numeric' }, 'es-AR')}
                 formatter={(v: any) => [`${Number(v).toFixed(def.decimals)} ${def.unit}`, def.label]}
               />
-              <Line type="monotone" dataKey="v" stroke="#D6395E" strokeWidth={2} dot={{ r: 3, fill: '#D6395E' }} activeDot={{ r: 5 }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="v" stroke="#E8472A" strokeWidth={2} dot={{ r: 3, fill: '#E8472A' }} activeDot={{ r: 5 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         ) : (

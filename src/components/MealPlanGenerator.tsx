@@ -1152,8 +1152,8 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
                         <div key={i} className={`p-4 rounded-xl border bg-gray-50/50 ${isEditing ? 'border-amber-200' : 'border-gray-100'}`}>
                           <div>
                             {isEditing
-                              ? <input className="font-bold text-[#D6395E] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none" value={meal.title} onChange={e => updateMealTitle(i, e.target.value)} />
-                              : <h4 className="font-bold text-[#D6395E] text-[15px] mb-2 flex items-center gap-2"><span className="text-xs uppercase tracking-widest text-text-muted font-bold bg-primary/5 px-2 py-0.5 rounded">{meal.type}</span> {meal.title}</h4>
+                              ? <input className="font-bold text-[#E8472A] text-[15px] mb-2 w-full border-b-2 border-amber-300 bg-amber-50 px-2 py-1 rounded focus:outline-none" value={meal.title} onChange={e => updateMealTitle(i, e.target.value)} />
+                              : <h4 className="font-bold text-[#E8472A] text-[15px] mb-2 flex items-center gap-2"><span className="text-xs uppercase tracking-widest text-text-muted font-bold bg-primary/5 px-2 py-0.5 rounded">{meal.type}</span> {meal.title}</h4>
                             }
                             <ul className="space-y-1 mb-3">
                               {meal.items.map((item: string, j: number) => (
@@ -1349,14 +1349,14 @@ export default function MealPlanGenerator({ loadedDocId, onBackToList, onSaved }
                             <div key={i} className={`p-3 rounded-xl ${isES ? 'border border-amber-200 bg-amber-50' : 'bg-[#e8fae8] border border-[#bbf7d0]'}`}>
                               {isES ? (
                                 <div className="space-y-1.5">
-                                  <input className="w-full font-bold text-sm text-[#D6395E] border-b border-amber-300 bg-transparent focus:outline-none" value={s.name} placeholder="Nombre" onChange={e => mut(p => { p.supplements[i].name = e.target.value; })} />
-                                  <input className="w-full text-xs text-[#D6395E]/70 font-mono border-b border-amber-200 bg-transparent focus:outline-none" value={s.dosage||''} placeholder="Dosis" onChange={e => mut(p => { p.supplements[i].dosage = e.target.value; })} />
+                                  <input className="w-full font-bold text-sm text-[#E8472A] border-b border-amber-300 bg-transparent focus:outline-none" value={s.name} placeholder="Nombre" onChange={e => mut(p => { p.supplements[i].name = e.target.value; })} />
+                                  <input className="w-full text-xs text-[#E8472A]/70 font-mono border-b border-amber-200 bg-transparent focus:outline-none" value={s.dosage||''} placeholder="Dosis" onChange={e => mut(p => { p.supplements[i].dosage = e.target.value; })} />
                                   <div className="flex gap-1"><span className="text-[11px] text-gray-500">💡</span><input className="flex-1 text-[11px] border border-amber-200 bg-white rounded px-1.5 py-1 focus:outline-none" value={s.reason||''} placeholder="Motivo" onChange={e => mut(p => { p.supplements[i].reason = e.target.value; })} /><button onClick={() => mut(p => { p.supplements.splice(i,1); })} className="text-red-400 hover:text-red-600 text-base px-1">×</button></div>
                                 </div>
                               ) : (
                                 <>
-                                  <div className="font-bold text-sm text-[#D6395E]">{s.name}</div>
-                                  {s.dosage && <div className="text-xs text-[#D6395E]/70 mb-1 font-mono">{s.dosage}</div>}
+                                  <div className="font-bold text-sm text-[#E8472A]">{s.name}</div>
+                                  {s.dosage && <div className="text-xs text-[#E8472A]/70 mb-1 font-mono">{s.dosage}</div>}
                                   <div className="text-[11px] text-gray-700 mt-1">💡 {s.reason}</div>
                                 </>
                               )}

@@ -1,5 +1,6 @@
 import React from 'react';
 import { supabase } from '../lib/supabase';
+import nuplanLogo from '../assets/branding/nuplan-logo-blanco.png';
 
 // ── Icons ──────────────────────────────────────────────────────────────────
 const MenuIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>;
@@ -59,19 +60,19 @@ export default function Sidebar({
   const content = (isMobileDrawer = false) => (
     <div
       className={`flex flex-col h-full border-r border-white/10 ${isMobileDrawer ? 'w-72' : ''}`}
-      style={{ backgroundImage: 'linear-gradient(165deg, #D6395E 0%, #B0294A 100%)' }}
+      style={{ backgroundImage: 'linear-gradient(165deg, #E8472A 0%, #C2371C 100%)' }}
     >
 
       {/* Logo + toggle */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 shrink-0">
         {(!collapsed || isMobileDrawer) && (
-          <div className="font-mono font-bold text-lg tracking-tight flex items-center gap-2">
-            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-primary text-base font-black">N</div>
-            <span className="text-white">NU</span><span className="text-white/65">PLAN</span>
-          </div>
+          <img src={nuplanLogo} alt="NuPlan" className="h-9 w-auto object-contain" />
         )}
         {collapsed && !isMobileDrawer && (
-          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-primary text-base font-black mx-auto">N</div>
+          // Colapsado: recortamos el logo (que es pomelo + texto) para mostrar solo el pomelo.
+          <div className="w-9 h-9 mx-auto overflow-hidden flex items-center">
+            <img src={nuplanLogo} alt="NuPlan" className="h-9 max-w-none" style={{ objectPosition: 'left center' }} />
+          </div>
         )}
         {!isMobileDrawer && (
           <button
