@@ -581,3 +581,7 @@ CREATE POLICY "Authenticated users can delete generated_documents"
   ON public.generated_documents FOR DELETE
   TO authenticated
   USING (true);
+
+-- ── 013 — Perímetro umbilical por sesión ──────────────────────────────────
+ALTER TABLE public.sessions
+  ADD COLUMN IF NOT EXISTS girth_umbilical numeric; -- perímetro umbilical (cm)

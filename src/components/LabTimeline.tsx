@@ -135,9 +135,9 @@ function MiniChart({ data, field, def, sex }: MiniChartProps) {
               <Line
                 type="monotone"
                 dataKey="v"
-                stroke="#0A4D3C"
+                stroke="#D6395E"
                 strokeWidth={2}
-                dot={{ r: 3, fill: '#0A4D3C' }}
+                dot={{ r: 3, fill: '#D6395E' }}
                 activeDot={{ r: 5 }}
                 isAnimationActive={false}
               />

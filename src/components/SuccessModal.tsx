@@ -56,34 +56,34 @@ export default function SuccessModal({ isOpen, onClose, title, message }: Succes
                 <div style={{
                     position: 'absolute', top: '-60px', right: '-60px',
                     width: '180px', height: '180px',
-                    background: 'radial-gradient(circle, rgba(10,77,60,0.07), transparent)',
+                    background: 'radial-gradient(circle, rgba(214,57,94,0.08), transparent)',
                     borderRadius: '50%',
                 }} />
                 <div style={{
                     position: 'absolute', bottom: '-60px', left: '-60px',
                     width: '180px', height: '180px',
-                    background: 'radial-gradient(circle, rgba(20,241,149,0.1), transparent)',
+                    background: 'radial-gradient(circle, rgba(255,143,168,0.14), transparent)',
                     borderRadius: '50%',
                 }} />
 
                 {/* Check icon */}
                 <div style={{
                     width: '80px', height: '80px',
-                    background: 'linear-gradient(135deg, #0A4D3C, #0F6B52)',
+                    background: 'linear-gradient(135deg, #D6395E, #F2547D)',
                     borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     margin: '0 auto 1.5rem',
-                    boxShadow: '0 12px 30px rgba(10,77,60,0.3)',
+                    boxShadow: '0 12px 30px rgba(214,57,94,0.3)',
                     animation: 'checkBounce 0.5s 0.15s cubic-bezier(0.16, 1, 0.3, 1) both',
                 }}>
-                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#14F195" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12" />
                     </svg>
                 </div>
 
                 {/* Title */}
                 <h3 style={{
-                    fontSize: '1.6rem', fontWeight: 900, color: '#0A4D3C',
+                    fontSize: '1.6rem', fontWeight: 900, color: '#D6395E',
                     marginBottom: '0.75rem', lineHeight: 1.2,
                 }}>
                     {title}
@@ -102,20 +102,20 @@ export default function SuccessModal({ isOpen, onClose, title, message }: Succes
                     onClick={onClose}
                     style={{
                         width: '100%', padding: '1rem',
-                        background: 'linear-gradient(135deg, #0A4D3C, #0F6B52)',
+                        background: 'linear-gradient(135deg, #D6395E, #F2547D)',
                         color: '#fff', border: 'none',
                         borderRadius: '14px', fontWeight: 800,
                         fontSize: '1.05rem', cursor: 'pointer',
-                        boxShadow: '0 8px 20px rgba(10,77,60,0.3)',
+                        boxShadow: '0 8px 20px rgba(214,57,94,0.3)',
                         transition: 'transform 0.15s ease, box-shadow 0.15s ease',
                     }}
                     onMouseEnter={e => {
                         (e.target as HTMLButtonElement).style.transform = 'translateY(-2px)';
-                        (e.target as HTMLButtonElement).style.boxShadow = '0 12px 25px rgba(10,77,60,0.4)';
+                        (e.target as HTMLButtonElement).style.boxShadow = '0 12px 25px rgba(214,57,94,0.4)';
                     }}
                     onMouseLeave={e => {
                         (e.target as HTMLButtonElement).style.transform = 'translateY(0)';
-                        (e.target as HTMLButtonElement).style.boxShadow = '0 8px 20px rgba(10,77,60,0.3)';
+                        (e.target as HTMLButtonElement).style.boxShadow = '0 8px 20px rgba(214,57,94,0.3)';
                     }}
                 >
                     Aceptar

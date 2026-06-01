@@ -59,19 +59,19 @@ export default function Sidebar({
   const content = (isMobileDrawer = false) => (
     <div
       className={`flex flex-col h-full border-r border-white/10 ${isMobileDrawer ? 'w-72' : ''}`}
-      style={{ backgroundColor: '#0A4D3C' }}
+      style={{ backgroundImage: 'linear-gradient(165deg, #D6395E 0%, #B0294A 100%)' }}
     >
 
       {/* Logo + toggle */}
       <div className="flex items-center justify-between px-4 py-4 border-b border-white/10 shrink-0">
         {(!collapsed || isMobileDrawer) && (
           <div className="font-mono font-bold text-lg tracking-tight flex items-center gap-2">
-            <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center text-primary text-base font-black">N</div>
-            <span className="text-white">NU</span><span className="text-accent">PLAN</span>
+            <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-primary text-base font-black">N</div>
+            <span className="text-white">NU</span><span className="text-white/65">PLAN</span>
           </div>
         )}
         {collapsed && !isMobileDrawer && (
-          <div className="w-7 h-7 bg-accent rounded-lg flex items-center justify-center text-primary text-base font-black mx-auto">N</div>
+          <div className="w-7 h-7 bg-white rounded-lg flex items-center justify-center text-primary text-base font-black mx-auto">N</div>
         )}
         {!isMobileDrawer && (
           <button
@@ -111,8 +111,8 @@ export default function Sidebar({
               className={`w-full flex items-center gap-3 rounded-xl transition-all duration-200
                 ${collapsed && !isMobileDrawer ? 'justify-center px-2 py-3' : 'px-3 py-2.5'}
                 ${isActive
-                  ? 'bg-accent text-primary font-bold shadow-[0_4px_12px_rgba(20,241,149,0.25)]'
-                  : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                  ? 'bg-white text-primary font-bold shadow-[0_4px_12px_rgba(0,0,0,0.18)]'
+                  : 'text-white/70 hover:text-white hover:bg-white/10'}`}
             >
               <span className="shrink-0"><Icon /></span>
               {(!collapsed || isMobileDrawer) && (

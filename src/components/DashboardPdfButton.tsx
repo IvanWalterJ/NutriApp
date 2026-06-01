@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useCompany } from '../context/CompanyContext';
 import { FileDown, Loader2, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { BRAND_TEMPLATE_OPTIONS } from '../lib/brandTemplates';
 
 interface DashboardPdfButtonProps {
   onPrint: (dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined, brandTemplateKey: string) => void;
@@ -11,6 +12,8 @@ interface DashboardPdfButtonProps {
 export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdfButtonProps) {
   const { selectedCompany, getCompanyType, getBrandTemplateKey } = useCompany();
   const [showModal, setShowModal] = useState(false);
+  // La plantilla se elige acá, al generar el informe (default = la de la empresa).
+  const [templateKey, setTemplateKey] = useState<string>(getBrandTemplateKey(selectedCompany));
 
   const today = new Date().toISOString().split('T')[0];
   const firstOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -19,15 +22,20 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
   const [dateFrom, setDateFrom] = useState(firstOfMonth);
   const [dateTo, setDateTo]     = useState(today);
 
+  function openModal() {
+    setTemplateKey(getBrandTemplateKey(selectedCompany));
+    setShowModal(true);
+  }
+
   function handleConfirm() {
     setShowModal(false);
-    onPrint(dateFrom, dateTo, selectedCompany, getCompanyType(selectedCompany), getBrandTemplateKey(selectedCompany));
+    onPrint(dateFrom, dateTo, selectedCompany, getCompanyType(selectedCompany), templateKey);
   }
 
   return (
     <>
       <button
-        onClick={() => setShowModal(true)}
+        onClick={openModal}
         disabled={isPrinting}
         className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-xl font-semibold hover:bg-primary-light transition-all active:scale-95 disabled:opacity-50 shadow-sm"
         title="Descargar informe del Dashboard como PDF"
@@ -70,6 +78,30 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
                   max={today}
                   onChange={e => setDateTo(e.target.value)}
                 />
+              </div>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-sm font-semibold text-text-muted mb-1.5">Diseño del informe</label>
+              <div className="flex flex-col gap-2">
+                {BRAND_TEMPLATE_OPTIONS.map(opt => {
+                  const active = templateKey === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setTemplateKey(opt.value)}
+                      className={`text-left px-3 py-2.5 rounded-lg border-2 transition-all ${active ? 'border-primary bg-primary/5' : 'border-border-color hover:border-primary/40'}`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-semibold text-sm">{opt.label}</span>
+                        <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? 'border-primary' : 'border-border-color'}`}>
+                          {active && <span className="w-2 h-2 rounded-full bg-primary" />}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

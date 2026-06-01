@@ -85,8 +85,8 @@ function classifyAbdominal(cm: number, sex: string): string {
 
 function calculateBodyComposition(data: any, sex: string, age: number) {
   const { weight, fold_triceps, fold_subscapular, fold_iliac_crest, fold_abdominal,
-    fold_front_thigh, fold_medial_calf, fold_biceps,
-    girth_arm_relaxed, girth_thigh_mid, girth_calf, girth_waist, girth_hip, girth_chest,
+    fold_front_thigh, fold_medial_calf,
+    girth_arm_relaxed, girth_thigh_mid, girth_calf, girth_waist, girth_umbilical, girth_hip, girth_chest,
     diam_femur, diam_wrist, height } = data;
 
   const sum4 = fold_triceps + fold_subscapular + fold_iliac_crest + fold_abdominal;
@@ -104,10 +104,12 @@ function calculateBodyComposition(data: any, sex: string, age: number) {
     0.00441 * Math.pow(girth_calf        - Math.PI * (fold_medial_calf / 10), 2)
   ) + (sex === 'Masculino' ? 2.4 : 0) - 0.048 * age + height * 0.048 + 7.8;
 
-  const sum6        = fold_triceps + fold_subscapular + fold_biceps + fold_iliac_crest + fold_abdominal + (fold_front_thigh + fold_medial_calf) / 2;
+  // Distribución de adiposidad (metodología de Rosana, ver "Nicolas Mugica.pdf"):
+  // suma de los 6 pliegues, SIN bíceps y SIN promediar los pliegues inferiores.
+  const sum6        = fold_triceps + fold_subscapular + fold_iliac_crest + fold_abdominal + fold_front_thigh + fold_medial_calf;
   const fatSuperior = (fold_triceps + fold_subscapular) / sum6 * 100;
   const fatMedia    = (fold_iliac_crest + fold_abdominal) / sum6 * 100;
-  const fatInferior = ((fold_front_thigh + fold_medial_calf) / 2) / sum6 * 100;
+  const fatInferior = (fold_front_thigh + fold_medial_calf) / sum6 * 100;
   const bmi         = weight / Math.pow(height / 100, 2);
   const waistHipRatio = girth_waist / girth_hip;
 
@@ -125,7 +127,7 @@ function calculateBodyComposition(data: any, sex: string, age: number) {
     fatInferior:      parseFloat(fatInferior.toFixed(1)),
     bmi:              parseFloat(bmi.toFixed(1)),
     waistHipRatio:    parseFloat(waistHipRatio.toFixed(2)),
-    girth_chest, girth_waist, girth_hip,
+    girth_chest, girth_waist, girth_umbilical, girth_hip,
   };
 }
 
@@ -134,9 +136,9 @@ const INPUT_CLS = 'w-full p-3 border-2 border-border-color rounded-lg text-base 
 const INPUT_FILLED_CLS = 'w-full p-3 border-2 border-primary/50 rounded-lg text-base bg-primary/5 focus:outline-none focus:border-primary focus:ring-3 focus:ring-primary/10 transition-all';
 const LABEL_CLS = 'block text-[0.85rem] font-semibold uppercase tracking-widest mb-1.5';
 const REQUIRED_FIELDS = [
-  'weight','height','fold_triceps','fold_subscapular','fold_biceps','fold_iliac_crest',
+  'weight','height','fold_triceps','fold_subscapular','fold_iliac_crest',
   'fold_abdominal','fold_front_thigh','fold_medial_calf',
-  'girth_arm_relaxed','girth_chest','girth_waist','girth_hip','girth_thigh_mid','girth_calf',
+  'girth_arm_relaxed','girth_chest','girth_waist','girth_umbilical','girth_hip','girth_thigh_mid','girth_calf',
   'diam_femur','diam_wrist',
 ];
 
@@ -218,7 +220,7 @@ function generateValoracion(r: any, firstName: string, lastName: string, ref: Re
     ``,
     `• La Distribución de la Adiposidad (en %) indica que, en la Región Superior su valor es ${posComp(clsSuper)}, en la Región Media es ${posComp(clsMedia)}, y en la Región Inferior es ${posComp(clsInfer)}.`,
     ``,
-    `• Puede catalogarse su Índice de Masa Corporal como "${classifyBMI(r.bmi)}", su Índice Cintura-Cadera como "${classifyWaistHip(r.waistHipRatio, r.sex)}", y su Perímetro Abdominal como "${classifyAbdominal(r.girth_waist, r.sex)}".`,
+    `• Puede catalogarse su Índice de Masa Corporal como "${classifyBMI(r.bmi)}", su Índice Cintura-Cadera como "${classifyWaistHip(r.waistHipRatio, r.sex)}", y su Contorno Umbilical como "${classifyAbdominal(r.girth_umbilical ?? r.girth_waist, r.sex)}".`,
     ``,
     `• La cifra (en cm) más semejante con los Perímetros Musculares de la muestra "${r.activity_group}" es ${similar.name} (${fmt(similar.diff)} cm), y la más diferente es ${different.name} (${fmt(different.diff)} cm).`,
   ].join('\n');
@@ -243,17 +245,13 @@ const EMPTY_FORM = {
   patient_id: '', observation_number: '1',
   session_date: todayLocalISODate(),
   birth_date: '', sex: '', activity_group: '', race_ethnicity: 'Blanca o Hispánica',
-  weight: '', height: '', sitting_height: '', arm_span: '',
-  fold_triceps: '', fold_subscapular: '', fold_biceps: '', fold_iliac_crest: '',
-  fold_supraspinale: '', fold_abdominal: '', fold_front_thigh: '', fold_medial_calf: '',
-  girth_head: '', girth_neck: '', girth_arm_relaxed: '', girth_arm_flexed: '',
-  girth_forearm: '', girth_wrist: '', girth_chest: '', girth_waist: '', girth_hip: '',
-  girth_thigh_max: '', girth_thigh_mid: '', girth_calf: '', girth_ankle: '',
-  diam_biacromial: '', diam_biiliocristal: '', diam_transverse_chest: '', diam_ap_chest: '',
-  diam_humerus: '', diam_femur: '', diam_wrist: '', diam_ankle: '',
-  len_acromiale_radiale: '', len_radiale_stylion: '', len_midstylion_dactylion: '',
-  len_iliospinale: '', len_trochanterion: '', len_trochanterion_tibiale_laterale: '',
-  len_tibiale_laterale: '', len_tibiale_mediale_sphyrion_tibiale: '', len_foot: '',
+  // Set de campos que Rosana usa en su planilla (ver "Nicolas Mugica.pdf").
+  weight: '', height: '',
+  fold_triceps: '', fold_subscapular: '', fold_iliac_crest: '',
+  fold_abdominal: '', fold_front_thigh: '', fold_medial_calf: '',
+  girth_arm_relaxed: '', girth_chest: '', girth_waist: '', girth_umbilical: '',
+  girth_hip: '', girth_thigh_mid: '', girth_calf: '',
+  diam_femur: '', diam_wrist: '',
 } as Record<string, string>;
 
 // ─── Main component ──────────────────────────────────────────────────────────
@@ -826,6 +824,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
                 ['Muñeca',           rd.girth_wrist],
                 ['Tórax',            rd.girth_chest],
                 ['Cintura',          rd.girth_waist],
+                ['Umbilical',        rd.girth_umbilical],
                 ['Cadera',           rd.girth_hip],
                 ['Muslo máximo',     rd.girth_thigh_max],
                 ['Muslo medial',     rd.girth_thigh_mid],
@@ -946,10 +945,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
                     chart: ICCBar(r.waistHipRatio, r.sex),
                   },
                   {
-                    name: 'Perímetro Abdominal', value: `${r.girth_waist} cm`,
+                    name: 'Contorno Umbilical', value: `${r.girth_umbilical ?? r.girth_waist} cm`,
                     ref2: r.sex==='Masculino'?'Sin riesgo: < 94 cm':'Sin riesgo: < 80 cm',
-                    cls: classifyAbdominal(r.girth_waist, r.sex),
-                    chart: AbdBar(r.girth_waist, r.sex),
+                    cls: classifyAbdominal(r.girth_umbilical ?? r.girth_waist, r.sex),
+                    chart: AbdBar(r.girth_umbilical ?? r.girth_waist, r.sex),
                   },
                 ].map((row, i) => {
                   const c = clsBg(row.cls);
@@ -1263,7 +1262,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
             <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
             Datos Básicos — Peso en kg · Tallas en cm
           </h3>
-          <MeasureGroup title="" fields={['weight|Peso','height|Talla','sitting_height|Talla sentado','arm_span|Envergadura']}
+          <MeasureGroup title="" fields={['weight|Peso','height|Talla']}
             formData={formData} onChange={handleMeasureChange} />
         </div>
         <NavButtons onNext={handleNext} />
@@ -1286,8 +1285,8 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
           </h3>
           <MeasureGroup title=""
             fields={[
-              'fold_triceps|Tríceps','fold_subscapular|Subescapular','fold_biceps|Bíceps','fold_iliac_crest|Cresta ilíaca',
-              'fold_supraspinale|Supraespinal','fold_abdominal|Abdominal','fold_front_thigh|Muslo anterior','fold_medial_calf|Pantorrilla medial',
+              'fold_triceps|Tríceps','fold_subscapular|Subescapular','fold_iliac_crest|Cresta ilíaca',
+              'fold_abdominal|Abdominal','fold_front_thigh|Muslo anterior','fold_medial_calf|Pantorrilla medial',
             ]}
             formData={formData} onChange={handleMeasureChange} />
         </div>
@@ -1311,10 +1310,8 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
           </h3>
           <MeasureGroup title=""
             fields={[
-              'girth_head|Cabeza','girth_neck|Cuello','girth_arm_relaxed|Brazo relajado','girth_arm_flexed|Brazo flexionado',
-              'girth_forearm|Antebrazo','girth_wrist|Muñeca','girth_chest|Tórax','girth_waist|Cintura',
-              'girth_hip|Cadera','girth_thigh_max|Muslo máximo','girth_thigh_mid|Muslo medial','girth_calf|Pantorrilla',
-              'girth_ankle|Tobillo',
+              'girth_arm_relaxed|Brazo relajado','girth_chest|Tórax','girth_waist|Cintura','girth_umbilical|Umbilical',
+              'girth_hip|Cadera','girth_thigh_mid|Muslo medio','girth_calf|Pierna',
             ]}
             formData={formData} onChange={handleMeasureChange} />
         </div>
@@ -1328,8 +1325,8 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
       <div>
         <StepCard
           icon={<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>}
-          title="Diámetros y Longitudes"
-          subtitle="Diámetros óseos y longitudes segmentarias · en centímetros (cm)"
+          title="Diámetros Óseos"
+          subtitle="Diámetros óseos · en centímetros (cm)"
         />
         <div className={sectionCard}>
           <h3 className={sectionTitle}>
@@ -1338,21 +1335,7 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
           </h3>
           <MeasureGroup title=""
             fields={[
-              'diam_biacromial|Biacromial','diam_biiliocristal|Bi-iliocrestídeo','diam_transverse_chest|Tórax transverso','diam_ap_chest|Tórax A-P',
-              'diam_humerus|Húmero','diam_femur|Fémur','diam_wrist|Muñeca','diam_ankle|Tobillo',
-            ]}
-            formData={formData} onChange={handleMeasureChange} />
-        </div>
-        <div className={sectionCard}>
-          <h3 className={sectionTitle}>
-            <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
-            Longitudes y Alturas (cm)
-          </h3>
-          <MeasureGroup title=""
-            fields={[
-              'len_acromiale_radiale|Acromio-radial','len_radiale_stylion|Radial-estiloidea','len_midstylion_dactylion|M-E a dactiloidea',
-              'len_iliospinale|Ilioespinal','len_trochanterion|Trocantérea','len_trochanterion_tibiale_laterale|Troc.-tibial lat.',
-              'len_tibiale_laterale|Tibial lateral','len_tibiale_mediale_sphyrion_tibiale|Tibial med.-maleolar','len_foot|Long. del pie',
+              'diam_femur|Bicondíleo de Fémur','diam_wrist|Biestiloideo de Muñeca',
             ]}
             formData={formData} onChange={handleMeasureChange} />
         </div>
@@ -1551,10 +1534,10 @@ export default function AnthropometryForm({ onComplete, preselectedPatientId }: 
                 bar: <AppICCBar icc={r.waistHipRatio} sex={r.sex} />
               },
               {
-                name: 'Perímetro Abdominal', value: r.girth_waist, unit: 'cm',
-                cls: classifyAbdominal(r.girth_waist,r.sex), ok: classifyAbdominal(r.girth_waist,r.sex)==='Sin Riesgo',
+                name: 'Contorno Umbilical', value: r.girth_umbilical ?? r.girth_waist, unit: 'cm',
+                cls: classifyAbdominal(r.girth_umbilical ?? r.girth_waist,r.sex), ok: classifyAbdominal(r.girth_umbilical ?? r.girth_waist,r.sex)==='Sin Riesgo',
                 ref: r.sex==='Masculino'?'Sin riesgo: < 94 cm':'Sin riesgo: < 80 cm',
-                bar: <AppAbdBar cm={r.girth_waist} sex={r.sex} />
+                bar: <AppAbdBar cm={r.girth_umbilical ?? r.girth_waist} sex={r.sex} />
               },
             ].map((item, i) => (
               <div key={i} className={`rounded-xl p-4 border-l-4 ${item.ok?'border-primary bg-primary/5':'border-danger bg-danger/5'}`}>

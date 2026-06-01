@@ -13,7 +13,7 @@
  */
 
 import { BRAND } from './branding';
-import swissMedicalLogo from '../assets/branding/swiss-medical.png';
+import swissMedicalLogo from '../assets/branding/wellness-lab-swiss-medical.png';
 
 export type BrandTemplateKey = 'default' | 'swiss_medical';
 
@@ -57,17 +57,17 @@ const DEFAULT_TEMPLATE: BrandTemplate = {
 
 const SWISS_MEDICAL_TEMPLATE: BrandTemplate = {
   key: 'swiss_medical',
-  label: 'Swiss Medical',
-  description: 'Header con logo Swiss Medical en paleta roja corporativa.',
+  label: 'WellnessLab (Swiss Medical)',
+  description: 'Header con logo WellnessLab by Swiss Medical en paleta roja corporativa.',
   logoUrl:      swissMedicalLogo,
-  logoHeightPx: 44,
+  logoHeightPx: 40,
   colors: {
-    // Rojo Swiss Medical (aproximado del PNG provisto). Lo usamos sólo en
-    // acentos y bordes; el header sigue con fondo blanco para preservar
-    // la legibilidad del logo.
-    primary:      '#D32027',
-    primaryLight: '#E5404D',
-    accent:       '#14F195',
+    // Paleta de marca Swiss Medical / WellnessLab: rojo corporativo con degradé
+    // hacia un bordó profundo para que los headers no queden planos. El header
+    // mantiene fondo blanco para preservar la legibilidad del logo.
+    primary:      '#E2231A',
+    primaryLight: '#A5101A',
+    accent:       '#E2231A',
     headerBg:     '#ffffff',
   },
   professionalName: BRAND.professional,

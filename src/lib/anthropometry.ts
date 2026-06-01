@@ -116,6 +116,7 @@ export type BodyComposition = {
   waistHipRatio:  number | null;
   girth_chest:    number | null;
   girth_waist:    number | null;
+  girth_umbilical:number | null;
   girth_hip:      number | null;
 };
 
@@ -136,11 +137,11 @@ export function calculateBodyComposition(data: any, sex: string, age: number): B
   const fold_abdominal     = n(data?.fold_abdominal);
   const fold_front_thigh   = n(data?.fold_front_thigh);
   const fold_medial_calf   = n(data?.fold_medial_calf);
-  const fold_biceps        = n(data?.fold_biceps);
   const girth_arm_relaxed  = n(data?.girth_arm_relaxed);
   const girth_thigh_mid    = n(data?.girth_thigh_mid);
   const girth_calf         = n(data?.girth_calf);
   const girth_waist        = n(data?.girth_waist);
+  const girth_umbilical    = n(data?.girth_umbilical);
   const girth_hip          = n(data?.girth_hip);
   const girth_chest        = n(data?.girth_chest);
   const diam_femur         = n(data?.diam_femur);
@@ -182,20 +183,22 @@ export function calculateBodyComposition(data: any, sex: string, age: number): B
     muscleMassKg = Math.max(5, muscleMassKg);
   }
 
-  // Distribución de adiposidad por región: requiere todos los 6 pliegues.
+  // Distribución de adiposidad por región (metodología de Rosana, ver
+  // "Nicolas Mugica.pdf"): suma de los 6 pliegues, SIN bíceps y SIN promediar
+  // los pliegues inferiores.
   let fatSuperior: number | null = null;
   let fatMedia: number | null = null;
   let fatInferior: number | null = null;
   if (
-    fold_triceps !== null && fold_subscapular !== null && fold_biceps !== null &&
+    fold_triceps !== null && fold_subscapular !== null &&
     fold_iliac_crest !== null && fold_abdominal !== null &&
     fold_front_thigh !== null && fold_medial_calf !== null
   ) {
-    const sum6 = fold_triceps + fold_subscapular + fold_biceps + fold_iliac_crest + fold_abdominal + (fold_front_thigh + fold_medial_calf) / 2;
+    const sum6 = fold_triceps + fold_subscapular + fold_iliac_crest + fold_abdominal + fold_front_thigh + fold_medial_calf;
     if (sum6 > 0) {
       fatSuperior = (fold_triceps + fold_subscapular) / sum6 * 100;
       fatMedia    = (fold_iliac_crest + fold_abdominal) / sum6 * 100;
-      fatInferior = ((fold_front_thigh + fold_medial_calf) / 2) / sum6 * 100;
+      fatInferior = (fold_front_thigh + fold_medial_calf) / sum6 * 100;
     }
   }
 
@@ -223,6 +226,7 @@ export function calculateBodyComposition(data: any, sex: string, age: number): B
     waistHipRatio:  r1(waistHipRatio, 2),
     girth_chest,
     girth_waist,
+    girth_umbilical,
     girth_hip,
   };
 }
@@ -265,7 +269,7 @@ export function generateValoracion(r: any, firstName: string, lastName: string, 
     ``,
     `• La Distribución de la Adiposidad (en %) indica que, en la Región Superior su valor es ${posComp(clsSuper)}, en la Región Media es ${posComp(clsMedia)}, y en la Región Inferior es ${posComp(clsInfer)}.`,
     ``,
-    `• Puede catalogarse su Índice de Masa Corporal como "${classifyBMI(r.bmi)}", su Índice Cintura-Cadera como "${classifyWaistHip(r.waistHipRatio, r.sex)}", y su Perímetro Abdominal como "${classifyAbdominal(r.girth_waist, r.sex)}".`,
+    `• Puede catalogarse su Índice de Masa Corporal como "${classifyBMI(r.bmi)}", su Índice Cintura-Cadera como "${classifyWaistHip(r.waistHipRatio, r.sex)}", y su Contorno Umbilical como "${classifyAbdominal(r.girth_umbilical ?? r.girth_waist, r.sex)}".`,
     ``,
     `• La cifra (en cm) más semejante con los Perímetros Musculares de la muestra "${r.activity_group}" es ${similar.name} (${fmt(similar.diff)} cm), y la más diferente es ${different.name} (${fmt(different.diff)} cm).`,
   ].join('\n');

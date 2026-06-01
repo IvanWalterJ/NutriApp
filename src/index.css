@@ -2,11 +2,15 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #0A4D3C;
-  --color-primary-light: #0F6B52;
-  --color-accent: #14F195;
-  --color-accent-dark: #0FC87D;
-  --color-bg: #F8FAF9;
+  /* Paleta de marca de Rosana — "rosado pomelo" (degradé cálido).
+     primary/primaryLight forman el degradé de sidebar/header; accent es el rosa
+     claro para acentos/fondos suaves; accent-dark es la versión legible como texto
+     sobre fondos claros. Si cambia la marca, basta editar estos 4 valores + branding.ts. */
+  --color-primary: #D6395E;
+  --color-primary-light: #F2547D;
+  --color-accent: #FF8FA8;
+  --color-accent-dark: #C42A52;
+  --color-bg: #FFF7F9;
   --color-surface: #FFFFFF;
   --color-text-main: #1A1A1A;
   --color-text-muted: #6B7280;
@@ -85,11 +89,11 @@ body {
 
 .hover-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px -6px rgba(10, 77, 60, 0.12);
+  box-shadow: 0 8px 20px -6px rgba(214, 57, 94, 0.18);
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(20, 241, 149, 0.25);
+  box-shadow: 0 0 20px rgba(255, 143, 168, 0.45);
 }
 
 .card-transition {
@@ -109,8 +113,8 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   border-radius: 4px;
   padding: 2px;
   opacity: 0.65;
-  /* Tint the calendar icon to match --color-primary */
-  filter: invert(22%) sepia(55%) saturate(600%) hue-rotate(125deg) brightness(90%) contrast(95%);
+  /* Tint the calendar icon to match --color-primary (rosado pomelo #D6395E) */
+  filter: invert(28%) sepia(64%) saturate(2400%) hue-rotate(316deg) brightness(92%) contrast(92%);
   transition: opacity 0.2s;
 }
 
@@ -195,8 +199,8 @@ select {
     --color-surface: #f1f5f9;
     --color-bg: #e2e8f0;
     --color-border-color: #94a3b8;
-    /* Make accent-based gradients visible (5% of solid accent → explicit light green) */
-    --color-accent: #16a34a;
+    /* Make accent-based gradients visible (5% of solid accent → rosado pomelo sólido) */
+    --color-accent: #D6395E;
   }
 
   /* Swiss Medical brand override — al combinarse con dashboard-printing,
@@ -204,11 +208,11 @@ select {
      toda la app hereden el rojo corporativo SM sin tocar componentes.
      La clase la agrega/quita App.tsx según companies.brand_template. */
   body.dashboard-printing.brand-swiss-medical {
-    --color-primary: #D32027;
-    --color-primary-light: #E5404D;
-    --color-accent: #D32027;
-    --color-accent-dark: #B01C22;
-    --color-info: #D32027;
+    --color-primary: #E2231A;
+    --color-primary-light: #A5101A;
+    --color-accent: #E2231A;
+    --color-accent-dark: #A5101A;
+    --color-info: #E2231A;
   }
 }
 

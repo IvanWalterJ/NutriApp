@@ -155,7 +155,7 @@ export default function PublicFormPage({ slug }: Props) {
       <div className="max-w-2xl mx-auto">
         <header className="text-center mb-6 sm:mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-accent text-base font-black">N</div>
+            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-white text-base font-black">N</div>
             <span className="font-mono font-bold text-base tracking-tight">
               <span className="text-text-main">NU</span><span className="text-primary">PLAN</span>
             </span>

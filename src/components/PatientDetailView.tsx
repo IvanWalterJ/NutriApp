@@ -137,6 +137,8 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
   const [savingEdit, setSavingEdit] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteSession, setConfirmDeleteSession] = useState<any | null>(null);
+  const [deletingSession, setDeletingSession] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any | null>(null);
   const [editingSession, setEditingSession] = useState(false);
   const [sessionEditData, setSessionEditData] = useState<any>({});
@@ -229,6 +231,36 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
       showToast(err?.message || 'Error al eliminar paciente', 'error');
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleDeleteSession() {
+    const target = confirmDeleteSession;
+    if (!target || deletingSession) return;
+    setDeletingSession(true);
+    try {
+      const { data, error } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('id', target.id)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('No se pudo eliminar la consulta. Verificá los permisos (RLS) en Supabase.');
+      }
+      showToast('Consulta eliminada del historial', 'success');
+      setConfirmDeleteSession(null);
+      // Cerramos el detalle si era la sesión abierta y recargamos: las métricas,
+      // gráficos y KPIs del paciente se recalculan desde las sesiones restantes.
+      setSelectedSession(prev => (prev && prev.id === target.id ? null : prev));
+      setEditingSession(false);
+      setSessionEditData({});
+      await fetchPatient();
+    } catch (err: any) {
+      console.error(err);
+      showToast(err?.message || 'Error al eliminar la consulta', 'error');
+    } finally {
+      setDeletingSession(false);
     }
   }
 
@@ -434,6 +466,7 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
           onCancelEdit={() => { setEditingSession(false); setSessionEditData({}); }}
           onChangeEdit={(k, v) => setSessionEditData((prev: any) => ({ ...prev, [k]: v }))}
           onSave={handleSaveSessionEdit}
+          onDelete={() => setConfirmDeleteSession(selectedSession)}
         />
       )}
 
@@ -471,6 +504,49 @@ export default function PatientDetailView({ patientId, onBack, onNavigate }: Pat
                 className="px-4 py-2 bg-danger text-white rounded-xl font-semibold hover:bg-danger/90 transition-all disabled:opacity-50 flex items-center gap-2"
               >
                 {deleting && <Loader2 size={16} className="animate-spin" />} Eliminar
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Modal: confirmar borrado de una consulta del historial */}
+      {confirmDeleteSession && createPortal(
+        <div className="fixed inset-0 z-[210] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => !deletingSession && setConfirmDeleteSession(null)} />
+          <div className="relative z-10 bg-surface rounded-2xl shadow-2xl border-2 border-border-color max-w-sm w-full p-6">
+            <div className="flex items-start gap-4 mb-5">
+              <div className="shrink-0 w-10 h-10 rounded-full bg-danger/10 flex items-center justify-center text-danger">
+                <AlertTriangle size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-text-main">Eliminar consulta</h3>
+                <p className="text-sm text-text-muted mt-1">
+                  ¿Segura que querés eliminar la consulta del{' '}
+                  <strong className="text-text-main">{formatLocalDate(confirmDeleteSession.session_date)}</strong>
+                  {confirmDeleteSession.session_type ? ` (${confirmDeleteSession.session_type})` : ''}?
+                </p>
+              </div>
+            </div>
+            <div className="bg-warning/10 border border-warning/30 rounded-xl p-4 mb-6 text-sm text-text-main">
+              <p className="font-semibold text-warning mb-1">Importante</p>
+              <p>Se quitará del historial y de <strong>todos los cálculos, métricas y gráficos</strong> del paciente. Esta acción no se puede deshacer.</p>
+            </div>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDeleteSession(null)}
+                disabled={deletingSession}
+                className="px-4 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDeleteSession}
+                disabled={deletingSession}
+                className="px-4 py-2 bg-danger text-white rounded-xl font-semibold hover:bg-danger/90 transition-all disabled:opacity-50 flex items-center gap-2"
+              >
+                {deletingSession && <Loader2 size={16} className="animate-spin" />} Eliminar
               </button>
             </div>
           </div>
@@ -699,7 +775,7 @@ function TabResumen({ patient }: { patient: any }) {
                   }}
                   formatter={(v: any) => [`${v} kg`, 'Peso']}
                 />
-                <Line type="monotone" dataKey="weight" stroke="#0A4D3C" strokeWidth={2.5} dot={{ r: 4, fill: '#0A4D3C' }} activeDot={{ r: 6 }} isAnimationActive={false} />
+                <Line type="monotone" dataKey="weight" stroke="#D6395E" strokeWidth={2.5} dot={{ r: 4, fill: '#D6395E' }} activeDot={{ r: 6 }} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -942,7 +1018,7 @@ function MeasureMiniChart({ def, series }: { def: MeasureKpiDef; series: { date:
                 labelFormatter={(v) => formatLocalDate(v as string, { day: '2-digit', month: 'short', year: 'numeric' }, 'es-AR')}
                 formatter={(v: any) => [`${Number(v).toFixed(def.decimals)} ${def.unit}`, def.label]}
               />
-              <Line type="monotone" dataKey="v" stroke="#0A4D3C" strokeWidth={2} dot={{ r: 3, fill: '#0A4D3C' }} activeDot={{ r: 5 }} isAnimationActive={false} />
+              <Line type="monotone" dataKey="v" stroke="#D6395E" strokeWidth={2} dot={{ r: 3, fill: '#D6395E' }} activeDot={{ r: 5 }} isAnimationActive={false} />
             </LineChart>
           </ResponsiveContainer>
         ) : (
@@ -1455,9 +1531,10 @@ interface SessionDetailModalProps {
   onCancelEdit: () => void;
   onChangeEdit: (key: string, value: any) => void;
   onSave: () => void;
+  onDelete: () => void;
 }
 
-function SessionDetailModal({ session, editing, editData, saving, onClose, onStartEdit, onCancelEdit, onChangeEdit, onSave }: SessionDetailModalProps) {
+function SessionDetailModal({ session, editing, editData, saving, onClose, onStartEdit, onCancelEdit, onChangeEdit, onSave, onDelete }: SessionDetailModalProps) {
   const isAnthroSel = session.session_type === 'Antropometría';
   const has = (v: any) => v !== null && v !== undefined && v !== '';
   const fmtDate = (d: string) => formatLocalDate(d, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -1700,7 +1777,15 @@ function SessionDetailModal({ session, editing, editData, saving, onClose, onSta
               </button>
             </>
           ) : (
-            <button onClick={onClose} className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all">Cerrar</button>
+            <>
+              <button
+                onClick={onDelete}
+                className="mr-auto px-4 py-2 bg-danger/10 text-danger border-2 border-danger/30 rounded-xl font-semibold hover:bg-danger hover:text-white transition-all flex items-center gap-2"
+              >
+                <Trash2 size={16} /> Eliminar consulta
+              </button>
+              <button onClick={onClose} className="px-5 py-2 bg-bg border-2 border-border-color rounded-xl font-semibold hover:bg-surface hover:border-primary transition-all">Cerrar</button>
+            </>
           )}
         </div>
       </div>

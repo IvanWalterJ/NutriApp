@@ -7,7 +7,7 @@ import {
 } from '../lib/anthropometry';
 import { useCompany } from '../context/CompanyContext';
 import { BRAND } from '../lib/branding';
-import { getBrandTemplate } from '../lib/brandTemplates';
+import { getBrandTemplate, BRAND_TEMPLATE_OPTIONS } from '../lib/brandTemplates';
 
 interface Props {
   session: any;   // full session row from DB
@@ -26,7 +26,11 @@ function getAge(birthDate: string): number {
 
 export default function AnthroReportButton({ session, patient, latestConsult }: Props) {
   const { selectedCompany, getBrandTemplateKey } = useCompany();
-  const tpl = getBrandTemplate(getBrandTemplateKey(selectedCompany));
+  // La plantilla se elige al momento de generar el informe (modal). Por defecto
+  // proponemos la asignada a la empresa, pero se puede cambiar antes de imprimir.
+  const [templateKey, setTemplateKey] = useState<string>(getBrandTemplateKey(selectedCompany));
+  const tpl = getBrandTemplate(templateKey);
+  const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showGroupPicker, setShowGroupPicker] = useState(false);
   const [chosenGroup, setChosenGroup] = useState('');
@@ -160,7 +164,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
     <>
       {/* ── Trigger Button ── */}
       <button
-        onClick={() => handleDownload()}
+        onClick={() => { setTemplateKey(getBrandTemplateKey(selectedCompany)); setShowTemplatePicker(true); }}
         disabled={loading || !results}
         title={!results ? 'Datos insuficientes para generar informe' : 'Generar informe PDF'}
         className="flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-white border border-primary/30 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
@@ -171,6 +175,55 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
         }
         {loading ? 'Generando...' : 'Informe PDF'}
       </button>
+
+      {/* ── Template Picker — se elige el diseño al generar el informe ── */}
+      {showTemplatePicker && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 animate-in fade-in duration-300">
+          <div className="bg-surface rounded-3xl p-8 w-full max-w-md shadow-[0_20px_50px_rgba(0,0,0,0.2)] border border-border-color animate-in zoom-in-95 duration-300">
+            <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center mb-5">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+            </div>
+            <h3 className="font-bold text-xl text-text-main mb-2">Diseño del informe</h3>
+            <p className="text-sm text-text-muted mb-6 leading-relaxed">Elegí la plantilla con la que querés generar este informe.</p>
+
+            <div className="flex flex-col gap-3 mb-6">
+              {BRAND_TEMPLATE_OPTIONS.map(opt => {
+                const active = templateKey === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => setTemplateKey(opt.value)}
+                    className={`text-left p-4 rounded-2xl border-2 transition-all active:scale-[0.99] ${active ? 'border-primary bg-primary/5' : 'border-border-color hover:border-primary/40'}`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="font-bold text-sm text-text-main">{opt.label}</span>
+                      <span className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${active ? 'border-primary' : 'border-border-color'}`}>
+                        {active && <span className="w-2.5 h-2.5 rounded-full bg-primary" />}
+                      </span>
+                    </div>
+                    <p className="text-xs text-text-muted mt-1 leading-snug">{opt.description}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => { setShowTemplatePicker(false); handleDownload(); }}
+                className="w-full py-3.5 bg-primary text-white rounded-xl text-sm font-bold hover:bg-primary-light transition-all active:scale-[0.98] shadow-lg shadow-primary/20"
+              >
+                Generar Informe
+              </button>
+              <button
+                onClick={() => setShowTemplatePicker(false)}
+                className="w-full py-3 text-sm font-bold text-text-muted hover:text-text-main transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Activity Group Picker (Sleek Modern Modal) ── */}
       {showGroupPicker && (
@@ -229,7 +282,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
               {/* Banda superior corporativa con logo + descriptor a la derecha */}
               <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:'16px',paddingBottom:'10px',borderBottom:`2px solid ${tpl.colors.primary}`,marginBottom:'14px'}}>
                 {tpl.logoUrl && (
-                  <img src={tpl.logoUrl} alt="Swiss Medical" style={{height:`${(tpl.logoHeightPx ?? 44) + 4}px`,width:'auto',display:'block'}} />
+                  <img src={tpl.logoUrl} alt="WellnessLab by Swiss Medical" style={{height:`${(tpl.logoHeightPx ?? 44) + 4}px`,width:'auto',display:'block'}} />
                 )}
                 <div style={{textAlign:'right'}}>
                   <div style={{fontSize:'9px',fontWeight:'bold',letterSpacing:'4px',color:tpl.colors.primary}}>MEDICINA PRIVADA · NUTRICIÓN</div>
@@ -351,7 +404,7 @@ export default function AnthroReportButton({ session, patient, latestConsult }: 
                   {[
                     {name:'IMC (kg/m²)',value:`${r.bmi}`,ref2:'Normal: 18.5 – 24.9',cls:classifyBMI(r.bmi),chart:BMIBar(r.bmi)},
                     {name:'Índice Cintura-Cadera',value:`${r.waistHipRatio}`,ref2:sex==='Masculino'?'Normal: < 0.90':'Normal: < 0.85',cls:classifyWaistHip(r.waistHipRatio,sex),chart:ICCBar(r.waistHipRatio,sex)},
-                    {name:'Perímetro Abdominal',value:`${r.girth_waist} cm`,ref2:sex==='Masculino'?'Sin riesgo: < 94 cm':'Sin riesgo: < 80 cm',cls:classifyAbdominal(r.girth_waist,sex),chart:AbdBar(r.girth_waist,sex)},
+                    {name:'Contorno Umbilical',value:`${r.girth_umbilical ?? r.girth_waist} cm`,ref2:sex==='Masculino'?'Sin riesgo: < 94 cm':'Sin riesgo: < 80 cm',cls:classifyAbdominal(r.girth_umbilical ?? r.girth_waist,sex),chart:AbdBar(r.girth_umbilical ?? r.girth_waist,sex)},
                   ].map((row,i)=>{ const c=clsBg(row.cls); return (
                     <tr key={i} style={{background:i%2===0?'#fff':'#fafafe',borderBottom:'1px solid #e5e7eb'}}>
                       <td style={{...tdL,paddingTop:'8px',paddingBottom:'8px'}}>{row.name}</td>
