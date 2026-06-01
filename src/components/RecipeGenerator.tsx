@@ -663,8 +663,8 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
           <div className="text-sm mt-1 text-white/90">
             {patientData ? `Para: ${patientData.firstName} ${patientData.lastName} · ` : ''}{reportCompanyName.toUpperCase()}
           </div>
-          {(editedResult || result).context && (
-            <div className="mt-2 text-sm text-white/80 italic max-w-lg">{(editedResult || result).context}</div>
+          {objective && (
+            <div className="mt-2 text-sm text-white/80 italic max-w-lg">{objective}</div>
           )}
         </div>
         <div className="flex flex-col sm:flex-row gap-3 print:hidden">
@@ -682,17 +682,6 @@ export default function RecipeGenerator({ loadedDocId, onBackToList, onSaved }: 
           </button>
         </div>
       </div>
-
-      {/* Objective banner */}
-      {objective && (
-        <div className="bg-[#f0fdf4] border-x-2 border-[#86efac] px-6 py-3 flex items-center gap-3">
-          <span className="text-2xl">🎯</span>
-          <div>
-            <span className="text-xs font-bold uppercase tracking-widest text-[#166534]">Objetivo: </span>
-            <span className="text-sm text-[#14532d] font-semibold">{objective}</span>
-          </div>
-        </div>
-      )}
 
       {/* Patient banner */}
       {patientData && (
