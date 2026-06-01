@@ -21,6 +21,9 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
 
   const [dateFrom, setDateFrom] = useState(firstOfMonth);
   const [dateTo, setDateTo]     = useState(today);
+  // 'all' = todo el historial (sin filtro de fecha, como el dashboard en pantalla).
+  // 'range' = período específico elegido con los selectores de fecha.
+  const [rangeMode, setRangeMode] = useState<'all' | 'range'>('all');
 
   function openModal() {
     setTemplateKey(getBrandTemplateKey(selectedCompany));
@@ -29,7 +32,10 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
 
   function handleConfirm() {
     setShowModal(false);
-    onPrint(dateFrom, dateTo, selectedCompany, getCompanyType(selectedCompany), templateKey);
+    // Rango vacío ⇒ el informe incluye toda la información del paciente/empresa.
+    const from = rangeMode === 'all' ? '' : dateFrom;
+    const to   = rangeMode === 'all' ? '' : dateTo;
+    onPrint(from, to, selectedCompany, getCompanyType(selectedCompany), templateKey);
   }
 
   return (
@@ -57,7 +63,24 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
               </button>
             </div>
 
-            <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-2 gap-2 mb-5">
+              <button
+                type="button"
+                onClick={() => setRangeMode('all')}
+                className={`px-3 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${rangeMode === 'all' ? 'border-primary bg-primary/5 text-primary' : 'border-border-color text-text-muted hover:border-primary/40'}`}
+              >
+                Todo el historial
+              </button>
+              <button
+                type="button"
+                onClick={() => setRangeMode('range')}
+                className={`px-3 py-2.5 rounded-lg border-2 text-sm font-semibold transition-all ${rangeMode === 'range' ? 'border-primary bg-primary/5 text-primary' : 'border-border-color text-text-muted hover:border-primary/40'}`}
+              >
+                Período específico
+              </button>
+            </div>
+
+            <div className={`space-y-4 mb-6 ${rangeMode === 'all' ? 'hidden' : ''}`}>
               <div>
                 <label className="block text-sm font-semibold text-text-muted mb-1">Desde</label>
                 <input
@@ -106,7 +129,9 @@ export default function DashboardPdfButton({ onPrint, isPrinting }: DashboardPdf
             </div>
 
             <div className="text-xs text-text-muted mb-5 bg-bg rounded-lg p-3">
-              Se filtrará la información del período seleccionado para <strong>{selectedCompany}</strong>.
+              {rangeMode === 'all'
+                ? <>El informe incluirá <strong>toda la información</strong> de <strong>{selectedCompany}</strong>.</>
+                : <>Se filtrará la información del período seleccionado para <strong>{selectedCompany}</strong>.</>}
             </div>
 
             <div className="flex justify-end gap-3">

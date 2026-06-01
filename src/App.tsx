@@ -140,9 +140,11 @@ export default function App() {
 
   function handleDashboardPrint(dateFrom: string, dateTo: string, company: string, companyType: 'fija' | 'feria' | undefined, brandTemplateKey: string) {
     prevTitleRef.current = document.title;
-    const from = new Date(dateFrom).toLocaleDateString('es-AR');
-    const to   = new Date(dateTo).toLocaleDateString('es-AR');
-    document.title = `Informe ${company} ${from} – ${to}`;
+    // dateFrom/dateTo vacíos ⇒ informe de "todo el historial" (sin filtro de fecha).
+    const periodLabel = dateFrom && dateTo
+      ? `${new Date(dateFrom).toLocaleDateString('es-AR')} – ${new Date(dateTo).toLocaleDateString('es-AR')}`
+      : 'historial completo';
+    document.title = `Informe ${company} ${periodLabel}`;
     document.body.classList.add('dashboard-printing');
     // El branding global del informe se aplica vía clase en <body>. CSS
     // sobreescribe los tokens --color-primary/accent/etc, así todos los
@@ -267,11 +269,13 @@ export default function App() {
                     <ExcelExportButton />
                     <DashboardPdfButton onPrint={handleDashboardPrint} isPrinting={isPrintingDashboard} />
                   </div>
-                  {isPrintingDashboard && dashboardDateFrom && dashboardDateTo && (() => {
+                  {isPrintingDashboard && (() => {
                     const tpl = getBrandTemplate(dashboardBrandKey);
                     const isSM = tpl.key === 'swiss_medical';
                     const reportTitle = dashboardCompanyType === 'feria' ? 'INFORME DE EVENTO' : 'INFORME';
-                    const periodText = `${new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — ${new Date(dashboardDateTo).toLocaleDateString('es-AR')}`;
+                    const periodText = dashboardDateFrom && dashboardDateTo
+                      ? `${new Date(dashboardDateFrom).toLocaleDateString('es-AR')} — ${new Date(dashboardDateTo).toLocaleDateString('es-AR')}`
+                      : 'Historial completo';
                     return isSM ? (
                       <div className="hidden print:block mb-6">
                         {/* Banda superior corporativa — sin marco, todo el ancho */}
